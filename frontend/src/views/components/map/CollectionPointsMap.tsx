@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useEffect, useRef } from 'react'
+import L from 'leaflet'
+import { MapContainer, Marker, Popup, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { env } from '@/lib/env'
 import {
   collectionPointTypeLabels,
@@ -23,11 +24,31 @@ function FlyToSelected({ points, selectedId }: Pick<Props, 'points' | 'selectedI
     if (!selectedId) return
     const target = points.find((p) => p.item.id === selectedId)
     if (target?.position) {
-      map.flyTo([target.position.lat, target.position.lng], Math.max(map.getZoom(), 14), {
+      map.flyTo([target.position.lat, target.position.lng], Math.max(map.getZoom(), 15), {
         duration: 0.8,
       })
     }
   }, [selectedId, points, map])
+  return null
+}
+
+/** Enquadra todos os pontos localizados na primeira vez que aparecem. */
+function FitToPoints({ points }: Pick<Props, 'points'>) {
+  const map = useMap()
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (fitted.current) return
+    const located = points.filter((p) => p.position)
+    if (located.length === 0) return
+    fitted.current = true
+    if (located.length === 1) {
+      const { lat, lng } = located[0].position!
+      map.setView([lat, lng], 14)
+      return
+    }
+    const bounds = L.latLngBounds(located.map((p) => [p.position!.lat, p.position!.lng]))
+    map.fitBounds(bounds, { padding: [64, 64], maxZoom: 15 })
+  }, [points, map])
   return null
 }
 
@@ -39,13 +60,16 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
       center={env.map.defaultCenter}
       zoom={env.map.defaultZoom}
       scrollWheelZoom
-      className="size-full"
+      zoomControl={false}
+      className="size-full bg-stone-100"
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        subdomains="abcd"
+        maxZoom={20}
       />
+      <ZoomControl position="bottomright" />
 
       {located.map(({ item, position }) => (
         <Marker
@@ -56,15 +80,15 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
           zIndexOffset={item.id === selectedId ? 1000 : 0}
         >
           <Popup>
-            <div className="min-w-56 space-y-1.5 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-slate-900">{item.name}</h3>
+            <div className="min-w-60 space-y-2 p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-bold text-stone-900">{item.name}</h3>
                 <Badge tone="brand">{collectionPointTypeLabels[item.type]}</Badge>
               </div>
-              <p className="text-sm text-slate-600">{formatAddress(item.address)}</p>
-              <div className="border-t border-slate-100 pt-1.5 text-xs text-slate-500">
-                <p className="font-medium text-slate-600">{item.contact.responsibleName}</p>
-                <p>
+              <p className="text-sm text-stone-600">{formatAddress(item.address)}</p>
+              <div className="border-t border-stone-100 pt-2 text-xs text-stone-500">
+                <p className="font-semibold text-stone-700">{item.contact.responsibleName}</p>
+                <p className="mt-0.5">
                   {item.contact.phone} · {item.contact.email}
                 </p>
               </div>
@@ -73,6 +97,7 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
         </Marker>
       ))}
 
+      <FitToPoints points={points} />
       <FlyToSelected points={points} selectedId={selectedId} />
     </MapContainer>
   )

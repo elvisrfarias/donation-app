@@ -23,6 +23,9 @@ var app = builder.Build();
 // Migrations (quando habilitado) + seed de roles/admin.
 await app.ApplyMigrationsAndSeedAsync();
 
+// Garante o bucket do object storage (MinIO/S3).
+await app.InitializeStorageAsync();
+
 app.UseApiPipeline();
 
 app.Run();

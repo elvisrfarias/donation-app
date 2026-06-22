@@ -61,6 +61,23 @@ public static class DomainErrors
         public static Error CpfAlreadyRegistered => Error.Conflict("Beneficiary.CpfAlreadyRegistered", "Este CPF já está cadastrado no município.");
     }
 
+    public static class StoredFile
+    {
+        public static Error KeyRequired => Error.Validation("StoredFile.KeyRequired", "O bucket e a chave do objeto são obrigatórios.");
+        public static Error NameRequired => Error.Validation("StoredFile.NameRequired", "O nome do arquivo é obrigatório.");
+        public static Error ContentTypeRequired => Error.Validation("StoredFile.ContentTypeRequired", "O tipo do arquivo (content-type) é obrigatório.");
+        public static Error Empty => Error.Validation("StoredFile.Empty", "O arquivo está vazio.");
+        public static Error NotFound => Error.NotFound("StoredFile.NotFound", "Arquivo não encontrado.");
+
+        public static Error UnsupportedContentType(string contentType) =>
+            Error.Validation("StoredFile.UnsupportedContentType", $"Tipo de arquivo não suportado: {contentType}.");
+
+        public static Error TooLarge(int maxMegabytes) =>
+            Error.Validation("StoredFile.TooLarge", $"O arquivo excede o tamanho máximo de {maxMegabytes} MB.");
+
+        public static Error UploadFailed => Error.Failure("StoredFile.UploadFailed", "Falha ao enviar o arquivo para o armazenamento.");
+    }
+
     public static class Withdrawal
     {
         public static Error BeneficiaryNotInFamily =>

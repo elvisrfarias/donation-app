@@ -3,6 +3,7 @@ using DoacaoApp.Api.Endpoints;
 using DoacaoApp.Api.Middleware;
 using DoacaoApp.Infrastructure.Persistence;
 using DoacaoApp.Infrastructure.Persistence.Seed;
+using DoacaoApp.Infrastructure.Storage;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -65,5 +66,13 @@ public static class WebApplicationExtensions
         }
 
         await DataSeeder.SeedAsync(services);
+    }
+
+    /// <summary>Garante que o bucket de storage exista (MinIO/S3) antes de receber uploads.</summary>
+    public static async Task InitializeStorageAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var initializer = scope.ServiceProvider.GetRequiredService<StorageBucketInitializer>();
+        await initializer.EnsureBucketAsync();
     }
 }

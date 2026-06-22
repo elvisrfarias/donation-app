@@ -8,7 +8,12 @@ interface CardProps {
 
 export function Card({ className, children }: CardProps) {
   return (
-    <div className={cn('rounded-xl border border-slate-200 bg-white shadow-card', className)}>
+    <div
+      className={cn(
+        'rounded-2xl border border-stone-200/70 bg-white shadow-card',
+        className,
+      )}
+    >
       {children}
     </div>
   )
@@ -27,13 +32,13 @@ export function SectionTitle({ title, description, icon, action, className }: Se
     <div className={cn('flex items-start justify-between gap-4', className)}>
       <div className="flex items-start gap-3">
         {icon && (
-          <span className="mt-0.5 grid size-9 place-items-center rounded-lg bg-brand-50 text-brand-600">
+          <span className="mt-0.5 grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
             {icon}
           </span>
         )}
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+          <h2 className="text-xl font-bold text-stone-900">{title}</h2>
+          {description && <p className="mt-1 text-sm text-stone-500">{description}</p>}
         </div>
       </div>
       {action}

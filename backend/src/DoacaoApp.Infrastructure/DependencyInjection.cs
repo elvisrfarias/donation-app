@@ -1,7 +1,10 @@
+using Amazon.Runtime;
+using Amazon.S3;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Authentication;
 using DoacaoApp.Infrastructure.Identity;
 using DoacaoApp.Infrastructure.Persistence;
@@ -9,10 +12,12 @@ using DoacaoApp.Infrastructure.Persistence.Interceptors;
 using DoacaoApp.Infrastructure.Persistence.Repositories;
 using DoacaoApp.Infrastructure.Persistence.Seed;
 using DoacaoApp.Infrastructure.Services;
+using DoacaoApp.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DoacaoApp.Infrastructure;
 
@@ -27,14 +32,43 @@ public static class DependencyInjection
 
         services.AddPersistence(configuration);
         services.AddIdentityWithBCrypt();
+        services.AddObjectStorage(configuration);
 
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICollectionPointRepository, CollectionPointRepository>();
         services.AddScoped<IFamilyRepository, FamilyRepository>();
+        services.AddScoped<IStoredFileRepository, StoredFileRepository>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<JwtTokenGenerator>();
 
         return services;
+    }
+
+    private static void AddObjectStorage(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+
+        // Cliente S3 (server-side): aponta para o endpoint interno (MinIO) ou para a região AWS.
+        services.AddSingleton<IAmazonS3>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var config = new AmazonS3Config { ForcePathStyle = options.ForcePathStyle };
+
+            if (!string.IsNullOrWhiteSpace(options.ServiceUrl))
+            {
+                config.ServiceURL = options.ServiceUrl;
+                config.AuthenticationRegion = options.Region;
+            }
+            else
+            {
+                config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(options.Region);
+            }
+
+            return new AmazonS3Client(new BasicAWSCredentials(options.AccessKey, options.SecretKey), config);
+        });
+
+        services.AddSingleton<IFileStorage, S3FileStorage>();
+        services.AddSingleton<StorageBucketInitializer>();
     }
 
     private static void AddPersistence(this IServiceCollection services, IConfiguration configuration)

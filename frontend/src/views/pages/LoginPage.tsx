@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LogIn, MapPin, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, ShieldCheck, Users } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { loginSchema, useAuth, useLoginViewModel, type LoginForm } from '@/viewmodels'
@@ -9,6 +9,12 @@ import { Alert, Button, FormField, Input } from '@/views/components/ui'
 interface LocationState {
   from?: string
 }
+
+const highlights = [
+  { icon: MapPin, text: 'Pontos de coleta no mapa do OpenStreetMap' },
+  { icon: Users, text: 'Rastreabilidade familiar e de beneficiários' },
+  { icon: ShieldCheck, text: 'Limite de retiradas por ciclo, no município inteiro' },
+]
 
 export function LoginPage() {
   const { isAuthenticated } = useAuth()
@@ -40,34 +46,49 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-600 to-accent-600 p-10 text-white lg:flex">
-        <AppLogo className="[&_p]:!text-white [&_span:last-child]:!text-white/80" />
-        <div className="space-y-6">
-          <h2 className="max-w-sm text-3xl font-bold leading-tight">
-            Gestão de doações com equidade entre todos os pontos.
+      {/* Painel de marca */}
+      <div className="glow-brand relative hidden flex-col justify-between overflow-hidden bg-ink-950 p-12 text-white lg:flex">
+        {/* textura sutil */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+          }}
+        />
+        <AppLogo inverted />
+
+        <div className="relative space-y-8">
+          <h2 className="max-w-md text-4xl font-extrabold leading-[1.1] tracking-tight">
+            Gestão de doações com{' '}
+            <span className="text-brand-400">equidade</span> entre todos os pontos.
           </h2>
-          <ul className="space-y-3 text-sm text-white/90">
-            <li className="flex items-center gap-3">
-              <MapPin className="size-5" /> Pontos de coleta no mapa do OpenStreetMap
-            </li>
-            <li className="flex items-center gap-3">
-              <Users className="size-5" /> Rastreabilidade familiar e beneficiários
-            </li>
-            <li className="flex items-center gap-3">
-              <ShieldCheck className="size-5" /> Limite de retiradas por ciclo, no município inteiro
-            </li>
+          <ul className="space-y-4 text-sm text-stone-300">
+            {highlights.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/5 text-brand-400 ring-1 ring-inset ring-white/10">
+                  <Icon className="size-4.5" />
+                </span>
+                {text}
+              </li>
+            ))}
           </ul>
         </div>
-        <p className="text-xs text-white/70">© Doação App — controle de equidade municipal.</p>
+
+        <p className="relative text-xs text-stone-500">
+          © Doação App — controle de equidade municipal.
+        </p>
       </div>
 
-      <div className="flex items-center justify-center p-6">
+      {/* Formulário */}
+      <div className="flex items-center justify-center bg-stone-50 p-6">
         <div className="w-full max-w-sm">
-          <AppLogo className="mb-8 lg:hidden" />
-          <h1 className="text-2xl font-bold text-slate-900">Acesse sua conta</h1>
-          <p className="mt-1 text-sm text-slate-500">Área de gestão dos pontos de coleta.</p>
+          <AppLogo className="mb-10 lg:hidden" />
+          <h1 className="text-3xl font-bold text-stone-900">Acesse sua conta</h1>
+          <p className="mt-2 text-sm text-stone-500">Área de gestão dos pontos de coleta.</p>
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+          <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
             {error && <Alert tone="error">{error.displayMessage}</Alert>}
 
             <FormField label="E-mail" htmlFor="email" error={errors.email?.message} required>
@@ -97,15 +118,19 @@ export function LoginPage() {
               size="lg"
               loading={isPending}
               className="w-full"
-              leftIcon={<LogIn className="size-4" />}
             >
               Entrar
+              <ArrowRight className="size-4" />
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            <Link to="/" className="font-medium text-brand-600 hover:underline">
-              ← Voltar ao mapa público
+          <p className="mt-8 text-center text-sm text-stone-500">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 font-semibold text-stone-600 transition-colors hover:text-brand-600"
+            >
+              <ArrowLeft className="size-4" />
+              Voltar ao mapa público
             </Link>
           </p>
         </div>

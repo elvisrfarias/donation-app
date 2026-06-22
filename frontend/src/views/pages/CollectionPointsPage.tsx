@@ -78,8 +78,8 @@ export function CollectionPointsPage() {
       />
 
       {isAdmin ? (
-        <Card className="p-5">
-          <h2 className="font-semibold text-slate-900">Cadastrar novo ponto</h2>
+        <Card className="p-6">
+          <h2 className="text-base font-semibold text-stone-900">Cadastrar novo ponto</h2>
           {createdPoint && (
             <Alert tone="success" className="mt-3" title="Ponto criado!">
               {createdPoint.name} foi cadastrado com sucesso.
@@ -197,15 +197,15 @@ export function CollectionPointsPage() {
           {points.map((point) => {
             const Icon = typeIcon[point.type]
             return (
-              <Card key={point.id} className="flex flex-col gap-3 p-4">
+              <Card key={point.id} className="flex flex-col gap-3 p-5 transition-shadow hover:shadow-lift">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-9 place-items-center rounded-lg bg-brand-50 text-brand-600">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
                       <Icon className="size-5" />
                     </span>
                     <div>
-                      <p className="font-semibold text-slate-900">{point.name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="font-semibold text-stone-900">{point.name}</p>
+                      <p className="text-xs text-stone-500">
                         {collectionPointTypeLabels[point.type]}
                       </p>
                     </div>
@@ -214,10 +214,10 @@ export function CollectionPointsPage() {
                     {point.isActive ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
-                <p className="text-sm text-slate-600">{formatAddress(point.address)}</p>
-                <div className="mt-auto border-t border-slate-100 pt-2 text-xs text-slate-500">
-                  <p className="font-medium text-slate-600">{point.contact.responsibleName}</p>
-                  <p>
+                <p className="text-sm text-stone-600">{formatAddress(point.address)}</p>
+                <div className="mt-auto border-t border-stone-100 pt-3 text-xs text-stone-500">
+                  <p className="font-semibold text-stone-700">{point.contact.responsibleName}</p>
+                  <p className="mt-0.5">
                     {point.contact.phone} · {point.contact.email}
                   </p>
                 </div>

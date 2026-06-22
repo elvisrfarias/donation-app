@@ -1,6 +1,7 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Identity;
 using DoacaoApp.Infrastructure.Persistence.Converters;
 using Microsoft.AspNetCore.Identity;
@@ -22,6 +23,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Family> Families => Set<Family>();
     public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -30,6 +32,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         configurationBuilder.Properties<WithdrawalId>().HaveConversion<WithdrawalIdConverter>();
         configurationBuilder.Properties<FamilyId>().HaveConversion<FamilyIdConverter>();
         configurationBuilder.Properties<BeneficiaryId>().HaveConversion<BeneficiaryIdConverter>();
+        configurationBuilder.Properties<StoredFileId>().HaveConversion<StoredFileIdConverter>();
     }
 
     protected override void OnModelCreating(ModelBuilder builder)

@@ -71,7 +71,7 @@ export function RegisterWithdrawalPage() {
         description="A regra de equidade é validada pelo backend, somando todos os pontos do município."
       />
 
-      <Card className="p-5">
+      <Card className="p-6">
         {withdrawal.lastWithdrawal && (
           <Alert tone="success" className="mb-4" title="Retirada registrada!">
             Registrada em {new Date(withdrawal.lastWithdrawal.occurredAtUtc).toLocaleString('pt-BR')}.
@@ -131,9 +131,9 @@ export function RegisterWithdrawalPage() {
           )}
 
           {family.family && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-3.5">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-700">{family.family.name}</p>
+                <p className="text-sm font-semibold text-stone-700">{family.family.name}</p>
                 {remaining !== undefined && (
                   <Badge tone={limitReached ? 'red' : 'green'}>
                     {limitReached

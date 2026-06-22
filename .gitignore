@@ -22,3 +22,7 @@ logs/
 .env
 *.env
 !.env.example
+
+# Configuração local do Claude Code (guardrails pessoais: ask p/ remoção e escrita no banco)
+.claude/settings.local.json
+.claude/hooks/guard-db-and-rm.sh

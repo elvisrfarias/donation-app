@@ -3,32 +3,40 @@
 
 /* ==========================================================================
    Design tokens (Tailwind v4 — configuração via CSS).
+   Sistema "quiet premium": neutros quentes (stone), acento esmeralda focado,
+   tipografia Plus Jakarta Sans.
    ========================================================================== */
 @theme {
   --font-sans:
-    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
 
-  /* Marca (indigo) */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
-  --color-brand-950: #1e1b4b;
+  /* Marca / acento (emerald) — usado com parcimônia */
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+  --color-brand-950: #022c22;
 
-  /* Acento (emerald) */
-  --color-accent-400: #34d399;
-  --color-accent-500: #10b981;
-  --color-accent-600: #059669;
-  --color-accent-700: #047857;
+  /* Tinta — charcoal quente para sidebar e ações primárias */
+  --color-ink-700: #44403c;
+  --color-ink-800: #292524;
+  --color-ink-900: #1c1917;
+  --color-ink-950: #0c0a09;
 
   --radius-xl: 0.875rem;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --radius-2xl: 1.125rem;
+
+  /* Sombras suaves e em camadas */
+  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -16px rgba(28, 25, 23, 0.12);
+  --shadow-lift: 0 2px 4px rgba(28, 25, 23, 0.05), 0 16px 40px -20px rgba(28, 25, 23, 0.22);
+  --shadow-pop: 0 12px 32px -12px rgba(28, 25, 23, 0.28);
 }
 
 /* ==========================================================================
@@ -41,12 +49,32 @@
   }
 
   body {
-    @apply bg-slate-50 font-sans text-slate-800 antialiased;
+    @apply bg-stone-50 font-sans text-stone-700 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    @apply bg-brand-500/20 text-brand-900;
   }
 
   *:focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-brand-500/70 ring-offset-2 ring-offset-stone-50;
   }
+}
+
+/* ==========================================================================
+   Utilitários de marca
+   ========================================================================== */
+@utility glow-brand {
+  /* halo radial sutil — usado em superfícies escuras */
+  background-image: radial-gradient(60% 60% at 50% 0%, rgba(16, 185, 129, 0.18), transparent 70%);
 }
 
 /* ==========================================================================
@@ -58,15 +86,94 @@
 }
 
 .leaflet-popup-content-wrapper {
-  @apply rounded-xl shadow-card;
+  @apply rounded-2xl shadow-pop;
+  border: 1px solid rgba(28, 25, 23, 0.06);
 }
 
 .leaflet-popup-content {
   @apply m-0 p-0;
 }
 
+.leaflet-popup-tip {
+  border: 1px solid rgba(28, 25, 23, 0.06);
+}
+
+/* Controles (zoom / atribuição) */
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-card) !important;
+  border: 1px solid rgba(28, 25, 23, 0.06) !important;
+}
+.leaflet-control-zoom a {
+  border: none !important;
+  color: var(--color-stone-600) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(8px);
+}
+.leaflet-control-zoom a:hover {
+  color: var(--color-stone-900) !important;
+  background: var(--color-stone-50) !important;
+}
+.leaflet-bar a + a {
+  border-top: 1px solid rgba(28, 25, 23, 0.08) !important;
+}
+.leaflet-control-attribution {
+  border-radius: 0.5rem 0 0 0 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(8px);
+  font-size: 10px !important;
+  color: var(--color-stone-400) !important;
+}
+.leaflet-control-attribution a {
+  color: var(--color-stone-500) !important;
+}
+
 /* Marcador customizado (DivIcon) */
 .dz-marker {
+  position: relative;
   display: grid;
   place-items: center;
+  transition: transform 0.15s ease;
+}
+.dz-marker:hover {
+  transform: translateY(-2px) scale(1.06);
+}
+.dz-marker svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Halo pulsante para o marcador selecionado */
+.dz-halo {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  height: 60%;
+  width: 60%;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: var(--dz-color, #059669);
+}
+.dz-halo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: dz-pulse 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes dz-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  70% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
 }

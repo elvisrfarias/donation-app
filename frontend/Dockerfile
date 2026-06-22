@@ -1,7 +1,9 @@
 # ============================================================================
-#  Build — compila a SPA com Node 24.
+#  Build — compila a SPA com Node 24 (glibc/slim: casa com o package-lock do
+#  host e com os binários nativos de Tailwind/lightningcss; evita o problema
+#  musl×glibc do alpine no `npm ci`).
 # ============================================================================
-FROM node:24-alpine AS build
+FROM node:24-slim AS build
 WORKDIR /app
 
 # Cache de dependências: copia manifests primeiro.
@@ -22,5 +24,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# 127.0.0.1 (não "localhost"): o nginx escuta em IPv4; localhost pode resolver para ::1.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:80/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1

@@ -26,6 +26,10 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
   </ItemGroup>
 
+  <ItemGroup Label="Storage (S3 / MinIO)">
+    <PackageVersion Include="AWSSDK.S3" Version="3.7.511.8" />
+  </ItemGroup>
+
   <ItemGroup Label="Identity / Auth">
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />

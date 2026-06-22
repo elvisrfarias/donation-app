@@ -86,8 +86,8 @@ export function FamiliesPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Criar família */}
         {isManager ? (
-          <Card className="p-5">
-            <h2 className="font-semibold text-slate-900">Nova família</h2>
+          <Card className="p-6">
+            <h2 className="text-base font-semibold text-stone-900">Nova família</h2>
             {createFamily.createdFamily && (
               <Alert tone="success" className="mt-3" title="Família criada!">
                 ID: <code className="font-mono text-xs">{createFamily.createdFamily.id}</code>
@@ -152,9 +152,9 @@ export function FamiliesPage() {
         )}
 
         {/* Consultar família */}
-        <Card className="p-5">
-          <h2 className="font-semibold text-slate-900">Consultar família</h2>
-          <p className="mt-1 text-sm text-slate-500">Informe o ID da família para ver detalhes.</p>
+        <Card className="p-6">
+          <h2 className="text-base font-semibold text-stone-900">Consultar família</h2>
+          <p className="mt-1 text-sm text-stone-500">Informe o ID da família para ver detalhes.</p>
           <form
             className="mt-4 flex gap-2"
             onSubmit={(e) => {
@@ -189,32 +189,32 @@ export function FamiliesPage() {
           ) : family.family ? (
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Beneficiários */}
-              <Card className="p-5">
+              <Card className="p-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-900">{family.family.name}</h3>
+                  <h3 className="text-base font-semibold text-stone-900">{family.family.name}</h3>
                   <Badge tone="brand">
                     {cycleTypeLabels[family.family.cycle.type]} ·{' '}
                     {family.family.cycle.maxWithdrawalsPerCycle}/ciclo
                   </Badge>
                 </div>
 
-                <h4 className="mt-4 text-sm font-medium text-slate-500">Beneficiários</h4>
+                <h4 className="mt-4 text-sm font-medium text-stone-500">Beneficiários</h4>
                 {family.family.beneficiaries.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-400">Nenhum beneficiário cadastrado.</p>
+                  <p className="mt-2 text-sm text-stone-400">Nenhum beneficiário cadastrado.</p>
                 ) : (
                   <ul className="mt-2 space-y-2">
                     {family.family.beneficiaries.map((b) => (
                       <li
                         key={b.id}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 p-2.5"
+                        className="flex items-center justify-between rounded-xl border border-stone-200 p-3 transition-colors hover:border-stone-300"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="grid size-8 place-items-center rounded-full bg-slate-100 text-slate-500">
+                          <span className="grid size-8 place-items-center rounded-full bg-stone-100 text-stone-500">
                             <IdCard className="size-4" />
                           </span>
                           <div>
-                            <p className="text-sm font-medium text-slate-800">{b.name}</p>
-                            <p className="text-xs text-slate-500">{b.cpf}</p>
+                            <p className="text-sm font-medium text-stone-800">{b.name}</p>
+                            <p className="text-xs text-stone-500">{b.cpf}</p>
                           </div>
                         </div>
                         <Badge tone={b.isActive ? 'green' : 'slate'}>
@@ -229,10 +229,10 @@ export function FamiliesPage() {
                 {isManager && (
                   <form
                     onSubmit={onRegisterBeneficiary}
-                    className="mt-5 space-y-3 border-t border-slate-100 pt-4"
+                    className="mt-5 space-y-3 border-t border-stone-100 pt-4"
                     noValidate
                   >
-                    <p className="text-sm font-medium text-slate-700">Adicionar beneficiário</p>
+                    <p className="text-sm font-medium text-stone-700">Adicionar beneficiário</p>
                     {registerBeneficiary.error && (
                       <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
                     )}
@@ -289,51 +289,51 @@ export function FamiliesPage() {
               </Card>
 
               {/* Histórico / saldo do ciclo */}
-              <Card className="p-5">
-                <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+              <Card className="p-6">
+                <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
                   <CalendarClock className="size-5 text-brand-600" /> Ciclo vigente
                 </h3>
                 {family.history ? (
                   <>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <p className="text-2xl font-bold text-slate-900">
+                      <div className="rounded-xl bg-stone-50 p-3 ring-1 ring-inset ring-stone-100">
+                        <p className="text-2xl font-bold text-stone-900 tabular-nums">
                           {family.history.usedInCurrentCycle}
                         </p>
-                        <p className="text-xs text-slate-500">Usadas</p>
+                        <p className="mt-0.5 text-xs text-stone-500">Usadas</p>
                       </div>
-                      <div className="rounded-lg bg-emerald-50 p-3">
-                        <p className="text-2xl font-bold text-emerald-700">
+                      <div className="rounded-xl bg-brand-50 p-3 ring-1 ring-inset ring-brand-100">
+                        <p className="text-2xl font-bold text-brand-700 tabular-nums">
                           {family.history.remainingInCurrentCycle}
                         </p>
-                        <p className="text-xs text-emerald-600">Restantes</p>
+                        <p className="mt-0.5 text-xs text-brand-600">Restantes</p>
                       </div>
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <p className="text-2xl font-bold text-slate-900">
+                      <div className="rounded-xl bg-stone-50 p-3 ring-1 ring-inset ring-stone-100">
+                        <p className="text-2xl font-bold text-stone-900 tabular-nums">
                           {family.history.maxPerCycle}
                         </p>
-                        <p className="text-xs text-slate-500">Limite</p>
+                        <p className="mt-0.5 text-xs text-stone-500">Limite</p>
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-stone-500">
                       Janela: {formatDate(family.history.currentCycleStartUtc)} —{' '}
                       {formatDate(family.history.currentCycleEndUtc)}
                     </p>
 
-                    <h4 className="mt-4 text-sm font-medium text-slate-500">
+                    <h4 className="mt-4 text-sm font-medium text-stone-500">
                       Histórico de retiradas
                     </h4>
                     {family.history.withdrawals.length === 0 ? (
-                      <p className="mt-2 text-sm text-slate-400">Nenhuma retirada registrada.</p>
+                      <p className="mt-2 text-sm text-stone-400">Nenhuma retirada registrada.</p>
                     ) : (
-                      <ul className="mt-2 divide-y divide-slate-100">
+                      <ul className="mt-2 divide-y divide-stone-100">
                         {family.history.withdrawals.map((w) => (
                           <li key={w.id} className="flex items-center justify-between py-2 text-sm">
                             <div>
-                              <p className="font-medium text-slate-700">{beneficiaryName(w.beneficiaryId)}</p>
-                              <p className="text-xs text-slate-500">{pointName(w.pointId)}</p>
+                              <p className="font-medium text-stone-700">{beneficiaryName(w.beneficiaryId)}</p>
+                              <p className="text-xs text-stone-500">{pointName(w.pointId)}</p>
                             </div>
-                            <span className="text-xs text-slate-500">
+                            <span className="text-xs text-stone-500">
                               {formatDateTime(w.occurredAtUtc)}
                             </span>
                           </li>

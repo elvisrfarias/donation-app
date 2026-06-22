@@ -13,13 +13,17 @@ export function StatCard({
   hint?: string
 }) {
   return (
-    <Card className="p-4">
+    <Card className="group p-5 transition-shadow hover:shadow-lift">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        {icon && <span className="text-brand-500">{icon}</span>}
+        <p className="text-sm font-medium text-stone-500">{label}</p>
+        {icon && (
+          <span className="grid size-9 place-items-center rounded-xl bg-stone-100 text-stone-500 transition-colors group-hover:bg-brand-50 group-hover:text-brand-600">
+            {icon}
+          </span>
+        )}
       </div>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      <p className="mt-3 text-3xl font-bold tracking-tight text-stone-900 tabular-nums">{value}</p>
+      {hint && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
     </Card>
   )
 }

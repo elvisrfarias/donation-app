@@ -31,6 +31,15 @@ public static class DataSeeder
             return;
         }
 
+        await SeedAdminAsync(userManager, seedOptions, logger);
+        await CollectionPointSeeder.SeedAsync(services, cancellationToken);
+    }
+
+    private static async Task SeedAdminAsync(
+        UserManager<ApplicationUser> userManager,
+        SeedOptions seedOptions,
+        ILogger logger)
+    {
         if (await userManager.FindByEmailAsync(seedOptions.AdminEmail) is not null)
         {
             return;

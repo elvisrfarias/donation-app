@@ -22,6 +22,30 @@ services:
     networks:
       - doacao-net
 
+  # Object storage compatível com S3 (imagens). Em produção, troque por Amazon S3
+  # ajustando apenas as variáveis Storage__* da API.
+  minio:
+    image: minio/minio:latest
+    container_name: doacao-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"      # API S3
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"  # Console web
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - doacao-net
+
   api:
     build:
       context: ./backend
@@ -41,10 +65,23 @@ services:
       SeedData__Enabled: ${SeedData__Enabled:-true}
       SeedData__AdminEmail: ${SeedData__AdminEmail}
       SeedData__AdminPassword: ${SeedData__AdminPassword}
+      # Object storage (MinIO via API do S3). ServiceUrl = endpoint interno;
+      # PublicUrl = endpoint que o navegador usa nas URLs pré-assinadas.
+      Storage__Provider: ${Storage__Provider:-MinIO}
+      Storage__ServiceUrl: ${Storage__ServiceUrl:-http://minio:9000}
+      Storage__PublicUrl: ${Storage__PublicUrl:-http://localhost:9000}
+      Storage__Region: ${Storage__Region:-us-east-1}
+      Storage__AccessKey: ${MINIO_ROOT_USER}
+      Storage__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Storage__Bucket: ${Storage__Bucket:-doacao}
+      Storage__ForcePathStyle: ${Storage__ForcePathStyle:-true}
+      Storage__PresignExpiryMinutes: ${Storage__PresignExpiryMinutes:-60}
     ports:
       - "${API_HTTP_PORT:-8080}:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - doacao-net
@@ -82,6 +119,8 @@ services:
 
 volumes:
   pgdata:
+    driver: local
+  miniodata:
     driver: local
 
 networks:

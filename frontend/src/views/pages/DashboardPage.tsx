@@ -1,4 +1,4 @@
-import { Building2, Church, Landmark, MapPin, PackageCheck, Users } from 'lucide-react'
+import { ArrowUpRight, Building2, Church, Landmark, MapPin, PackageCheck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { CollectionPointType } from '@/models/types'
 import { useAuth, useCollectionPoints } from '@/viewmodels'
@@ -34,12 +34,13 @@ export function DashboardPage() {
   const active = points.filter((p) => p.isActive).length
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Olá, {user?.fullName?.split(' ')[0] ?? 'bem-vindo'} 👋
+        <p className="text-sm font-semibold text-brand-600">Painel</p>
+        <h1 className="mt-1 text-3xl font-bold text-stone-900">
+          Olá, {user?.fullName?.split(' ')[0] ?? 'bem-vindo'}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">Visão geral da rede de pontos de coleta.</p>
+        <p className="mt-1.5 text-sm text-stone-500">Visão geral da rede de pontos de coleta.</p>
       </div>
 
       {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
@@ -68,18 +69,24 @@ export function DashboardPage() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {quickLinks.map((link) => (
-              <Link key={link.to} to={link.to}>
-                <Card className="h-full p-5 transition-shadow hover:shadow-md">
-                  <span className="grid size-10 place-items-center rounded-lg bg-brand-50 text-brand-600">
-                    <link.icon className="size-5" />
-                  </span>
-                  <h3 className="mt-3 font-semibold text-slate-900">{link.label}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{link.description}</p>
-                </Card>
-              </Link>
-            ))}
+          <div>
+            <h2 className="mb-3 text-sm font-semibold text-stone-500">Atalhos</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              {quickLinks.map((link) => (
+                <Link key={link.to} to={link.to} className="group">
+                  <Card className="flex h-full flex-col p-5 transition-shadow hover:shadow-lift">
+                    <div className="flex items-start justify-between">
+                      <span className="grid size-11 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 transition-colors group-hover:bg-brand-600 group-hover:text-white">
+                        <link.icon className="size-5" />
+                      </span>
+                      <ArrowUpRight className="size-5 text-stone-300 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-600" />
+                    </div>
+                    <h3 className="mt-4 font-semibold text-stone-900">{link.label}</h3>
+                    <p className="mt-1 text-sm text-stone-500">{link.description}</p>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </div>
         </>
       )}

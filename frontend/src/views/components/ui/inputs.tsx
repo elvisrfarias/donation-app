@@ -8,12 +8,12 @@ import type {
 import { cn } from '@/lib/utils'
 
 const base =
-  'w-full rounded-lg border bg-white px-3 text-sm text-slate-900 transition-colors placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-500'
+  'w-full rounded-xl border bg-white px-3.5 text-sm text-stone-900 transition-all duration-150 placeholder:text-stone-400 focus:outline-none disabled:bg-stone-50 disabled:text-stone-400'
 
 function stateRing(invalid?: boolean): string {
   return invalid
-    ? 'border-red-400 focus:border-red-500 focus:ring-red-500/30'
-    : 'border-slate-300 focus:border-brand-500 focus:ring-brand-500/30'
+    ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+    : 'border-stone-200 hover:border-stone-300 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10'
 }
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -21,7 +21,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   ref?: Ref<HTMLInputElement>
 }
 export function Input({ className, invalid, ref, ...props }: InputProps) {
-  return <input ref={ref} className={cn(base, 'h-10', stateRing(invalid), className)} {...props} />
+  return <input ref={ref} className={cn(base, 'h-11', stateRing(invalid), className)} {...props} />
 }
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
@@ -30,7 +30,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 export function Select({ className, invalid, children, ref, ...props }: SelectProps) {
   return (
-    <select ref={ref} className={cn(base, 'h-10 pr-8', stateRing(invalid), className)} {...props}>
+    <select ref={ref} className={cn(base, 'h-11 pr-9', stateRing(invalid), className)} {...props}>
       {children}
     </select>
   )
@@ -44,7 +44,7 @@ export function Textarea({ className, invalid, ref, ...props }: TextareaProps) {
   return (
     <textarea
       ref={ref}
-      className={cn(base, 'min-h-20 resize-y py-2', stateRing(invalid), className)}
+      className={cn(base, 'min-h-24 resize-y py-2.5', stateRing(invalid), className)}
       {...props}
     />
   )
@@ -70,12 +70,12 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-slate-700">
+      <label htmlFor={htmlFor} className="text-sm font-semibold text-stone-700">
         {label}
-        {required && <span className="text-red-500"> *</span>}
+        {required && <span className="text-brand-600"> *</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+      {hint && !error && <p className="text-xs text-stone-500">{hint}</p>}
       {error && <p className="text-xs font-medium text-red-600">{error}</p>}
     </div>
   )

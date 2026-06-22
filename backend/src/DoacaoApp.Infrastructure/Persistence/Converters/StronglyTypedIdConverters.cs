@@ -1,5 +1,6 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DoacaoApp.Infrastructure.Persistence.Converters;
@@ -19,3 +20,6 @@ public sealed class FamilyIdConverter()
 
 public sealed class BeneficiaryIdConverter()
     : ValueConverter<BeneficiaryId, Guid>(id => id.Value, value => BeneficiaryId.From(value));
+
+public sealed class StoredFileIdConverter()
+    : ValueConverter<StoredFileId, Guid>(id => id.Value, value => StoredFileId.From(value));
