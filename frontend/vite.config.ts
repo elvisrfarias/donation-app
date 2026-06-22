@@ -16,7 +16,12 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 5173,
+      // host:true escuta em 0.0.0.0 (necessário dentro do container Docker).
+      host: true,
+      port: Number(env.VITE_DEV_PORT) || 5173,
+      // Polling de arquivos: bind mounts do Docker nem sempre propagam eventos
+      // inotify; ligue via VITE_USE_POLLING=true no modo dev containerizado.
+      watch: env.VITE_USE_POLLING === 'true' ? { usePolling: true } : undefined,
       // O backend não expõe CORS; em dev encaminhamos /api -> API .NET.
       proxy: {
         '/api': {

@@ -1,0 +1,41 @@
+# =========================================================================
+#  Override de DESENVOLVIMENTO do frontend.
+#  Troca o build de produção (nginx) por um Vite dev server com HMR (hot
+#  reload): a pasta ./frontend é montada por volume, então editar qualquer
+#  arquivo recarrega o navegador na hora — sem rebuild de imagem.
+#
+#  Uso:
+#    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+#  Acesse: http://localhost:${FRONTEND_PORT:-5445}
+#  (para voltar ao modo produção: docker compose up -d frontend)
+# =========================================================================
+
+services:
+  frontend:
+    # Remove o build do Dockerfile de produção e usa a imagem do Node direto.
+    build: !reset null
+    image: node:24-slim
+    container_name: doacao-frontend-dev
+    working_dir: /app
+    # Habilita o pnpm (corepack), instala deps só se faltarem no volume e sobe o Vite.
+    command: sh -c "corepack enable; [ -x node_modules/.bin/vite ] || pnpm install; pnpm run dev"
+    environment:
+      VITE_DEV_PORT: "5445"
+      # Polling p/ o watcher enxergar mudanças via bind mount do Docker.
+      VITE_USE_POLLING: "true"
+      # Em dev o Vite faz o proxy de /api -> API na rede do compose.
+      VITE_API_PROXY_TARGET: http://api:8080
+    ports: !override
+      - "${FRONTEND_PORT:-5445}:5445"
+    volumes:
+      # Código-fonte montado (edições refletem na hora)...
+      - ./frontend:/app
+      # ...mas node_modules fica num volume isolado (binários nativos corretos
+      # p/ o container, sem serem sombreados pelo node_modules do host).
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  frontend_node_modules:

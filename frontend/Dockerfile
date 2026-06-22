@@ -6,13 +6,16 @@
 FROM node:24-slim AS build
 WORKDIR /app
 
+# Habilita o pnpm via corepack (versão fixada no campo "packageManager" do package.json).
+RUN corepack enable
+
 # Cache de dependências: copia manifests primeiro.
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 # VITE_API_URL=/api (padrão): o nginx faz o proxy de /api para o serviço da API.
-RUN npm run build
+RUN pnpm run build
 
 # ============================================================================
 #  Runtime — nginx servindo os estáticos + proxy reverso para a API.

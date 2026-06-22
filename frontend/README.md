@@ -38,16 +38,25 @@ src/
 
 ## Desenvolvimento
 
+O gerenciador de pacotes é o **pnpm** (fixado via `packageManager` no `package.json`;
+use o corepack: `corepack enable`).
+
 ```bash
-npm install
-npm run dev      # http://localhost:5173  (proxy /api -> http://localhost:8080)
+pnpm install
+pnpm run dev     # http://localhost:5173  (proxy /api -> http://localhost:8080)
 ```
 
 O backend não expõe CORS; em dev o Vite faz proxy de `/api` para a API .NET
 (veja `VITE_API_PROXY_TARGET` no `.env`). Suba a API antes (`make up` na raiz, ou
 `docker compose up api postgres`).
 
-Scripts: `npm run dev`, `npm run build`, `npm run preview`, `npm run lint`.
+Scripts: `pnpm run dev`, `pnpm run build`, `pnpm run preview`, `pnpm run lint`.
+
+### Hot reload no Docker
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up   # Vite + HMR na 5445
+```
 
 ## Variáveis de ambiente
 
