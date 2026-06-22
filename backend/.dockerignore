@@ -1,0 +1,28 @@
+# Reduz o contexto enviado ao daemon do Docker e evita invalidar cache.
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/TestResults/
+**/coverage/
+**/logs/
+**/*.user
+**/*.suo
+
+# Versionamento / docs
+.git/
+.gitignore
+**/*.md
+!README.md
+
+# Segredos / ambiente local
+.env
+**/*.env
+!.env.example
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore

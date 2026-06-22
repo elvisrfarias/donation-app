@@ -1,0 +1,14 @@
+# Aplicado automaticamente pelo `docker compose` em cima do docker-compose.yml.
+# Ajustes de desenvolvimento (não usar em produção).
+services:
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Logs SQL detalhados em dev.
+      Serilog__MinimumLevel__Override__Microsoft.EntityFrameworkCore.Database.Command: Information
+    build:
+      target: runtime
+
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"

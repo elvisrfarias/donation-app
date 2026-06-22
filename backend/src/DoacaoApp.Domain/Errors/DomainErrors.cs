@@ -1,0 +1,74 @@
+using ErrorOr;
+
+namespace DoacaoApp.Domain.Errors;
+
+/// <summary>
+/// Catálogo central de erros de negócio. Usar <see cref="Error"/> (ErrorOr) em vez de
+/// exceptions para o fluxo de domínio — exceptions ficam reservadas a falhas inesperadas.
+/// Cada erro carrega um código estável (consumível por clientes) e uma descrição.
+/// </summary>
+public static class DomainErrors
+{
+    public static class Cpf
+    {
+        public static Error Empty => Error.Validation("Cpf.Empty", "O CPF é obrigatório.");
+        public static Error InvalidFormat => Error.Validation("Cpf.InvalidFormat", "O CPF deve conter 11 dígitos.");
+        public static Error InvalidCheckDigits => Error.Validation("Cpf.InvalidCheckDigits", "Os dígitos verificadores do CPF são inválidos.");
+    }
+
+    public static class Email
+    {
+        public static Error Empty => Error.Validation("Email.Empty", "O e-mail é obrigatório.");
+        public static Error InvalidFormat => Error.Validation("Email.InvalidFormat", "O e-mail informado é inválido.");
+    }
+
+    public static class PhoneNumber
+    {
+        public static Error Empty => Error.Validation("PhoneNumber.Empty", "O telefone é obrigatório.");
+        public static Error InvalidFormat => Error.Validation("PhoneNumber.InvalidFormat", "O telefone deve ter DDD + número (10 ou 11 dígitos).");
+    }
+
+    public static class Address
+    {
+        public static Error Incomplete => Error.Validation("Address.Incomplete", "Endereço incompleto: logradouro, cidade, estado e CEP são obrigatórios.");
+        public static Error InvalidZipCode => Error.Validation("Address.InvalidZipCode", "O CEP deve conter 8 dígitos.");
+        public static Error InvalidState => Error.Validation("Address.InvalidState", "A UF deve ter 2 letras.");
+    }
+
+    public static class WithdrawalCycle
+    {
+        public static Error InvalidMax => Error.Validation("WithdrawalCycle.InvalidMax", "O limite de retiradas por ciclo deve ser maior que zero.");
+    }
+
+    public static class CollectionPoint
+    {
+        public static Error NameRequired => Error.Validation("CollectionPoint.NameRequired", "O nome do ponto de coleta é obrigatório.");
+        public static Error Inactive => Error.Conflict("CollectionPoint.Inactive", "O ponto de coleta está inativo e não pode registrar retiradas.");
+        public static Error NotFound => Error.NotFound("CollectionPoint.NotFound", "Ponto de coleta não encontrado.");
+    }
+
+    public static class Family
+    {
+        public static Error NameRequired => Error.Validation("Family.NameRequired", "O nome/identificação da família é obrigatório.");
+        public static Error NotFound => Error.NotFound("Family.NotFound", "Família não encontrada.");
+        public static Error DuplicatedBeneficiaryCpf => Error.Conflict("Family.DuplicatedBeneficiaryCpf", "Já existe um beneficiário com este CPF nesta família.");
+    }
+
+    public static class Beneficiary
+    {
+        public static Error NameRequired => Error.Validation("Beneficiary.NameRequired", "O nome do beneficiário é obrigatório.");
+        public static Error NotFound => Error.NotFound("Beneficiary.NotFound", "Beneficiário não encontrado.");
+        public static Error CpfAlreadyRegistered => Error.Conflict("Beneficiary.CpfAlreadyRegistered", "Este CPF já está cadastrado no município.");
+    }
+
+    public static class Withdrawal
+    {
+        public static Error BeneficiaryNotInFamily =>
+            Error.Validation("Withdrawal.BeneficiaryNotInFamily", "O beneficiário informado não pertence à família indicada.");
+
+        public static Error CycleLimitReached(int max) =>
+            Error.Conflict(
+                "Withdrawal.CycleLimitReached",
+                $"A família já atingiu o limite de {max} retirada(s) no ciclo vigente (considerando todos os pontos do município).");
+    }
+}

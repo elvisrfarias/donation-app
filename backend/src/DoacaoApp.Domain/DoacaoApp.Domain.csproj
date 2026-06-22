@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Domain é o núcleo: zero dependência de framework de infraestrutura.
+    Depende apenas de:
+      - ErrorOr           -> Result Pattern (sem exceptions para fluxo de negócio)
+      - MediatR.Contracts -> apenas a interface INotification para Domain Events
+  -->
+  <ItemGroup>
+    <PackageReference Include="ErrorOr" />
+    <PackageReference Include="MediatR.Contracts" />
+  </ItemGroup>
+
+</Project>

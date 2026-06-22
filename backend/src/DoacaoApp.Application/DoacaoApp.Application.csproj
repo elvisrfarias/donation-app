@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Application orquestra casos de uso (CQRS via MediatR) e validação (FluentValidation).
+    Depende apenas do Domain — nunca de Infrastructure.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\DoacaoApp.Domain\DoacaoApp.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="ErrorOr" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

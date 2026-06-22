@@ -1,0 +1,122 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Sobre o projeto
+
+Sistema de gestão de pontos de doação/coleta com rastreabilidade familiar e **controle de equidade**:
+todos os pontos de coleta de um município compartilham o histórico de retiradas, então uma família não
+pode exceder seu limite por ciclo somando retiradas de *todos* os pontos. .NET 9 / C# 13, Clean
+Architecture + DDD + CQRS, EF Core 9 + PostgreSQL 16.
+
+## Estrutura do repositório (monorepo)
+
+```
+.                       # raiz do monorepo (.git, .gitignore, .editorconfig, docker-compose*, .env*)
+├── backend/            # esta aplicação .NET (src/, tests/, DoacaoApp.sln, Dockerfile, Makefile)
+└── frontend/           # (em breve)
+```
+
+A solution .NET, o `Dockerfile` e o `.dockerignore` vivem em `backend/`. O `docker compose` fica na raiz
+e orquestra a stack inteira (`build.context: ./backend`); o `.env` também é lido da raiz. Os comandos do
+SDK abaixo são rodados **a partir da raiz** montando `backend/` como `/src`.
+
+## Ambiente: sem SDK .NET local
+
+Este host **não tem o `dotnet` instalado** — toda compilação, teste e geração de migration roda dentro de
+containers do SDK .NET 9. Monte um volume NuGet persistente (`doacao-nuget`) para não rebaixar pacotes a
+cada execução. O cache do container é efêmero, então **nunca use `--no-restore` em um container novo**
+(o build falha por não achar os assemblies restaurados em outro container).
+
+### Comandos (via Docker)
+
+```bash
+# Build de toda a solution (src + testes)
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 dotnet build DoacaoApp.sln -c Release
+
+# Testes unitários (rápidos, sem Docker-in-Docker) — um projeto por vez
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 dotnet test tests/DoacaoApp.Domain.Tests -c Release
+
+# Um único teste / filtro
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 \
+  dotnet test tests/DoacaoApp.Domain.Tests -c Release --filter "FullyQualifiedName~CpfTests"
+
+# Nova migration (constrói o modelo — falha aqui se o mapeamento EF estiver errado)
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src mcr.microsoft.com/dotnet/sdk:9.0 \
+  bash -c "dotnet tool install -g dotnet-ef --version 9.0.0 >/dev/null; export PATH=\$PATH:/root/.dotnet/tools; \
+  dotnet ef migrations add <Nome> -p src/DoacaoApp.Infrastructure -s src/DoacaoApp.Api -o Persistence/Migrations"
+```
+
+Os testes de integração (`DoacaoApp.IntegrationTests`) usam **Testcontainers** e exigem acesso ao socket
+do Docker; rodam melhor no host com SDK ou em CI, não dentro de um container SDK simples.
+
+### Subir a aplicação
+
+```bash
+cp .env.example .env
+docker compose up --build        # postgres (healthcheck) -> api -> pgadmin
+```
+Arquivos gerados por containers (`bin/`, `obj/`, `Persistence/Migrations`) saem como `root`; faça
+`docker run --rm -v "$PWD/backend":/src alpine chown -R "$(stat -c '%u:%g' backend/DoacaoApp.sln)" /src` se precisar editá-los.
+
+## Arquitetura
+
+Dependências apontam para dentro: **API → Infrastructure → Application → Domain**. O Domain não referencia
+framework algum (só `ErrorOr` e `MediatR.Contracts`). Cada camada tem um `DependencyInjection` /
+`ServiceCollectionExtensions` que é seu composition root.
+
+- **Result Pattern**: fluxo de negócio nunca lança exception — retorna `ErrorOr<T>`. Erros de domínio ficam
+  centralizados em `Domain/Errors/DomainErrors.cs` (e `Application/Authentication/AuthErrors.cs`). A API
+  mapeia `ErrorType` → status HTTP em `Api/Common/HttpErrorMapping.cs` (controllers via `ApiController.Respond`,
+  minimal APIs via `MinimalApiResults.Match`).
+- **CQRS (MediatR)**: cada caso de uso é um `IRequest<ErrorOr<T>>` + Validator + Handler, geralmente no mesmo
+  arquivo (vertical slice). O `ValidationBehavior` roda os `FluentValidation` validators antes do handler;
+  ele usa `(dynamic)errors` para converter `List<Error>` no `TResponse` genérico — por isso exige
+  `where TResponse : IErrorOr`.
+- **Domain Events**: entidades acumulam eventos (`Entity.RaiseDomainEvent`); o
+  `DomainEventsDispatchInterceptor` os publica via MediatR **após** o commit do `SaveChanges`. `IDomainEvent`
+  herda de `INotification`, então os handlers ficam na Application como `INotificationHandler<T>`.
+
+### A regra de equidade (a parte mais importante)
+
+`CollectionPoint.RegisterWithdrawal(family, beneficiary, familyWithdrawalsInCurrentCycle, ...)` decide com
+base na contagem **recebida por parâmetro** — o agregado não consulta o banco. Quem calcula é o
+`RegisterWithdrawalHandler`: ele pega a janela do ciclo (`Family.Cycle.GetCurrentPeriod(instante)`) e chama
+`ICollectionPointRepository.CountFamilyWithdrawalsAsync(familyId, início, fim)`, que varre a tabela
+`withdrawals` inteira (todos os pontos). Esse desenho mantém a regra testável sem banco e respeita as
+fronteiras de agregado (Withdrawal referencia Family/Beneficiary por Id, não por navegação).
+
+## Convenções de mapeamento EF (onde as coisas dão errado)
+
+- **IDs fortemente tipados** (`FamilyId`, `CollectionPointId`, etc. — `readonly record struct`): convertidos
+  globalmente em `AppDbContext.ConfigureConventions` via os `ValueConverter`s de
+  `Persistence/Converters/StronglyTypedIdConverters.cs`. Chaves usam `ValueGeneratedNever()` (o domínio gera o Guid).
+- **Value Objects multi-campo** (`Address`, `ContactInfo`, `WithdrawalCycle`): mapeados como `OwnsOne`
+  (colunas inline). EF materializa pelo construtor privado via reflection.
+- **Value Objects de valor único** (`Cpf`, `Email`, `PhoneNumber`): `HasConversion` para string usando
+  `X.FromTrusted(...)` (método `internal`). Isso depende do `InternalsVisibleTo("DoacaoApp.Infrastructure")`
+  declarado em `Domain/Common/AssemblyMarker.cs`. As factories públicas `Create` validam e retornam `ErrorOr`.
+- Coleções dos agregados (`Withdrawals`, `Beneficiaries`) usam campo privado de backing + `PropertyAccessMode.Field`.
+- Datas: tudo em UTC (Npgsql + `timestamptz`). Passe instantes via `IDateTimeProvider`, não `DateTime.UtcNow` direto.
+
+## Identidade e autenticação
+
+- **BCrypt** substitui o hasher padrão do Identity. `BCryptPasswordHasher` é registrado **antes** de
+  `AddIdentityCore` em `Infrastructure/DependencyInjection.cs`, porque o Identity usa `TryAdd` e o nosso
+  precisa prevalecer. Não readicionar `AddDefaultTokenProviders` (depende do pacote `Microsoft.AspNetCore.Identity`,
+  que não está referenciado e não é necessário).
+- Os **stores/hashing/geração de token** ficam na Infrastructure (`IdentityService`, `JwtTokenGenerator`);
+  o **wiring do JWT Bearer + policies** fica na API (`ServiceCollectionExtensions.AddJwtAuthentication`),
+  pois usa o shared framework. Roles: `Admin`, `PointManager`, `Viewer` (`Application/Authentication/Roles.cs`).
+- Refresh tokens são persistidos e rotacionados (`IdentityService.RefreshAsync` revoga e emite novo par).
+
+## Pacotes e configuração
+
+- **Central Package Management**: todas as versões vivem em `Directory.Packages.props`; os `.csproj` só fazem
+  `<PackageReference Include="..." />` sem `Version`. `Directory.Build.props` fixa `net9.0`/C# 13/nullable.
+- Config por ambiente: `appsettings.json` + variáveis com `__` (ex.: `Jwt__Secret`, `ConnectionStrings__Database`)
+  vindas do `.env` no compose. `RunMigrationsOnStartup` e `SeedData:Enabled` controlam migrate+seed no boot (dev).
+- Docs da API: Scalar em `/scalar/v1`, OpenAPI em `/openapi/v1.json`.

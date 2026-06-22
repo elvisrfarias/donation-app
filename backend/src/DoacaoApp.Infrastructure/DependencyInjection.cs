@@ -1,0 +1,80 @@
+using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Domain.CollectionPoints;
+using DoacaoApp.Domain.Common;
+using DoacaoApp.Domain.Families;
+using DoacaoApp.Infrastructure.Authentication;
+using DoacaoApp.Infrastructure.Identity;
+using DoacaoApp.Infrastructure.Persistence;
+using DoacaoApp.Infrastructure.Persistence.Interceptors;
+using DoacaoApp.Infrastructure.Persistence.Repositories;
+using DoacaoApp.Infrastructure.Persistence.Seed;
+using DoacaoApp.Infrastructure.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DoacaoApp.Infrastructure;
+
+/// <summary>Composition root da Infrastructure: EF Core, Identity (BCrypt), repositórios e serviços.</summary>
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<SecurityOptions>(configuration.GetSection(SecurityOptions.SectionName));
+        services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+
+        services.AddPersistence(configuration);
+        services.AddIdentityWithBCrypt();
+
+        services.AddScoped<IDateTimeProvider, DateTimeProvider>();
+        services.AddScoped<ICollectionPointRepository, CollectionPointRepository>();
+        services.AddScoped<IFamilyRepository, FamilyRepository>();
+        services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<JwtTokenGenerator>();
+
+        return services;
+    }
+
+    private static void AddPersistence(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Database")
+            ?? throw new InvalidOperationException("Connection string 'Database' não configurada.");
+
+        services.AddScoped<DomainEventsDispatchInterceptor>();
+
+        services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+        {
+            options.UseNpgsql(connectionString, npgsql =>
+            {
+                npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npgsql.EnableRetryOnFailure();
+            });
+
+            options.AddInterceptors(serviceProvider.GetRequiredService<DomainEventsDispatchInterceptor>());
+        });
+
+        // O DbContext É a Unit of Work.
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+    }
+
+    private static void AddIdentityWithBCrypt(this IServiceCollection services)
+    {
+        // Registrar o hasher BCrypt ANTES do AddIdentityCore: o Identity usa TryAdd para o
+        // IPasswordHasher, então o nosso (BCrypt) prevalece sobre o PBKDF2 padrão.
+        services.AddScoped<IPasswordHasher<ApplicationUser>, BCryptPasswordHasher<ApplicationUser>>();
+
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.User.RequireUniqueEmail = true;
+                options.Password.RequiredLength = 8;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireDigit = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+            })
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<AppDbContext>();
+    }
+}

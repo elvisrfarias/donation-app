@@ -1,0 +1,35 @@
+## .NET / build
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+project.lock.json
+artifacts/
+
+## Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+*.DotSettings.user
+
+## Logs
+logs/
+*.log
+
+## Ambiente
+.env
+*.env
+!.env.example
+
+## Coverage / testes
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+## SO
+.DS_Store
+Thumbs.db
