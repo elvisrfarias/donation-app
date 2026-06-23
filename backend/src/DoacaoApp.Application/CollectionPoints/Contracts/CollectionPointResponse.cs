@@ -9,6 +9,7 @@ public sealed record CollectionPointResponse(
     string Type,
     AddressResponse Address,
     ContactResponse Contact,
+    IReadOnlyList<string> AcceptedItems,
     bool IsActive,
     DateTime CreatedAtUtc,
     string? ImageUrl);
@@ -43,6 +44,7 @@ public static class CollectionPointMappings
                 point.Contact.ResponsibleName,
                 point.Contact.Email.Value,
                 point.Contact.Phone.Formatted),
+            [.. point.AcceptedItems.Select(static i => i.ToString())],
             point.IsActive,
             point.CreatedAtUtc,
             imageUrl);

@@ -1,5 +1,47 @@
 export type CollectionPointType = 'Association' | 'Church' | 'PublicEntity'
 
+/** Categorias de itens que um ponto recebe/disponibiliza (espelha o enum ItemCategory do backend). */
+export type ItemCategory =
+  | 'Food'
+  | 'Clothing'
+  | 'Footwear'
+  | 'Hygiene'
+  | 'Cleaning'
+  | 'Furniture'
+  | 'Appliances'
+  | 'Toys'
+  | 'Books'
+  | 'Medicine'
+  | 'Other'
+
+export const itemCategoryValues: ItemCategory[] = [
+  'Food',
+  'Clothing',
+  'Footwear',
+  'Hygiene',
+  'Cleaning',
+  'Furniture',
+  'Appliances',
+  'Toys',
+  'Books',
+  'Medicine',
+  'Other',
+]
+
+export const itemCategoryLabels: Record<ItemCategory, string> = {
+  Food: 'Alimentos',
+  Clothing: 'Roupas',
+  Footwear: 'Calçados',
+  Hygiene: 'Higiene',
+  Cleaning: 'Limpeza',
+  Furniture: 'Móveis',
+  Appliances: 'Eletrodomésticos',
+  Toys: 'Brinquedos',
+  Books: 'Livros',
+  Medicine: 'Medicamentos',
+  Other: 'Outros',
+}
+
 export interface Address {
   street: string
   number: string
@@ -25,6 +67,8 @@ export interface CollectionPoint {
   contact: Contact
   isActive: boolean
   createdAtUtc: string
+  /** Categorias de itens declaradas pelo ponto (ex.: Food, Clothing). */
+  acceptedItems: ItemCategory[]
   /** URL (temporária) da foto do ponto. Nulo nos pontos antigos/seed — a UI cai no ícone. */
   imageUrl?: string | null
 }
@@ -43,6 +87,8 @@ export interface CreateCollectionPointInput {
   responsibleName: string
   email: string
   phone: string
+  /** Categorias de itens do ponto (ao menos uma). */
+  acceptedItems: ItemCategory[]
   /** Id do arquivo de imagem já enviado (POST /api/files). Obrigatório. */
   imageFileId: string
 }

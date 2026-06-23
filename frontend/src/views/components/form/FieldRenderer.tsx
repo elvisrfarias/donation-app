@@ -130,6 +130,52 @@ function SelectControl({ field, id, config }: ControlProps<Extract<BoundFieldCon
   )
 }
 
+function MultiSelectControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'multiselect' }>>) {
+  const error = fieldError(field)
+  const selected = (field.state.value as string[] | undefined) ?? []
+
+  function toggle(value: string) {
+    const next = selected.includes(value)
+      ? selected.filter((v) => v !== value)
+      : [...selected, value]
+    field.handleChange(next)
+    field.handleBlur()
+  }
+
+  return (
+    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+      <div className="flex flex-wrap gap-2" role="group" aria-invalid={!!error}>
+        {config.options.map((option) => {
+          const active = selected.includes(option.value)
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              disabled={config.disabled || option.disabled}
+              onClick={() => toggle(option.value)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition-colors',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                active
+                  ? 'bg-brand-600 text-white ring-brand-600'
+                  : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50',
+              )}
+            >
+              {active && <CheckIcon className="size-3.5" />}
+              {option.label}
+            </button>
+          )
+        })}
+      </div>
+    </FieldShell>
+  )
+}
+
 function AutoCompleteControl({
   field,
   id,
@@ -292,6 +338,8 @@ export function FieldRenderer({ field, config }: { field: AnyFieldApi; config: B
       return <TextareaControl field={field} id={id} config={config} />
     case 'select':
       return <SelectControl field={field} id={id} config={config} />
+    case 'multiselect':
+      return <MultiSelectControl field={field} id={id} config={config} />
     case 'autocomplete':
       return <AutoCompleteControl field={field} id={id} config={config} />
     case 'checkbox':

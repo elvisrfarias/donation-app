@@ -15,6 +15,7 @@ namespace DoacaoApp.Domain.CollectionPoints;
 public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 {
     private readonly List<Withdrawal> _withdrawals = [];
+    private readonly List<ItemCategory> _acceptedItems = [];
 
     // Usado pela materialização do EF Core.
     private CollectionPoint()
@@ -30,6 +31,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         CollectionPointType type,
         Address address,
         ContactInfo contact,
+        IEnumerable<ItemCategory> acceptedItems,
         StoredFileId? imageFileId,
         DateTime createdAtUtc) : base(id)
     {
@@ -37,6 +39,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         Type = type;
         Address = address;
         Contact = contact;
+        _acceptedItems = Normalize(acceptedItems);
         ImageFileId = imageFileId;
         CreatedAtUtc = createdAtUtc;
         IsActive = true;
@@ -58,12 +61,16 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     public IReadOnlyList<Withdrawal> Withdrawals => _withdrawals.AsReadOnly();
 
+    /// <summary>Categorias de itens que o ponto recebe/disponibiliza (ex.: comida, roupas).</summary>
+    public IReadOnlyList<ItemCategory> AcceptedItems => _acceptedItems.AsReadOnly();
+
     public static ErrorOr<CollectionPoint> Create(
         string? name,
         CollectionPointType type,
         Address address,
         ContactInfo contact,
         DateTime createdAtUtc,
+        IEnumerable<ItemCategory>? acceptedItems = null,
         StoredFileId? imageFileId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -72,11 +79,23 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         }
 
         var point = new CollectionPoint(
-            CollectionPointId.New(), name.Trim(), type, address, contact, imageFileId, createdAtUtc);
+            CollectionPointId.New(), name.Trim(), type, address, contact,
+            acceptedItems ?? [], imageFileId, createdAtUtc);
         point.RaiseDomainEvent(new CollectionPointCreated(point.Id, point.Name, point.Type));
 
         return point;
     }
+
+    /// <summary>Redefine as categorias de itens aceitas pelo ponto (substitui a lista atual).</summary>
+    public void UpdateAcceptedItems(IEnumerable<ItemCategory> acceptedItems)
+    {
+        _acceptedItems.Clear();
+        _acceptedItems.AddRange(Normalize(acceptedItems));
+    }
+
+    // Remove duplicatas mantendo uma ordem estável (por valor do enum).
+    private static List<ItemCategory> Normalize(IEnumerable<ItemCategory> items) =>
+        [.. items.Distinct().OrderBy(static i => (int)i)];
 
     /// <summary>Define (ou troca) a imagem do ponto de coleta.</summary>
     public void SetImage(StoredFileId imageFileId) => ImageFileId = imageFileId;

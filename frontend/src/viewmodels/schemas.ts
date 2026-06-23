@@ -31,6 +31,23 @@ export const createCollectionPointSchema = z.object({
   responsibleName: z.string().min(1, 'Responsável é obrigatório.').max(160),
   email: z.email('E-mail de contato inválido.'),
   phone: z.string().min(10, 'Telefone inválido.').max(15),
+  acceptedItems: z
+    .array(
+      z.enum([
+        'Food',
+        'Clothing',
+        'Footwear',
+        'Hygiene',
+        'Cleaning',
+        'Furniture',
+        'Appliances',
+        'Toys',
+        'Books',
+        'Medicine',
+        'Other',
+      ]),
+    )
+    .min(1, 'Selecione ao menos uma categoria de itens.'),
   image: imageFileSchema,
 })
 export type CreateCollectionPointForm = z.infer<typeof createCollectionPointSchema>

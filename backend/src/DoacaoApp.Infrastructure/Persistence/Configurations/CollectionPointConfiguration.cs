@@ -1,7 +1,9 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DoacaoApp.Infrastructure.Persistence.Configurations;
 
@@ -16,6 +18,32 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
 
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
         builder.Property(p => p.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
+
+        // Categorias de itens (coleção de enum) persistidas como CSV em uma única coluna,
+        // seguindo a convenção do projeto de converter enums para string.
+        var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
+            items => string.Join(',', items.Select(static i => i.ToString())),
+            value => value.Length == 0
+                ? new List<ItemCategory>()
+                : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(Enum.Parse<ItemCategory>)
+                    .ToList());
+
+        var itemsComparer = new ValueComparer<IReadOnlyList<ItemCategory>>(
+            (a, b) => a!.SequenceEqual(b!),
+            items => items.Aggregate(0, (hash, i) => HashCode.Combine(hash, (int)i)),
+            items => items.ToList());
+
+        builder.Property(p => p.AcceptedItems)
+            .HasColumnName("accepted_items")
+            .HasConversion(itemsConverter, itemsComparer)
+            .HasMaxLength(300)
+            .IsRequired()
+            .HasDefaultValue(new List<ItemCategory>());
+        builder.Metadata
+            .FindProperty(nameof(CollectionPoint.AcceptedItems))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(p => p.IsActive).IsRequired();
         builder.Property(p => p.CreatedAtUtc).IsRequired();
 

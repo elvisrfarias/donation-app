@@ -50,6 +50,12 @@ type SelectField = BaseField & {
   placeholder?: string
 }
 
+/** Seleção múltipla renderizada como chips alternáveis; vinculada a um `string[]`. */
+type MultiSelectField = BaseField & {
+  type: 'multiselect'
+  options: SelectOption[]
+}
+
 type AutoCompleteField = BaseField & {
   type: 'autocomplete'
   options: AutoCompleteOption[]
@@ -76,6 +82,7 @@ export type BoundFieldConfig =
   | NumberField
   | TextareaField
   | SelectField
+  | MultiSelectField
   | AutoCompleteField
   | CheckboxField
   | ImageField

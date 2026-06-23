@@ -25,6 +25,7 @@ public sealed record CreateCollectionPointCommand(
     string ResponsibleName,
     string Email,
     string Phone,
+    IReadOnlyList<ItemCategory> AcceptedItems,
     Guid ImageFileId) : IRequest<ErrorOr<CollectionPointResponse>>;
 
 public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCollectionPointCommand>
@@ -40,6 +41,9 @@ public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCol
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.ResponsibleName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.AcceptedItems)
+            .NotEmpty().WithMessage("Informe ao menos uma categoria de itens do ponto de coleta.");
+        RuleForEach(x => x.AcceptedItems).IsInEnum();
         RuleFor(x => x.ImageFileId).NotEmpty().WithMessage("A imagem do ponto de coleta é obrigatória.");
     }
 }
@@ -83,7 +87,8 @@ public sealed class CreateCollectionPointHandler(
 
         var now = clock.UtcNow;
         var pointResult = CollectionPoint.Create(
-            command.Name, command.Type, address.Value, contact.Value, now, image.Id);
+            command.Name, command.Type, address.Value, contact.Value, now,
+            command.AcceptedItems, image.Id);
 
         if (pointResult.IsError)
         {

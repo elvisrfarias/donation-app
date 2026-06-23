@@ -203,7 +203,8 @@ public static class CollectionPointSeeder
                 continue;
             }
 
-            var point = CollectionPoint.Create(name, type, address.Value, contact.Value, now);
+            var point = CollectionPoint.Create(
+                name, type, address.Value, contact.Value, now, PickItems(random));
             if (point.IsError)
             {
                 logger.LogWarning("Seed: falha ao criar ponto em {City}: {Error}", place.City, point.FirstError.Description);
@@ -219,6 +220,20 @@ public static class CollectionPointSeeder
             "Seed de pontos de coleta: {Created} criados ({Oeste} no Oeste de SC).",
             created,
             OesteSantaCatarina.Length);
+    }
+
+    // Sorteia de 1 a 4 categorias de itens distintas para o ponto.
+    private static IReadOnlyList<ItemCategory> PickItems(Random random)
+    {
+        var all = Enum.GetValues<ItemCategory>();
+        var count = random.Next(1, 5);
+        var picked = new HashSet<ItemCategory>();
+        while (picked.Count < count)
+        {
+            picked.Add(all[random.Next(all.Length)]);
+        }
+
+        return [.. picked];
     }
 
     private static string BuildName(CollectionPointType type, string city, string district, Random random)

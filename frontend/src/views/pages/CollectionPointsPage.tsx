@@ -3,6 +3,8 @@ import { Building2, Church, Landmark, MapPin, Plus } from 'lucide-react'
 import { useState } from 'react'
 import {
   collectionPointTypeLabels,
+  itemCategoryLabels,
+  itemCategoryValues,
   type CollectionPoint,
   type CollectionPointType,
 } from '@/models/types'
@@ -63,6 +65,26 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
     cell: ({ getValue }) => <Badge tone="brand">{getValue<string>()}</Badge>,
   },
   {
+    id: 'items',
+    accessorFn: (row) => row.acceptedItems.map((i) => itemCategoryLabels[i]).join(', '),
+    header: 'Itens',
+    enableSorting: false,
+    meta: { label: 'Itens', filterPlaceholder: 'Filtrar item…' },
+    cell: ({ row }) => {
+      const items = row.original.acceptedItems
+      if (items.length === 0) return <span className="text-xs text-stone-400">—</span>
+      return (
+        <div className="flex max-w-56 flex-wrap gap-1">
+          {items.map((item) => (
+            <Badge key={item} tone="slate">
+              {itemCategoryLabels[item]}
+            </Badge>
+          ))}
+        </div>
+      )
+    },
+  },
+  {
     id: 'location',
     accessorFn: (row) => `${row.address.city}/${row.address.state}`,
     header: 'Cidade/UF',
@@ -102,6 +124,11 @@ const typeOptions: SelectOption[] = Object.entries(collectionPointTypeLabels).ma
   ([value, label]) => ({ value, label }),
 )
 
+const itemCategoryOptions: SelectOption[] = itemCategoryValues.map((value) => ({
+  value,
+  label: itemCategoryLabels[value],
+}))
+
 const collectionPointFields: FormFieldConfig[] = [
   { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 2 },
   { name: 'type', type: 'select', label: 'Tipo', options: typeOptions, required: true },
@@ -115,6 +142,15 @@ const collectionPointFields: FormFieldConfig[] = [
   { name: 'responsibleName', type: 'text', label: 'Responsável', required: true },
   { name: 'email', type: 'email', label: 'E-mail de contato', required: true },
   { name: 'phone', type: 'text', label: 'Telefone', placeholder: '11987654321', required: true },
+  {
+    name: 'acceptedItems',
+    type: 'multiselect',
+    label: 'Itens disponíveis',
+    hint: 'Selecione as categorias de itens que o ponto recebe/disponibiliza.',
+    options: itemCategoryOptions,
+    required: true,
+    colSpan: 2,
+  },
   {
     name: 'image',
     type: 'image',
@@ -138,6 +174,7 @@ const collectionPointDefaults: CreateCollectionPointForm = {
   responsibleName: '',
   email: '',
   phone: '',
+  acceptedItems: [],
   // Sem imagem inicial — a validação do schema exige uma ao enviar.
   image: undefined as unknown as File,
 }
