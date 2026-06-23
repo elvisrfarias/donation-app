@@ -1,10 +1,9 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, MapPin, ShieldCheck, Users } from 'lucide-react'
-import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { loginSchema, useAuth, useLoginViewModel, type LoginForm } from '@/viewmodels'
+import { loginSchema, useAuth, useLoginViewModel } from '@/viewmodels'
 import { AppLogo } from '@/views/components/common/AppLogo'
-import { Alert, Button, FormField, Input } from '@/views/components/ui'
+import { FormComponent } from '@/views/components/form'
+import { Alert } from '@/views/components/ui'
 
 interface LocationState {
   from?: string
@@ -20,29 +19,11 @@ export function LoginPage() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, isPending, error } = useLoginViewModel()
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  })
+  const { login, error } = useLoginViewModel()
 
   if (isAuthenticated) return <Navigate to="/app" replace />
 
   const from = (location.state as LocationState | null)?.from ?? '/app'
-
-  const onSubmit = handleSubmit(async (values) => {
-    try {
-      await login(values)
-      navigate(from, { replace: true })
-    } catch {
-      /* erro tratado e exibido via `error` */
-    }
-  })
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -88,41 +69,39 @@ export function LoginPage() {
           <h1 className="text-3xl font-bold text-stone-900">Acesse sua conta</h1>
           <p className="mt-2 text-sm text-stone-500">Área de gestão dos pontos de coleta.</p>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
-            {error && <Alert tone="error">{error.displayMessage}</Alert>}
+          {error && <Alert tone="error" className="mt-8">{error.displayMessage}</Alert>}
 
-            <FormField label="E-mail" htmlFor="email" error={errors.email?.message} required>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="voce@exemplo.com"
-                invalid={!!errors.email}
-                {...register('email')}
-              />
-            </FormField>
-
-            <FormField label="Senha" htmlFor="password" error={errors.password?.message} required>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                invalid={!!errors.password}
-                {...register('password')}
-              />
-            </FormField>
-
-            <Button
-              type="submit"
-              size="lg"
-              loading={isPending}
-              className="w-full"
-            >
-              Entrar
-              <ArrowRight className="size-4" />
-            </Button>
-          </form>
+          <FormComponent
+            className="mt-8"
+            schema={loginSchema}
+            defaultValues={{ email: '', password: '' }}
+            onSubmit={async (values) => {
+              await login(values)
+              navigate(from, { replace: true })
+            }}
+            fields={[
+              {
+                name: 'email',
+                type: 'email',
+                label: 'E-mail',
+                autoComplete: 'email',
+                placeholder: 'voce@exemplo.com',
+                required: true,
+              },
+              {
+                name: 'password',
+                type: 'password',
+                label: 'Senha',
+                autoComplete: 'current-password',
+                placeholder: '••••••••',
+                required: true,
+              },
+            ]}
+            submitLabel="Entrar"
+            submitIcon={<ArrowRight className="size-4" />}
+            submitSize="lg"
+            submitFullWidth
+          />
 
           <p className="mt-8 text-center text-sm text-stone-500">
             <Link

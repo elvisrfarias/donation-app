@@ -1,10 +1,22 @@
 import { http } from '@/models/api/httpClient'
-import type { CollectionPoint, CreateCollectionPointInput } from '@/models/types'
+import type { CollectionPoint, CreateCollectionPointInput, UploadedImage } from '@/models/types'
 
 export const collectionPointService = {
   /** Lista pública (anônima) dos pontos de coleta ativos. */
   async listPublic(signal?: AbortSignal): Promise<CollectionPoint[]> {
     const { data } = await http.get<CollectionPoint[]>('/public/collection-points', { signal })
+    return data
+  },
+
+  /** Envia a imagem do ponto (visibilidade pública) e devolve o id/URL do arquivo. */
+  async uploadImage(file: File): Promise<UploadedImage> {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('visibility', 'Public')
+    form.append('ownerType', 'CollectionPoint')
+    const { data } = await http.post<UploadedImage>('/files', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return data
   },
 

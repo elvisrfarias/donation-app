@@ -2,6 +2,7 @@ using DoacaoApp.Domain.CollectionPoints.Events;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Storage;
 using DoacaoApp.Domain.ValueObjects;
 using ErrorOr;
 
@@ -29,12 +30,14 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         CollectionPointType type,
         Address address,
         ContactInfo contact,
+        StoredFileId? imageFileId,
         DateTime createdAtUtc) : base(id)
     {
         Name = name;
         Type = type;
         Address = address;
         Contact = contact;
+        ImageFileId = imageFileId;
         CreatedAtUtc = createdAtUtc;
         IsActive = true;
     }
@@ -43,6 +46,13 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public CollectionPointType Type { get; private set; }
     public Address Address { get; private set; }
     public ContactInfo Contact { get; private set; }
+
+    /// <summary>
+    /// Imagem (foto) do ponto de coleta no storage. Obrigatória para pontos cadastrados pela
+    /// aplicação a partir de agora; nula nos pontos antigos e nos de seed (a UI cai no ícone).
+    /// </summary>
+    public StoredFileId? ImageFileId { get; private set; }
+
     public bool IsActive { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
@@ -53,18 +63,23 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         CollectionPointType type,
         Address address,
         ContactInfo contact,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        StoredFileId? imageFileId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
             return DomainErrors.CollectionPoint.NameRequired;
         }
 
-        var point = new CollectionPoint(CollectionPointId.New(), name.Trim(), type, address, contact, createdAtUtc);
+        var point = new CollectionPoint(
+            CollectionPointId.New(), name.Trim(), type, address, contact, imageFileId, createdAtUtc);
         point.RaiseDomainEvent(new CollectionPointCreated(point.Id, point.Name, point.Type));
 
         return point;
     }
+
+    /// <summary>Define (ou troca) a imagem do ponto de coleta.</summary>
+    public void SetImage(StoredFileId imageFileId) => ImageFileId = imageFileId;
 
     public void Activate() => IsActive = true;
 

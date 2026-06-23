@@ -1,9 +1,9 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarClock, IdCard, Plus, Search, UserPlus, Users } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CalendarClock, Plus, Search, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { formatDate, formatDateTime } from '@/lib/utils'
-import { cycleTypeLabels } from '@/models/types'
+import { cycleTypeLabels, type Beneficiary, type Withdrawal } from '@/models/types'
 import {
   createFamilySchema,
   registerBeneficiarySchema,
@@ -15,18 +15,55 @@ import {
   type CreateFamilyForm,
   type RegisterBeneficiaryForm,
 } from '@/viewmodels'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CenteredSpinner,
-  EmptyState,
-  FormField,
-  Input,
-  SectionTitle,
-  Select,
-} from '@/views/components/ui'
+import { DataTable } from '@/views/components/data-table'
+import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
+import { ModalComponent } from '@/views/components/modal'
+import { Alert, Badge, Button, Card, CenteredSpinner, SectionTitle } from '@/views/components/ui'
+
+const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Nome',
+    meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
+    cell: ({ getValue }) => <span className="font-medium text-stone-800">{getValue<string>()}</span>,
+  },
+  {
+    accessorKey: 'cpf',
+    header: 'CPF',
+    meta: { label: 'CPF', filterPlaceholder: 'Filtrar CPF…' },
+  },
+  {
+    accessorKey: 'isActive',
+    header: 'Status',
+    enableColumnFilter: false,
+    meta: { label: 'Status', align: 'center' },
+    cell: ({ getValue }) => {
+      const active = getValue<boolean>()
+      return <Badge tone={active ? 'green' : 'slate'}>{active ? 'Ativo' : 'Inativo'}</Badge>
+    },
+  },
+]
+
+const cycleOptions: SelectOption[] = Object.entries(cycleTypeLabels).map(([value, label]) => ({
+  value,
+  label,
+}))
+
+const familyFields: FormFieldConfig[] = [
+  { name: 'name', type: 'text', label: 'Nome / referência', placeholder: 'Família Silva', required: true, colSpan: 2 },
+  { name: 'cycleType', type: 'select', label: 'Ciclo', options: cycleOptions, required: true },
+  { name: 'maxWithdrawalsPerCycle', type: 'number', label: 'Máx. por ciclo', min: 1, required: true },
+]
+
+const familyDefaults: CreateFamilyForm = { name: '', cycleType: 'Monthly', maxWithdrawalsPerCycle: 1 }
+const beneficiaryDefaults: RegisterBeneficiaryForm = {
+  name: '',
+  cpf: '',
+  birthDate: '',
+  registeredByPointId: '',
+}
+
+const lookupSchema = z.object({ familyId: z.string() })
 
 export function FamiliesPage() {
   const { isManager } = useAuth()
@@ -34,46 +71,81 @@ export function FamiliesPage() {
   const createFamily = useCreateFamily()
 
   const [familyId, setFamilyId] = useState<string | null>(null)
-  const [lookupInput, setLookupInput] = useState('')
   const family = useFamily(familyId)
   const registerBeneficiary = useRegisterBeneficiary(familyId ?? '')
 
-  const familyForm = useForm<CreateFamilyForm>({
-    resolver: zodResolver(createFamilySchema),
-    defaultValues: { name: '', cycleType: 'Monthly', maxWithdrawalsPerCycle: 1 },
-  })
+  const [newFamilyOpen, setNewFamilyOpen] = useState(false)
+  const [lookupOpen, setLookupOpen] = useState(false)
+  const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
 
-  const beneficiaryForm = useForm<RegisterBeneficiaryForm>({
-    resolver: zodResolver(registerBeneficiarySchema),
-    defaultValues: { name: '', cpf: '', birthDate: '', registeredByPointId: '' },
-  })
-
-  const onCreateFamily = familyForm.handleSubmit(async (values) => {
-    try {
-      await createFamily.create(values)
-      familyForm.reset({ name: '', cycleType: 'Monthly', maxWithdrawalsPerCycle: 1 })
-    } catch {
-      /* erro exibido via createFamily.error */
-    }
-  })
-
-  const onRegisterBeneficiary = beneficiaryForm.handleSubmit(async (values) => {
-    try {
-      await registerBeneficiary.register({
-        name: values.name,
-        cpf: values.cpf,
-        birthDate: values.birthDate || null,
-        registeredByPointId: values.registeredByPointId,
-      })
-      beneficiaryForm.reset({ name: '', cpf: '', birthDate: '', registeredByPointId: '' })
-    } catch {
-      /* erro exibido via registerBeneficiary.error */
-    }
-  })
+  function openNewFamily() {
+    createFamily.reset()
+    setNewFamilyOpen(true)
+  }
+  function openBeneficiary() {
+    registerBeneficiary.reset()
+    setBeneficiaryOpen(true)
+  }
 
   const pointName = (id: string) => points.find((p) => p.id === id)?.name ?? `${id.slice(0, 8)}…`
   const beneficiaryName = (id: string) =>
     family.family?.beneficiaries.find((b) => b.id === id)?.name ?? `${id.slice(0, 8)}…`
+
+  const historyColumns: ColumnDef<Withdrawal>[] = [
+    {
+      accessorKey: 'occurredAtUtc',
+      header: 'Data',
+      meta: { label: 'Data' },
+      cell: ({ getValue }) => (
+        <span className="whitespace-nowrap text-stone-600">{formatDateTime(getValue<string>())}</span>
+      ),
+    },
+    {
+      id: 'beneficiary',
+      accessorFn: (w) => beneficiaryName(w.beneficiaryId),
+      header: 'Beneficiário',
+      meta: { label: 'Beneficiário', filterPlaceholder: 'Filtrar beneficiário…' },
+      cell: ({ getValue }) => (
+        <span className="font-medium text-stone-700">{getValue<string>()}</span>
+      ),
+    },
+    {
+      id: 'point',
+      accessorFn: (w) => pointName(w.pointId),
+      header: 'Ponto',
+      meta: { label: 'Ponto', filterPlaceholder: 'Filtrar ponto…' },
+    },
+    {
+      accessorKey: 'notes',
+      header: 'Observações',
+      enableSorting: false,
+      meta: { label: 'Observações' },
+      cell: ({ getValue }) => {
+        const notes = getValue<string | null | undefined>()
+        return notes ? (
+          <span className="text-stone-600">{notes}</span>
+        ) : (
+          <span className="text-stone-400">—</span>
+        )
+      },
+    },
+  ]
+
+  const beneficiaryFields: FormFieldConfig[] = [
+    { name: 'name', type: 'text', label: 'Nome', required: true },
+    { name: 'cpf', type: 'text', label: 'CPF', placeholder: '000.000.000-00', required: true },
+    { name: 'birthDate', type: 'date', label: 'Nascimento' },
+    {
+      name: 'registeredByPointId',
+      type: 'autocomplete',
+      label: 'Ponto de cadastro',
+      options: points.map((p) => ({ value: p.id, label: p.name })),
+      placeholder: 'Selecione…',
+      searchPlaceholder: 'Buscar ponto…',
+      emptyText: 'Nenhum ponto encontrado.',
+      required: true,
+    },
+  ]
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -83,97 +155,87 @@ export function FamiliesPage() {
         description="Cadastro, beneficiários e histórico municipal de retiradas."
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Criar família */}
-        {isManager ? (
-          <Card className="p-6">
-            <h2 className="text-base font-semibold text-stone-900">Nova família</h2>
-            {createFamily.createdFamily && (
-              <Alert tone="success" className="mt-3" title="Família criada!">
-                ID: <code className="font-mono text-xs">{createFamily.createdFamily.id}</code>
-              </Alert>
-            )}
-            {createFamily.error && (
-              <Alert tone="error" className="mt-3">
-                {createFamily.error.displayMessage}
-              </Alert>
-            )}
-            <form onSubmit={onCreateFamily} className="mt-4 space-y-4" noValidate>
-              <FormField
-                label="Nome / referência"
-                htmlFor="familyName"
-                error={familyForm.formState.errors.name?.message}
-                required
-              >
-                <Input
-                  id="familyName"
-                  placeholder="Família Silva"
-                  {...familyForm.register('name')}
-                  invalid={!!familyForm.formState.errors.name}
-                />
-              </FormField>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  label="Ciclo"
-                  htmlFor="cycleType"
-                  error={familyForm.formState.errors.cycleType?.message}
-                  required
-                >
-                  <Select id="cycleType" {...familyForm.register('cycleType')}>
-                    {Object.entries(cycleTypeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
-                <FormField
-                  label="Máx. por ciclo"
-                  htmlFor="maxWithdrawals"
-                  error={familyForm.formState.errors.maxWithdrawalsPerCycle?.message}
-                  required
-                >
-                  <Input
-                    id="maxWithdrawals"
-                    type="number"
-                    min={1}
-                    {...familyForm.register('maxWithdrawalsPerCycle', { valueAsNumber: true })}
-                    invalid={!!familyForm.formState.errors.maxWithdrawalsPerCycle}
-                  />
-                </FormField>
-              </div>
-              <Button type="submit" loading={createFamily.isPending} leftIcon={<Plus className="size-4" />}>
-                Criar família
-              </Button>
-            </form>
-          </Card>
-        ) : (
-          <Alert tone="info">Apenas gestores/administradores podem criar famílias.</Alert>
-        )}
-
-        {/* Consultar família */}
-        <Card className="p-6">
-          <h2 className="text-base font-semibold text-stone-900">Consultar família</h2>
-          <p className="mt-1 text-sm text-stone-500">Informe o ID da família para ver detalhes.</p>
-          <form
-            className="mt-4 flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setFamilyId(lookupInput.trim() || null)
-            }}
-          >
-            <Input
-              value={lookupInput}
-              onChange={(e) => setLookupInput(e.target.value)}
-              placeholder="ID da família (GUID)"
-              className="font-mono text-xs"
-            />
-            <Button type="submit" leftIcon={<Search className="size-4" />}>
-              Carregar
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {isManager && (
+            <Button variant="brand" leftIcon={<Plus className="size-4" />} onClick={openNewFamily}>
+              Nova família
             </Button>
-          </form>
-        </Card>
+          )}
+          <Button
+            variant="secondary"
+            leftIcon={<Search className="size-4" />}
+            onClick={() => setLookupOpen(true)}
+          >
+            Consultar família
+          </Button>
+        </div>
+        {!isManager && (
+          <span className="text-sm text-stone-500">
+            Apenas gestores/administradores podem criar famílias.
+          </span>
+        )}
       </div>
+
+      {createFamily.createdFamily && (
+        <Alert tone="success" title="Família criada!">
+          ID: <code className="font-mono text-xs">{createFamily.createdFamily.id}</code>
+        </Alert>
+      )}
+
+      {/* Nova família */}
+      {isManager && (
+        <ModalComponent
+          open={newFamilyOpen}
+          onOpenChange={setNewFamilyOpen}
+          title="Nova família"
+          description="Defina o ciclo e o limite de retiradas compartilhado no município."
+        >
+          {createFamily.error && <Alert tone="error">{createFamily.error.displayMessage}</Alert>}
+          <FormComponent
+            columns={2}
+            schema={createFamilySchema}
+            defaultValues={familyDefaults}
+            fields={familyFields}
+            onSubmit={async (values) => {
+              await createFamily.create(values)
+              setNewFamilyOpen(false)
+            }}
+            submitLabel="Criar família"
+            submitIcon={<Plus className="size-4" />}
+            submitFullWidth
+          />
+        </ModalComponent>
+      )}
+
+      {/* Consultar família */}
+      <ModalComponent
+        open={lookupOpen}
+        onOpenChange={setLookupOpen}
+        title="Consultar família"
+        description="Informe o ID da família para ver detalhes."
+        size="md"
+      >
+        <FormComponent
+          schema={lookupSchema}
+          defaultValues={{ familyId: '' }}
+          fields={[
+            {
+              name: 'familyId',
+              type: 'text',
+              label: 'ID da família (GUID)',
+              placeholder: '00000000-0000-0000-0000-000000000000',
+            },
+          ]}
+          onSubmit={(values) => {
+            setFamilyId(values.familyId.trim() || null)
+            setLookupOpen(false)
+          }}
+          submitLabel="Carregar"
+          submitIcon={<Search className="size-4" />}
+          submitFullWidth
+        />
+      </ModalComponent>
 
       {/* Detalhes da família */}
       {familyId && (
@@ -187,8 +249,8 @@ export function FamiliesPage() {
           ) : family.error ? (
             <Alert tone="error">{family.error.displayMessage}</Alert>
           ) : family.family ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {/* Beneficiários */}
+            <div className="space-y-4">
+              {/* Resumo + saldo do ciclo */}
               <Card className="p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-semibold text-stone-900">{family.family.name}</h3>
@@ -197,105 +259,9 @@ export function FamiliesPage() {
                     {family.family.cycle.maxWithdrawalsPerCycle}/ciclo
                   </Badge>
                 </div>
-
-                <h4 className="mt-4 text-sm font-medium text-stone-500">Beneficiários</h4>
-                {family.family.beneficiaries.length === 0 ? (
-                  <p className="mt-2 text-sm text-stone-400">Nenhum beneficiário cadastrado.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {family.family.beneficiaries.map((b) => (
-                      <li
-                        key={b.id}
-                        className="flex items-center justify-between rounded-xl border border-stone-200 p-3 transition-colors hover:border-stone-300"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="grid size-8 place-items-center rounded-full bg-stone-100 text-stone-500">
-                            <IdCard className="size-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-medium text-stone-800">{b.name}</p>
-                            <p className="text-xs text-stone-500">{b.cpf}</p>
-                          </div>
-                        </div>
-                        <Badge tone={b.isActive ? 'green' : 'slate'}>
-                          {b.isActive ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* Cadastrar beneficiário */}
-                {isManager && (
-                  <form
-                    onSubmit={onRegisterBeneficiary}
-                    className="mt-5 space-y-3 border-t border-stone-100 pt-4"
-                    noValidate
-                  >
-                    <p className="text-sm font-medium text-stone-700">Adicionar beneficiário</p>
-                    {registerBeneficiary.error && (
-                      <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
-                    )}
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField
-                        label="Nome"
-                        htmlFor="benName"
-                        error={beneficiaryForm.formState.errors.name?.message}
-                        required
-                      >
-                        <Input id="benName" {...beneficiaryForm.register('name')} invalid={!!beneficiaryForm.formState.errors.name} />
-                      </FormField>
-                      <FormField
-                        label="CPF"
-                        htmlFor="benCpf"
-                        error={beneficiaryForm.formState.errors.cpf?.message}
-                        required
-                      >
-                        <Input id="benCpf" placeholder="000.000.000-00" {...beneficiaryForm.register('cpf')} invalid={!!beneficiaryForm.formState.errors.cpf} />
-                      </FormField>
-                      <FormField
-                        label="Nascimento"
-                        htmlFor="benBirth"
-                        error={beneficiaryForm.formState.errors.birthDate?.message}
-                      >
-                        <Input id="benBirth" type="date" {...beneficiaryForm.register('birthDate')} />
-                      </FormField>
-                      <FormField
-                        label="Ponto de cadastro"
-                        htmlFor="benPoint"
-                        error={beneficiaryForm.formState.errors.registeredByPointId?.message}
-                        required
-                      >
-                        <Select id="benPoint" {...beneficiaryForm.register('registeredByPointId')} invalid={!!beneficiaryForm.formState.errors.registeredByPointId}>
-                          <option value="">Selecione…</option>
-                          {points.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </Select>
-                      </FormField>
-                    </div>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      loading={registerBeneficiary.isPending}
-                      leftIcon={<UserPlus className="size-4" />}
-                    >
-                      Adicionar
-                    </Button>
-                  </form>
-                )}
-              </Card>
-
-              {/* Histórico / saldo do ciclo */}
-              <Card className="p-6">
-                <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
-                  <CalendarClock className="size-5 text-brand-600" /> Ciclo vigente
-                </h3>
-                {family.history ? (
+                {family.history && (
                   <>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-xl bg-stone-50 p-3 ring-1 ring-inset ring-stone-100">
                         <p className="text-2xl font-bold text-stone-900 tabular-nums">
                           {family.history.usedInCurrentCycle}
@@ -319,32 +285,79 @@ export function FamiliesPage() {
                       Janela: {formatDate(family.history.currentCycleStartUtc)} —{' '}
                       {formatDate(family.history.currentCycleEndUtc)}
                     </p>
-
-                    <h4 className="mt-4 text-sm font-medium text-stone-500">
-                      Histórico de retiradas
-                    </h4>
-                    {family.history.withdrawals.length === 0 ? (
-                      <p className="mt-2 text-sm text-stone-400">Nenhuma retirada registrada.</p>
-                    ) : (
-                      <ul className="mt-2 divide-y divide-stone-100">
-                        {family.history.withdrawals.map((w) => (
-                          <li key={w.id} className="flex items-center justify-between py-2 text-sm">
-                            <div>
-                              <p className="font-medium text-stone-700">{beneficiaryName(w.beneficiaryId)}</p>
-                              <p className="text-xs text-stone-500">{pointName(w.pointId)}</p>
-                            </div>
-                            <span className="text-xs text-stone-500">
-                              {formatDateTime(w.occurredAtUtc)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </>
-                ) : (
-                  <EmptyState title="Sem histórico" description="Não foi possível carregar o histórico." />
                 )}
               </Card>
+
+              {/* Beneficiários */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
+                    <Users className="size-5 text-brand-600" /> Beneficiários
+                  </h3>
+                  {isManager && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<UserPlus className="size-4" />}
+                      onClick={openBeneficiary}
+                    >
+                      Adicionar beneficiário
+                    </Button>
+                  )}
+                </div>
+                <DataTable
+                  columns={beneficiaryColumns}
+                  data={family.family.beneficiaries}
+                  pageSize={5}
+                  pageSizeOptions={[5, 10, 20]}
+                  searchPlaceholder="Buscar beneficiário…"
+                  emptyMessage="Nenhum beneficiário cadastrado."
+                />
+                {isManager && (
+                  <ModalComponent
+                    open={beneficiaryOpen}
+                    onOpenChange={setBeneficiaryOpen}
+                    title="Adicionar beneficiário"
+                    description={`Vincular um beneficiário a ${family.family.name}.`}
+                  >
+                    {registerBeneficiary.error && (
+                      <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
+                    )}
+                    <FormComponent
+                      columns={2}
+                      schema={registerBeneficiarySchema}
+                      defaultValues={beneficiaryDefaults}
+                      fields={beneficiaryFields}
+                      onSubmit={async (values) => {
+                        await registerBeneficiary.register({
+                          name: values.name,
+                          cpf: values.cpf,
+                          birthDate: values.birthDate || null,
+                          registeredByPointId: values.registeredByPointId,
+                        })
+                        setBeneficiaryOpen(false)
+                      }}
+                      submitLabel="Adicionar"
+                      submitIcon={<UserPlus className="size-4" />}
+                      submitFullWidth
+                    />
+                  </ModalComponent>
+                )}
+              </div>
+
+              {/* Histórico de retiradas */}
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
+                  <CalendarClock className="size-5 text-brand-600" /> Histórico de retiradas
+                </h3>
+                <DataTable
+                  columns={historyColumns}
+                  data={family.history?.withdrawals ?? []}
+                  searchPlaceholder="Buscar por beneficiário ou ponto…"
+                  emptyMessage="Nenhuma retirada registrada."
+                />
+              </div>
             </div>
           ) : null}
         </>

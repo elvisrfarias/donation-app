@@ -1,0 +1,12 @@
+/* ===========================================================================
+   Tema white-label (runtime).
+
+   Em produção, este arquivo é REESCRITO no boot do container nginx a partir da
+   variável de ambiente BRAND_PRIMARY (ver frontend/docker-theme-entrypoint.sh):
+
+       :root { --brand: <BRAND_PRIMARY> !important; }
+
+   Sem BRAND_PRIMARY (ou em dev), fica vazio e a plataforma usa a cor padrão
+   definida em src/index.css (`--brand`). É carregado por último no <head>, então
+   o override vence a cascata.
+   =========================================================================== */

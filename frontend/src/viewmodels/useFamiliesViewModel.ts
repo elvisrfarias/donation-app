@@ -65,5 +65,6 @@ export function useRegisterBeneficiary(familyId: string) {
     register: mutation.mutateAsync,
     isPending: mutation.isPending,
     error: mutation.error,
+    reset: mutation.reset,
   }
 }

@@ -10,7 +10,8 @@ public sealed record CollectionPointResponse(
     AddressResponse Address,
     ContactResponse Contact,
     bool IsActive,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    string? ImageUrl);
 
 public sealed record AddressResponse(
     string Street,
@@ -25,7 +26,7 @@ public sealed record ContactResponse(string ResponsibleName, string Email, strin
 
 public static class CollectionPointMappings
 {
-    public static CollectionPointResponse ToResponse(this CollectionPoint point) =>
+    public static CollectionPointResponse ToResponse(this CollectionPoint point, string? imageUrl = null) =>
         new(
             point.Id.Value,
             point.Name,
@@ -43,5 +44,6 @@ public static class CollectionPointMappings
                 point.Contact.Email.Value,
                 point.Contact.Phone.Formatted),
             point.IsActive,
-            point.CreatedAtUtc);
+            point.CreatedAtUtc,
+            imageUrl);
 }

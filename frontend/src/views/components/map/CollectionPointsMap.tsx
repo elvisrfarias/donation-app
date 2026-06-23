@@ -81,6 +81,14 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
         >
           <Popup>
             <div className="min-w-60 space-y-2 p-3.5">
+              {item.imageUrl && (
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  loading="lazy"
+                  className="h-28 w-full rounded-lg object-cover"
+                />
+              )}
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-sm font-bold text-stone-900">{item.name}</h3>
                 <Badge tone="brand">{collectionPointTypeLabels[item.type]}</Badge>

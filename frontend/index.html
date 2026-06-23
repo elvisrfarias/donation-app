@@ -15,6 +15,10 @@
       rel="stylesheet"
     />
     <title>Doação App — Pontos de Coleta</title>
+    <!-- White-label: sobrescreve --brand em runtime (gerado no boot do nginx a
+         partir de BRAND_PRIMARY). Usa !important, então independe da ordem de
+         carga em relação ao CSS do bundle. -->
+    <link rel="stylesheet" href="/theme.css" />
   </head>
   <body>
     <div id="root"></div>

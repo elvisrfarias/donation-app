@@ -6,6 +6,18 @@ export const loginSchema = z.object({
 })
 export type LoginForm = z.infer<typeof loginSchema>
 
+/** Imagem do ponto de coleta — agora obrigatória ao cadastrar. */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+const imageFileSchema = z
+  .instanceof(File, { message: 'A imagem do ponto é obrigatória.' })
+  .refine((file) => file.size > 0, 'A imagem do ponto é obrigatória.')
+  .refine((file) => file.size <= MAX_IMAGE_BYTES, 'A imagem excede o limite de 10 MB.')
+  .refine(
+    (file) => ALLOWED_IMAGE_TYPES.includes(file.type),
+    'Formato não suportado. Use JPEG, PNG, WebP, GIF ou AVIF.',
+  )
+
 export const createCollectionPointSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').max(200),
   type: z.enum(['Association', 'Church', 'PublicEntity']),
@@ -19,6 +31,7 @@ export const createCollectionPointSchema = z.object({
   responsibleName: z.string().min(1, 'Responsável é obrigatório.').max(160),
   email: z.email('E-mail de contato inválido.'),
   phone: z.string().min(10, 'Telefone inválido.').max(15),
+  image: imageFileSchema,
 })
 export type CreateCollectionPointForm = z.infer<typeof createCollectionPointSchema>
 

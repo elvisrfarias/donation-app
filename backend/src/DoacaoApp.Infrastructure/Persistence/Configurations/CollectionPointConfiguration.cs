@@ -19,6 +19,9 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         builder.Property(p => p.IsActive).IsRequired();
         builder.Property(p => p.CreatedAtUtc).IsRequired();
 
+        // Imagem opcional (associação fraca ao StoredFile, sem FK — igual ao OwnerId do storage).
+        builder.Property(p => p.ImageFileId).HasColumnName("image_file_id");
+
         // Address (Value Object) inline como owned type.
         builder.OwnsOne(p => p.Address, address =>
         {

@@ -1,9 +1,9 @@
-import { zodResolver } from '@hookform/resolvers/zod'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Building2, Church, Landmark, MapPin, Plus } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
 import {
   collectionPointTypeLabels,
-  formatAddress,
+  type CollectionPoint,
   type CollectionPointType,
 } from '@/models/types'
 import {
@@ -13,18 +13,10 @@ import {
   useCreateCollectionPoint,
   type CreateCollectionPointForm,
 } from '@/viewmodels'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CenteredSpinner,
-  EmptyState,
-  FormField,
-  Input,
-  SectionTitle,
-  Select,
-} from '@/views/components/ui'
+import { DataTable } from '@/views/components/data-table'
+import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
+import { ModalComponent } from '@/views/components/modal'
+import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
 const typeIcon: Record<CollectionPointType, typeof Building2> = {
   Association: Building2,
@@ -32,42 +24,135 @@ const typeIcon: Record<CollectionPointType, typeof Building2> = {
   PublicEntity: Landmark,
 }
 
+const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
+  {
+    id: 'image',
+    header: 'Foto',
+    enableSorting: false,
+    enableColumnFilter: false,
+    enableHiding: false,
+    meta: { label: 'Foto' },
+    cell: ({ row }) => {
+      const point = row.original
+      const Icon = typeIcon[point.type]
+      return point.imageUrl ? (
+        <img
+          src={point.imageUrl}
+          alt={point.name}
+          loading="lazy"
+          className="size-10 rounded-xl object-cover ring-1 ring-inset ring-stone-200"
+        />
+      ) : (
+        <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
+          <Icon className="size-5" />
+        </span>
+      )
+    },
+  },
+  {
+    accessorKey: 'name',
+    header: 'Nome',
+    meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
+    cell: ({ getValue }) => <span className="font-medium text-stone-900">{getValue<string>()}</span>,
+  },
+  {
+    id: 'type',
+    accessorFn: (row) => collectionPointTypeLabels[row.type],
+    header: 'Tipo',
+    meta: { label: 'Tipo', filterPlaceholder: 'Filtrar tipo…' },
+    cell: ({ getValue }) => <Badge tone="brand">{getValue<string>()}</Badge>,
+  },
+  {
+    id: 'location',
+    accessorFn: (row) => `${row.address.city}/${row.address.state}`,
+    header: 'Cidade/UF',
+    meta: { label: 'Cidade/UF', filterPlaceholder: 'Filtrar cidade…' },
+  },
+  {
+    accessorKey: 'contact.responsibleName',
+    header: 'Responsável',
+    meta: { label: 'Responsável', filterPlaceholder: 'Filtrar responsável…' },
+  },
+  {
+    id: 'contact',
+    header: 'Contato',
+    enableSorting: false,
+    enableColumnFilter: false,
+    meta: { label: 'Contato' },
+    cell: ({ row }) => (
+      <div className="text-xs text-stone-500">
+        <p>{row.original.contact.phone}</p>
+        <p>{row.original.contact.email}</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'isActive',
+    header: 'Status',
+    enableColumnFilter: false,
+    meta: { label: 'Status', align: 'center' },
+    cell: ({ getValue }) => {
+      const active = getValue<boolean>()
+      return <Badge tone={active ? 'green' : 'slate'}>{active ? 'Ativo' : 'Inativo'}</Badge>
+    },
+  },
+]
+
+const typeOptions: SelectOption[] = Object.entries(collectionPointTypeLabels).map(
+  ([value, label]) => ({ value, label }),
+)
+
+const collectionPointFields: FormFieldConfig[] = [
+  { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 2 },
+  { name: 'type', type: 'select', label: 'Tipo', options: typeOptions, required: true },
+  { name: 'zipCode', type: 'text', label: 'CEP', placeholder: '00000000', required: true },
+  { name: 'street', type: 'text', label: 'Rua', required: true, colSpan: 2 },
+  { name: 'number', type: 'text', label: 'Número', required: true },
+  { name: 'complement', type: 'text', label: 'Complemento' },
+  { name: 'district', type: 'text', label: 'Bairro', required: true },
+  { name: 'city', type: 'text', label: 'Cidade', required: true },
+  { name: 'state', type: 'text', label: 'UF', maxLength: 2, placeholder: 'SP', required: true },
+  { name: 'responsibleName', type: 'text', label: 'Responsável', required: true },
+  { name: 'email', type: 'email', label: 'E-mail de contato', required: true },
+  { name: 'phone', type: 'text', label: 'Telefone', placeholder: '11987654321', required: true },
+  {
+    name: 'image',
+    type: 'image',
+    label: 'Imagem do ponto',
+    hint: 'JPEG, PNG, WebP, GIF ou AVIF, até 10 MB.',
+    required: true,
+    colSpan: 2,
+  },
+]
+
+const collectionPointDefaults: CreateCollectionPointForm = {
+  name: '',
+  type: 'Association',
+  street: '',
+  number: '',
+  complement: '',
+  district: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  responsibleName: '',
+  email: '',
+  phone: '',
+  // Sem imagem inicial — a validação do schema exige uma ao enviar.
+  image: undefined as unknown as File,
+}
+
 export function CollectionPointsPage() {
   const { isAdmin } = useAuth()
   const { points, isLoading, isError, error } = useCollectionPoints()
-  const { create, isPending, error: createError, createdPoint } = useCreateCollectionPoint()
+  const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateCollectionPointForm>({
-    resolver: zodResolver(createCollectionPointSchema),
-    defaultValues: {
-      name: '',
-      type: 'Association',
-      street: '',
-      number: '',
-      complement: '',
-      district: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      responsibleName: '',
-      email: '',
-      phone: '',
-    },
-  })
+  const [createOpen, setCreateOpen] = useState(false)
 
-  const onSubmit = handleSubmit(async (values) => {
-    try {
-      await create(values)
-      reset()
-    } catch {
-      /* erro exibido via createError */
-    }
-  })
+  function openCreate() {
+    reset() // limpa erro/sucesso de tentativas anteriores
+    setCreateOpen(true)
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -77,154 +162,61 @@ export function CollectionPointsPage() {
         description="Locais cadastrados que compartilham o histórico de retiradas do município."
       />
 
-      {isAdmin ? (
-        <Card className="p-6">
-          <h2 className="text-base font-semibold text-stone-900">Cadastrar novo ponto</h2>
-          {createdPoint && (
-            <Alert tone="success" className="mt-3" title="Ponto criado!">
-              {createdPoint.name} foi cadastrado com sucesso.
-            </Alert>
-          )}
-          {createError && (
-            <Alert tone="error" className="mt-3">
-              {createError.displayMessage}
-            </Alert>
-          )}
-
-          <form onSubmit={onSubmit} className="mt-4 grid gap-4 sm:grid-cols-2" noValidate>
-            <FormField
-              label="Nome"
-              htmlFor="name"
-              error={errors.name?.message}
-              required
-              className="sm:col-span-2"
-            >
-              <Input id="name" {...register('name')} invalid={!!errors.name} />
-            </FormField>
-
-            <FormField label="Tipo" htmlFor="type" error={errors.type?.message} required>
-              <Select id="type" {...register('type')} invalid={!!errors.type}>
-                {Object.entries(collectionPointTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-
-            <FormField label="CEP" htmlFor="zipCode" error={errors.zipCode?.message} required>
-              <Input id="zipCode" placeholder="00000000" {...register('zipCode')} invalid={!!errors.zipCode} />
-            </FormField>
-
-            <FormField
-              label="Rua"
-              htmlFor="street"
-              error={errors.street?.message}
-              required
-              className="sm:col-span-2"
-            >
-              <Input id="street" {...register('street')} invalid={!!errors.street} />
-            </FormField>
-
-            <FormField label="Número" htmlFor="number" error={errors.number?.message} required>
-              <Input id="number" {...register('number')} invalid={!!errors.number} />
-            </FormField>
-
-            <FormField label="Complemento" htmlFor="complement" error={errors.complement?.message}>
-              <Input id="complement" {...register('complement')} invalid={!!errors.complement} />
-            </FormField>
-
-            <FormField label="Bairro" htmlFor="district" error={errors.district?.message} required>
-              <Input id="district" {...register('district')} invalid={!!errors.district} />
-            </FormField>
-
-            <FormField label="Cidade" htmlFor="city" error={errors.city?.message} required>
-              <Input id="city" {...register('city')} invalid={!!errors.city} />
-            </FormField>
-
-            <FormField label="UF" htmlFor="state" error={errors.state?.message} required>
-              <Input id="state" maxLength={2} placeholder="SP" {...register('state')} invalid={!!errors.state} />
-            </FormField>
-
-            <FormField
-              label="Responsável"
-              htmlFor="responsibleName"
-              error={errors.responsibleName?.message}
-              required
-            >
-              <Input
-                id="responsibleName"
-                {...register('responsibleName')}
-                invalid={!!errors.responsibleName}
-              />
-            </FormField>
-
-            <FormField label="E-mail de contato" htmlFor="email" error={errors.email?.message} required>
-              <Input id="email" type="email" {...register('email')} invalid={!!errors.email} />
-            </FormField>
-
-            <FormField label="Telefone" htmlFor="phone" error={errors.phone?.message} required>
-              <Input id="phone" placeholder="11987654321" {...register('phone')} invalid={!!errors.phone} />
-            </FormField>
-
-            <Button
-              type="submit"
-              loading={isPending}
-              leftIcon={<Plus className="size-4" />}
-              className="justify-self-start sm:col-span-2"
-            >
-              Cadastrar ponto
-            </Button>
-          </form>
-        </Card>
-      ) : (
-        <Alert tone="info">Apenas administradores podem cadastrar novos pontos de coleta.</Alert>
+      {createdPoint && (
+        <Alert tone="success" title="Ponto criado!">
+          {createdPoint.name} foi cadastrado com sucesso.
+        </Alert>
       )}
 
       {/* Lista */}
-      {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
-
-      {isLoading ? (
-        <CenteredSpinner label="Carregando pontos…" />
-      ) : points.length === 0 ? (
-        <EmptyState
-          icon={<MapPin className="size-6" />}
-          title="Nenhum ponto cadastrado"
-          description="Os pontos cadastrados aparecerão aqui."
-        />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {points.map((point) => {
-            const Icon = typeIcon[point.type]
-            return (
-              <Card key={point.id} className="flex flex-col gap-3 p-5 transition-shadow hover:shadow-lift">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
-                      <Icon className="size-5" />
-                    </span>
-                    <div>
-                      <p className="font-semibold text-stone-900">{point.name}</p>
-                      <p className="text-xs text-stone-500">
-                        {collectionPointTypeLabels[point.type]}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge tone={point.isActive ? 'green' : 'slate'}>
-                    {point.isActive ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-                <p className="text-sm text-stone-600">{formatAddress(point.address)}</p>
-                <div className="mt-auto border-t border-stone-100 pt-3 text-xs text-stone-500">
-                  <p className="font-semibold text-stone-700">{point.contact.responsibleName}</p>
-                  <p className="mt-0.5">
-                    {point.contact.phone} · {point.contact.email}
-                  </p>
-                </div>
-              </Card>
-            )
-          })}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-semibold text-stone-900">Pontos cadastrados</h2>
+          {isAdmin ? (
+            <Button variant="brand" leftIcon={<Plus className="size-4" />} onClick={openCreate}>
+              Cadastrar ponto
+            </Button>
+          ) : (
+            <span className="text-sm text-stone-500">
+              Apenas administradores podem cadastrar pontos.
+            </span>
+          )}
         </div>
+        {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
+        <DataTable
+          columns={collectionPointColumns}
+          data={points}
+          isLoading={isLoading}
+          searchPlaceholder="Buscar por nome, cidade, responsável…"
+          emptyMessage="Nenhum ponto cadastrado ainda."
+        />
+      </div>
+
+      {isAdmin && (
+        <ModalComponent
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          title="Cadastrar novo ponto"
+          description="Locais que compartilham o histórico de retiradas do município."
+          size="xl"
+        >
+          {createError && (
+            <Alert tone="error">{createError.displayMessage}</Alert>
+          )}
+          <FormComponent
+            columns={2}
+            schema={createCollectionPointSchema}
+            defaultValues={collectionPointDefaults}
+            fields={collectionPointFields}
+            onSubmit={async (values) => {
+              await create(values)
+              setCreateOpen(false)
+            }}
+            submitLabel="Cadastrar ponto"
+            submitIcon={<Plus className="size-4" />}
+            submitFullWidth
+          />
+        </ModalComponent>
       )}
     </div>
   )

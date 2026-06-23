@@ -22,9 +22,9 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-dvh bg-stone-50">
+    <div className="flex h-dvh overflow-hidden bg-stone-50">
       {/* Sidebar (desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col bg-ink-950 px-3 py-5 lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-ink-950 px-3 py-5 lg:flex">
         <AppLogo className="px-2" inverted />
 
         <nav className="mt-8 flex flex-1 flex-col gap-1">
@@ -107,7 +107,7 @@ export function AppLayout() {
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">
           <Outlet />
         </main>
       </div>

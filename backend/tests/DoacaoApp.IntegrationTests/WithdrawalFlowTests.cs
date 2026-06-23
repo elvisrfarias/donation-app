@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Families.Contracts;
+using DoacaoApp.Application.Storage.Contracts;
 using FluentAssertions;
 using Xunit;
 
@@ -27,6 +28,9 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         var client = factory.CreateClient();
         await AuthenticateAsAdminAsync(client);
 
+        // 0) Envia a imagem do ponto (agora obrigatória).
+        var imageId = await UploadPointImageAsync(client);
+
         // 1) Cria o ponto de coleta.
         var pointResponse = await client.PostAsJsonAsync("/api/collection-points", new
         {
@@ -42,6 +46,7 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
             responsibleName = "Maria",
             email = "maria@doacao.org",
             phone = "11987654321",
+            imageFileId = imageId,
         });
         pointResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var point = (await pointResponse.Content.ReadFromJsonAsync<CollectionPointResponse>())!;
@@ -89,10 +94,57 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         });
         secondWithdrawal.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // 6) A lista pública agora exibe o ponto criado.
+        // 6) A lista pública agora exibe o ponto criado, com a URL da imagem.
         var publicList = await client.GetFromJsonAsync<List<CollectionPointResponse>>("/api/public/collection-points");
-        publicList.Should().ContainSingle(p => p.Id == point.Id);
+        publicList.Should().ContainSingle(p => p.Id == point.Id)
+            .Which.ImageUrl.Should().NotBeNullOrEmpty();
     }
+
+    [Fact]
+    public async Task CriarPonto_SemImagem_DeveRetornar400()
+    {
+        var client = factory.CreateClient();
+        await AuthenticateAsAdminAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/collection-points", new
+        {
+            name = "Ponto sem imagem",
+            type = "Association",
+            street = "Rua A",
+            number = "1",
+            complement = (string?)null,
+            district = "Centro",
+            city = "Chapecó",
+            state = "SC",
+            zipCode = "89800000",
+            responsibleName = "José",
+            email = "jose@doacao.org",
+            phone = "49987654321",
+            // imageFileId ausente -> Guid.Empty -> validação falha.
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>Faz upload de um PNG mínimo e devolve o id do arquivo armazenado.</summary>
+    private static async Task<Guid> UploadPointImageAsync(HttpClient client)
+    {
+        using var content = new MultipartFormDataContent();
+        var image = new ByteArrayContent(MinimalPng);
+        image.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(image, "file", "ponto.png");
+        content.Add(new StringContent("Public"), "visibility");
+
+        var response = await client.PostAsync("/api/files", content);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var file = (await response.Content.ReadFromJsonAsync<StoredFileResponse>())!;
+        return file.Id;
+    }
+
+    // PNG 1x1 transparente (base64) — suficiente para passar pela validação de imagem.
+    private static readonly byte[] MinimalPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
     private static async Task AuthenticateAsAdminAsync(HttpClient client)
     {

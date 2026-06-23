@@ -1,0 +1,83 @@
+import type { ReactNode } from 'react'
+import type { AnyFormApi } from '@tanstack/react-form'
+
+export interface SelectOption {
+  value: string
+  label: ReactNode
+  disabled?: boolean
+}
+
+export interface AutoCompleteOption {
+  value: string
+  label: string
+}
+
+interface BaseField {
+  /** Caminho do campo no schema (chave do objeto de valores). */
+  name: string
+  label?: string
+  hint?: string
+  required?: boolean
+  disabled?: boolean
+  /** Em layout de 2 colunas, ocupa a linha inteira quando `2`. */
+  colSpan?: 1 | 2
+}
+
+type TextLikeField = BaseField & {
+  type: 'text' | 'email' | 'password' | 'date'
+  placeholder?: string
+  autoComplete?: string
+  maxLength?: number
+}
+
+type NumberField = BaseField & {
+  type: 'number'
+  placeholder?: string
+  min?: number
+  max?: number
+  step?: number
+}
+
+type TextareaField = BaseField & {
+  type: 'textarea'
+  placeholder?: string
+  rows?: number
+}
+
+type SelectField = BaseField & {
+  type: 'select'
+  options: SelectOption[]
+  placeholder?: string
+}
+
+type AutoCompleteField = BaseField & {
+  type: 'autocomplete'
+  options: AutoCompleteOption[]
+  placeholder?: string
+  searchPlaceholder?: string
+  emptyText?: string
+}
+
+type CheckboxField = BaseField & { type: 'checkbox' }
+
+type ImageField = BaseField & { type: 'image'; accept?: string }
+
+/** Escape hatch: conteúdo arbitrário com acesso à API do formulário. */
+type CustomField = {
+  type: 'custom'
+  key: string
+  colSpan?: 1 | 2
+  render: (form: AnyFormApi) => ReactNode
+}
+
+/** Campos vinculados a um valor do schema (tudo menos `custom`). */
+export type BoundFieldConfig =
+  | TextLikeField
+  | NumberField
+  | TextareaField
+  | SelectField
+  | AutoCompleteField
+  | CheckboxField
+  | ImageField
+
+export type FormFieldConfig = BoundFieldConfig | CustomField

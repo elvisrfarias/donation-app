@@ -25,6 +25,8 @@ export interface CollectionPoint {
   contact: Contact
   isActive: boolean
   createdAtUtc: string
+  /** URL (temporária) da foto do ponto. Nulo nos pontos antigos/seed — a UI cai no ícone. */
+  imageUrl?: string | null
 }
 
 /** Corpo do CreateCollectionPointCommand. */
@@ -41,6 +43,14 @@ export interface CreateCollectionPointInput {
   responsibleName: string
   email: string
   phone: string
+  /** Id do arquivo de imagem já enviado (POST /api/files). Obrigatório. */
+  imageFileId: string
+}
+
+/** Metadados de um arquivo enviado ao storage (subconjunto do StoredFileResponse). */
+export interface UploadedImage {
+  id: string
+  url?: string | null
 }
 
 export const collectionPointTypeLabels: Record<CollectionPointType, string> = {

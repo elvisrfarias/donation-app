@@ -2,6 +2,8 @@ using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
+using DoacaoApp.Domain.Errors;
+using DoacaoApp.Domain.Storage;
 using DoacaoApp.Domain.ValueObjects;
 using ErrorOr;
 using FluentValidation;
@@ -22,7 +24,8 @@ public sealed record CreateCollectionPointCommand(
     string ZipCode,
     string ResponsibleName,
     string Email,
-    string Phone) : IRequest<ErrorOr<CollectionPointResponse>>;
+    string Phone,
+    Guid ImageFileId) : IRequest<ErrorOr<CollectionPointResponse>>;
 
 public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCollectionPointCommand>
 {
@@ -37,11 +40,14 @@ public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCol
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.ResponsibleName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.ImageFileId).NotEmpty().WithMessage("A imagem do ponto de coleta é obrigatória.");
     }
 }
 
 public sealed class CreateCollectionPointHandler(
     ICollectionPointRepository repository,
+    IStoredFileRepository fileRepository,
+    IFileStorage storage,
     IUnitOfWork unitOfWork,
     IDateTimeProvider clock)
     : IRequestHandler<CreateCollectionPointCommand, ErrorOr<CollectionPointResponse>>
@@ -63,17 +69,36 @@ public sealed class CreateCollectionPointHandler(
             return voErrors;
         }
 
+        // A imagem deve ter sido enviada antes (POST /api/files) e existir como imagem disponível.
+        var image = await fileRepository.GetByIdAsync(StoredFileId.From(command.ImageFileId), cancellationToken);
+        if (image is null || image.Status == StoredFileStatus.Deleted)
+        {
+            return DomainErrors.StoredFile.NotFound;
+        }
+
+        if (!image.IsImage)
+        {
+            return DomainErrors.StoredFile.UnsupportedContentType(image.ContentType);
+        }
+
+        var now = clock.UtcNow;
         var pointResult = CollectionPoint.Create(
-            command.Name, command.Type, address.Value, contact.Value, clock.UtcNow);
+            command.Name, command.Type, address.Value, contact.Value, now, image.Id);
 
         if (pointResult.IsError)
         {
             return pointResult.Errors;
         }
 
+        // Vincula a imagem ao ponto (associação fraca usada pelo storage).
+        image.AttachToOwner(nameof(CollectionPoint), pointResult.Value.Id.Value, now);
+
         repository.Add(pointResult.Value);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return pointResult.Value.ToResponse();
+        var imageUrl = await storage.GetPresignedDownloadUrlAsync(
+            image.ObjectKey, image.OriginalFileName, cancellationToken);
+
+        return pointResult.Value.ToResponse(imageUrl.ToString());
     }
 }

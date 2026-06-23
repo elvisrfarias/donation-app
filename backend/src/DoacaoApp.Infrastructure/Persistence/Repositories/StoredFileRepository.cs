@@ -10,6 +10,21 @@ public sealed class StoredFileRepository(AppDbContext context) : IStoredFileRepo
     public async Task<StoredFile?> GetByIdAsync(StoredFileId id, CancellationToken cancellationToken = default) =>
         await context.StoredFiles.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<StoredFile>> ListByIdsAsync(
+        IReadOnlyCollection<StoredFileId> ids,
+        CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.StoredFiles
+            .AsNoTracking()
+            .Where(f => ids.Contains(f.Id) && f.Status != StoredFileStatus.Deleted)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<StoredFile>> ListByOwnerAsync(
         string ownerType,
         Guid ownerId,

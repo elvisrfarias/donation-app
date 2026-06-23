@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
 import { collectionPointService } from '@/models/services'
-import type { CollectionPoint, CreateCollectionPointInput } from '@/models/types'
+import type { CollectionPoint } from '@/models/types'
+import type { CreateCollectionPointForm } from '@/viewmodels/schemas'
 
 /** Lista de pontos de coleta (reaproveita o endpoint público). */
 export function useCollectionPoints() {
@@ -24,8 +25,12 @@ export function useCollectionPoints() {
 export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<CollectionPoint, ApiError, CreateCollectionPointInput>({
-    mutationFn: (input) => collectionPointService.create(input),
+  const mutation = useMutation<CollectionPoint, ApiError, CreateCollectionPointForm>({
+    // Envia a imagem primeiro (obrigatória) e cria o ponto referenciando o arquivo.
+    mutationFn: async ({ image, ...fields }) => {
+      const uploaded = await collectionPointService.uploadImage(image)
+      return collectionPointService.create({ ...fields, imageFileId: uploaded.id })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
     },

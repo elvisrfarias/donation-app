@@ -25,6 +25,11 @@ FROM nginx:1.27-alpine AS runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# White-label em runtime: gera /theme.css a partir de BRAND_PRIMARY no boot.
+# A imagem do nginx executa /docker-entrypoint.d/*.sh antes de iniciar o servidor.
+COPY docker-theme-entrypoint.sh /docker-entrypoint.d/40-theme.sh
+RUN chmod +x /docker-entrypoint.d/40-theme.sh
+
 EXPOSE 80
 
 # 127.0.0.1 (não "localhost"): o nginx escuta em IPv4; localhost pode resolver para ::1.

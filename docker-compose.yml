@@ -110,6 +110,10 @@ services:
       dockerfile: Dockerfile
     container_name: doacao-frontend
     restart: unless-stopped
+    environment:
+      # White-label: cor primária da marca aplicada no boot (sem rebuild).
+      # Vazia = usa a cor padrão do app. Ex.: BRAND_PRIMARY="#7c3aed".
+      BRAND_PRIMARY: ${BRAND_PRIMARY:-}
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
