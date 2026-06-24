@@ -28,7 +28,6 @@ public sealed class BeneficiaryConfiguration : IEntityTypeConfiguration<Benefici
         builder.Property(b => b.IsActive).IsRequired();
         builder.Property(b => b.CreatedAtUtc).IsRequired();
 
-        // Unicidade municipal de CPF reforçada no banco.
         builder.HasIndex(b => b.Cpf).IsUnique();
     }
 }

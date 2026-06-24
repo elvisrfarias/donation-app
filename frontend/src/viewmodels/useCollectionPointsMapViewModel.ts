@@ -30,7 +30,6 @@ export function useCollectionPointsMapViewModel() {
 
   const points = useMemo(() => pointsQuery.data ?? [], [pointsQuery.data])
 
-  // Uma query de geocodificação por ponto (cacheada "para sempre" — endereços não mudam).
   const geocodeQueries = useQueries({
     queries: points.map((p) => {
       const query = formatAddress(p.address)

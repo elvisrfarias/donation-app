@@ -2,7 +2,6 @@ import { env } from '@/lib/env'
 import type { LatLng } from '@/models/types'
 
 const CACHE_KEY = 'doacao.geocode.cache.v1'
-// Política de uso do Nominatim: no máximo 1 requisição por segundo.
 const MIN_INTERVAL_MS = 1100
 
 type CacheMap = Record<string, LatLng | null>
@@ -19,14 +18,11 @@ function loadCache(): CacheMap {
 function saveCache(cache: CacheMap): void {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
-  } catch {
-    /* quota excedida — segue sem persistir */
-  }
+  } catch {}
 }
 
 const cache = loadCache()
 let lastRequestAt = 0
-// Fila serial: garante o intervalo mínimo entre chamadas ao Nominatim.
 let queue: Promise<unknown> = Promise.resolve()
 
 function normalizeKey(q: string): string {

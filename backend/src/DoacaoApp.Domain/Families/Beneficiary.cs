@@ -10,7 +10,6 @@ namespace DoacaoApp.Domain.Families;
 /// </summary>
 public sealed class Beneficiary : Entity<BeneficiaryId>
 {
-    // Usado pela materialização do EF Core.
     private Beneficiary()
     {
         Name = string.Empty;

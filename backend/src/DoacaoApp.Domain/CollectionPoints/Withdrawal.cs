@@ -10,7 +10,6 @@ namespace DoacaoApp.Domain.CollectionPoints;
 /// </summary>
 public sealed class Withdrawal : Entity<WithdrawalId>
 {
-    // Usado pela materialização do EF Core.
     private Withdrawal()
     {
     }

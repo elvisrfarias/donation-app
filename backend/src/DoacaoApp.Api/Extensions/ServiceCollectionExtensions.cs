@@ -21,13 +21,11 @@ public static class ServiceCollectionExtensions
         services.AddControllers()
             .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-        // Aceita enums como string também nas Minimal APIs.
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUser>();
 
-        // ProblemDetails + handler global de exceções.
         services.AddProblemDetails();
         services.AddExceptionHandler<GlobalExceptionHandler>();
 
@@ -69,7 +67,6 @@ public static class ServiceCollectionExtensions
 
     private static void AddRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
-        // AspNetCoreRateLimit (limita as rotas de autenticação — ver appsettings "IpRateLimiting").
         services.AddMemoryCache();
         services.Configure<IpRateLimitOptions>(configuration.GetSection("IpRateLimiting"));
         services.AddInMemoryRateLimiting();

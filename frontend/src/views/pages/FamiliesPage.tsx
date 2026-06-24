@@ -131,14 +131,11 @@ export function FamiliesPage() {
     },
   ]
 
-  // Ações por linha dos beneficiários — só para gestores. Conecte os handlers
-  // aos viewmodels de edição/remoção quando existirem.
   const beneficiaryActions: RowAction<Beneficiary>[] = [
     {
       label: 'Editar',
       icon: <Pencil className="size-4" />,
       onClick: (beneficiary) => {
-        // TODO: abrir o modal de edição do beneficiário.
         window.alert(`Editar "${beneficiary.name}" — em breve.`)
       },
     },
@@ -147,10 +144,7 @@ export function FamiliesPage() {
       tone: 'danger',
       icon: <Trash2 className="size-4" />,
       onClick: (beneficiary) => {
-        // TODO: integrar com o viewmodel de remoção do beneficiário.
-        if (window.confirm(`Remover o beneficiário "${beneficiary.name}"?`)) {
-          // chamar a remoção aqui
-        }
+        window.alert(`Remover "${beneficiary.name}" — em breve.`)
       },
     },
   ]
@@ -207,7 +201,6 @@ export function FamiliesPage() {
         </Alert>
       )}
 
-      {/* Nova família */}
       {isManager && (
         <ModalComponent
           open={newFamilyOpen}
@@ -232,7 +225,6 @@ export function FamiliesPage() {
         </ModalComponent>
       )}
 
-      {/* Consultar família */}
       <ModalComponent
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -261,7 +253,6 @@ export function FamiliesPage() {
         />
       </ModalComponent>
 
-      {/* Detalhes da família */}
       {familyId && (
         <>
           {family.isLoading ? (
@@ -274,7 +265,6 @@ export function FamiliesPage() {
             <Alert tone="error">{family.error.displayMessage}</Alert>
           ) : family.family ? (
             <div className="space-y-4">
-              {/* Resumo + saldo do ciclo */}
               <Card className="p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-semibold text-stone-900">{family.family.name}</h3>
@@ -313,7 +303,6 @@ export function FamiliesPage() {
                 )}
               </Card>
 
-              {/* Beneficiários */}
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
@@ -371,7 +360,6 @@ export function FamiliesPage() {
                 )}
               </div>
 
-              {/* Histórico de retiradas */}
               <div className="space-y-3">
                 <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
                   <CalendarClock className="size-5 text-brand-600" /> Histórico de retiradas

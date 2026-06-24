@@ -133,10 +133,10 @@ const itemCategoryOptions: SelectOption[] = itemCategoryValues.map((value) => ({
 }))
 
 const collectionPointFields: FormFieldConfig[] = [
-  { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 2 },
+  { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 'full' },
   { name: 'type', type: 'select', label: 'Tipo', options: typeOptions, required: true },
   { name: 'zipCode', type: 'text', label: 'CEP', placeholder: '00000000', required: true },
-  { name: 'street', type: 'text', label: 'Rua', required: true, colSpan: 2 },
+  { name: 'street', type: 'text', label: 'Rua', required: true },
   { name: 'number', type: 'text', label: 'Número', required: true },
   { name: 'complement', type: 'text', label: 'Complemento' },
   { name: 'district', type: 'text', label: 'Bairro', required: true },
@@ -152,7 +152,7 @@ const collectionPointFields: FormFieldConfig[] = [
     hint: 'Selecione as categorias de itens que o ponto recebe/disponibiliza.',
     options: itemCategoryOptions,
     required: true,
-    colSpan: 2,
+    colSpan: 'full',
   },
   {
     name: 'image',
@@ -160,7 +160,7 @@ const collectionPointFields: FormFieldConfig[] = [
     label: 'Imagem do ponto',
     hint: 'JPEG, PNG, WebP, GIF ou AVIF, até 10 MB.',
     required: true,
-    colSpan: 2,
+    colSpan: 'full',
   },
 ]
 
@@ -178,7 +178,6 @@ const collectionPointDefaults: CreateCollectionPointForm = {
   email: '',
   phone: '',
   acceptedItems: [],
-  // Sem imagem inicial — a validação do schema exige uma ao enviar.
   image: undefined as unknown as File,
 }
 
@@ -192,18 +191,15 @@ export function CollectionPointsPage() {
   const [editingPoint, setEditingPoint] = useState<CollectionPoint | null>(null)
 
   function openCreate() {
-    reset() // limpa erro/sucesso de tentativas anteriores
+    reset()
     setCreateOpen(true)
   }
 
   function openEdit(point: CollectionPoint) {
-    resetUpdate() // limpa erro de tentativas anteriores
+    resetUpdate()
     setEditingPoint(point)
   }
 
-  // Valores e campos do formulário de edição derivados do ponto selecionado. A
-  // imagem é opcional: o `previewUrl` mostra a atual e ela só é trocada se o
-  // usuário escolher um arquivo novo.
   const editDefaults: UpdateCollectionPointForm | null = editingPoint && {
     name: editingPoint.name,
     type: editingPoint.type,
@@ -232,8 +228,6 @@ export function CollectionPointsPage() {
       : field,
   )
 
-  // Ações por linha — exibidas só para administradores. Remover ainda é um stub
-  // (sem viewmodel de remoção); editar abre o modal de edição.
   const pointActions: RowAction<CollectionPoint>[] = [
     {
       label: 'Editar',
@@ -245,10 +239,7 @@ export function CollectionPointsPage() {
       tone: 'danger',
       icon: <Trash2 className="size-4" />,
       onClick: (point) => {
-        // TODO: integrar com o viewmodel de remoção do ponto.
-        if (window.confirm(`Remover o ponto "${point.name}"?`)) {
-          // chamar a remoção aqui
-        }
+        window.alert(`Remover "${point.name}" — em breve.`)
       },
     },
   ]
@@ -267,7 +258,6 @@ export function CollectionPointsPage() {
         </Alert>
       )}
 
-      {/* Lista */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-stone-900">Pontos cadastrados</h2>
@@ -304,7 +294,7 @@ export function CollectionPointsPage() {
             <Alert tone="error">{createError.displayMessage}</Alert>
           )}
           <FormComponent
-            columns={2}
+            columns={3}
             schema={createCollectionPointSchema}
             defaultValues={collectionPointDefaults}
             fields={collectionPointFields}
@@ -329,9 +319,8 @@ export function CollectionPointsPage() {
         >
           {updateError && <Alert tone="error">{updateError.displayMessage}</Alert>}
           <FormComponent
-            // Remonta ao trocar de ponto para recarregar os valores padrão.
             key={editingPoint.id}
-            columns={2}
+            columns={3}
             schema={updateCollectionPointSchema}
             defaultValues={editDefaults}
             fields={editFields}

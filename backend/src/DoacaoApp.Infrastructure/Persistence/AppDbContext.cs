@@ -27,7 +27,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        // Conversão global dos IDs fortemente tipados <-> Guid.
         configurationBuilder.Properties<CollectionPointId>().HaveConversion<CollectionPointIdConverter>();
         configurationBuilder.Properties<WithdrawalId>().HaveConversion<WithdrawalIdConverter>();
         configurationBuilder.Properties<FamilyId>().HaveConversion<FamilyIdConverter>();
@@ -39,7 +38,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         base.OnModelCreating(builder);
 
-        // Aplica todas as IEntityTypeConfiguration deste assembly.
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }

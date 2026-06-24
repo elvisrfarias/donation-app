@@ -43,7 +43,6 @@ public class RegisterWithdrawalHandlerTests
     {
         var family = BuildFamilyWithBeneficiary(out var beneficiary, max: 1);
         var point = BuildPoint();
-        // A contagem municipal já é 1 (limite), mesmo que neste ponto não haja retiradas.
         SetupRepositories(family, point, withdrawalsInCycle: 1);
 
         var command = new RegisterWithdrawalCommand(point.Id.Value, family.Id.Value, beneficiary.Id.Value, null, null);

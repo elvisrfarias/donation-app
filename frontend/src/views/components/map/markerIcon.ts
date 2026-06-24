@@ -7,9 +7,9 @@ import type { CollectionPointType } from '@/models/types'
  * da paleta de gráficos. Trocar `--brand` recolore os marcadores junto com o app.
  */
 export const colorByType: Record<CollectionPointType, string> = {
-  Association: 'var(--color-brand-600)', // marca
-  Church: 'var(--color-chart-2)', // ciano
-  PublicEntity: 'var(--color-chart-4)', // âmbar
+  Association: 'var(--color-brand-600)',
+  Church: 'var(--color-chart-2)',
+  PublicEntity: 'var(--color-chart-4)',
 }
 
 /**

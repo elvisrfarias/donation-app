@@ -20,7 +20,6 @@ function fromAuthResult(r: AuthResult): AuthSession {
   }
 }
 
-// Cache em memória para evitar JSON.parse a cada request do interceptor.
 let cache: AuthSession | null | undefined
 
 /**
@@ -44,9 +43,7 @@ export const tokenStorage = {
     cache = session
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-    } catch {
-      /* storage indisponível (modo privado etc.) — mantém só em memória */
-    }
+    } catch {}
     return session
   },
 
@@ -54,9 +51,7 @@ export const tokenStorage = {
     cache = null
     try {
       localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   },
 
   getAccessToken(): string | null {

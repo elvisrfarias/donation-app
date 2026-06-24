@@ -64,10 +64,8 @@ public sealed class RegisterWithdrawalHandler(
             return DomainErrors.CollectionPoint.NotFound;
         }
 
-        // Janela do ciclo vigente para o instante da retirada.
         var (startUtc, endUtc) = family.Cycle.GetCurrentPeriod(occurredAt);
 
-        // Contagem municipal: quantas retiradas esta família já fez no ciclo, em QUALQUER ponto.
         var alreadyInCycle = await pointRepository.CountFamilyWithdrawalsAsync(
             family.Id, startUtc, endUtc, cancellationToken);
 

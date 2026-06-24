@@ -22,12 +22,11 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-stone-50">
-      {/* Sidebar (desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-ink-950 px-3 py-5 lg:flex">
-        <AppLogo className="px-2" inverted />
+    <div className="flex h-dvh overflow-hidden bg-canvas">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-linear-to-b from-sidebar to-sidebar-deep px-4 py-6 lg:flex">
+        <AppLogo className="px-1" inverted />
 
-        <nav className="mt-8 flex flex-1 flex-col gap-1">
+        <nav className="mt-9 flex flex-1 flex-col gap-1.5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -35,23 +34,20 @@ export function AppLayout() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all',
                   isActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-stone-400 hover:bg-white/5 hover:text-stone-100',
+                    ? 'bg-white text-brand-700 shadow-lift'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white',
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <span
-                    className={cn(
-                      'absolute left-0 h-5 w-1 rounded-r-full bg-brand-500 transition-opacity',
-                      isActive ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
                   <item.icon
-                    className={cn('size-5', isActive ? 'text-brand-400' : 'text-stone-500 group-hover:text-stone-300')}
+                    className={cn(
+                      'size-5 transition-colors',
+                      isActive ? 'text-brand-600' : 'text-white/55 group-hover:text-white',
+                    )}
                   />
                   {item.label}
                 </>
@@ -61,22 +57,21 @@ export function AppLayout() {
 
           <NavLink
             to="/"
-            className="group mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-400 transition-colors hover:bg-white/5 hover:text-stone-100"
+            className="group mt-1 flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-white/65 transition-all hover:bg-white/10 hover:text-white"
           >
-            <Map className="size-5 text-stone-500 group-hover:text-stone-300" />
+            <Map className="size-5 text-white/55 group-hover:text-white" />
             Mapa público
           </NavLink>
         </nav>
 
-        {/* Cartão do usuário */}
-        <div className="mt-auto rounded-2xl bg-white/5 p-3 ring-1 ring-inset ring-white/10">
+        <div className="mt-auto rounded-3xl bg-white/10 p-3 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-brand-700">
               {initials(user?.fullName ?? '?')}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user?.fullName}</p>
-              <p className="truncate text-xs text-stone-400">
+              <p className="truncate text-xs text-white/60">
                 {user?.roles.map((r) => roleLabels[r]).join(', ')}
               </p>
             </div>
@@ -84,7 +79,7 @@ export function AppLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-stone-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/10 hover:text-white"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-inset ring-white/15 transition-colors hover:bg-white hover:text-brand-700 hover:ring-white"
           >
             <LogOut className="size-4" />
             Sair
@@ -92,9 +87,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar (mobile) */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/80 px-4 py-3 backdrop-blur-md lg:hidden">
           <AppLogo compact />
           <button
@@ -112,7 +105,6 @@ export function AppLayout() {
         </main>
       </div>
 
-      {/* Bottom nav (mobile) */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-stone-200 bg-white/90 backdrop-blur-md lg:hidden">
         {navItems.map((item) => (
           <NavLink

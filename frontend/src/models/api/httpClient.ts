@@ -18,20 +18,17 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-// Permite que a camada de estado reaja a um logout forçado (refresh falhou).
 let onForcedLogout: (() => void) | null = null
 export function setForcedLogoutHandler(cb: () => void): void {
   onForcedLogout = cb
 }
 
-// Single-flight: vários 401 simultâneos disparam um único refresh.
 let refreshing: Promise<string | null> | null = null
 
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = tokenStorage.getRefreshToken()
   if (!refreshToken) return null
   try {
-    // Instância "crua" (sem interceptors) para não recursar no 401.
     const { data } = await axios.post<AuthResult>(`${env.apiUrl}/auth/refresh`, { refreshToken })
     tokenStorage.save(data)
     return data.accessToken

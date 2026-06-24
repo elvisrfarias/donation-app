@@ -63,7 +63,6 @@ public sealed class RegisterBeneficiaryHandler(
             return DomainErrors.CollectionPoint.NotFound;
         }
 
-        // Unicidade municipal: um CPF não pode estar cadastrado em duas famílias.
         if (await familyRepository.ExistsBeneficiaryWithCpfAsync(cpf.Value, cancellationToken))
         {
             return DomainErrors.Beneficiary.CpfAlreadyRegistered;

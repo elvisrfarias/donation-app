@@ -77,7 +77,6 @@ export function toApiError(error: unknown): ApiError {
         fieldErrors: normalizeFieldErrors(data.errors),
       })
     }
-    // Sem resposta = rede/CORS/API offline.
     return new ApiError({
       status: 0,
       title: 'Falha de conexão',
@@ -96,7 +95,6 @@ function normalizeFieldErrors(errors?: FieldErrors): FieldErrors | undefined {
   if (!errors || typeof errors !== 'object') return undefined
   const out: FieldErrors = {}
   for (const [k, v] of Object.entries(errors)) {
-    // ASP.NET usa PascalCase nas chaves de validação; normalizamos para camelCase.
     const key = k.charAt(0).toLowerCase() + k.slice(1)
     out[key] = Array.isArray(v) ? v : [String(v)]
   }

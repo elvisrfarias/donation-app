@@ -66,14 +66,12 @@ public sealed class CreateCollectionPointHandler(
 
         var contact = ContactInfo.Create(command.ResponsibleName, command.Email, command.Phone);
 
-        // Acumula erros dos Value Objects para uma resposta de validação completa.
         List<Error> voErrors = [.. address.ErrorsOrEmptyList, .. contact.ErrorsOrEmptyList];
         if (voErrors.Count > 0)
         {
             return voErrors;
         }
 
-        // A imagem deve ter sido enviada antes (POST /api/files) e existir como imagem disponível.
         var image = await fileRepository.GetByIdAsync(StoredFileId.From(command.ImageFileId), cancellationToken);
         if (image is null || image.Status == StoredFileStatus.Deleted)
         {
@@ -95,7 +93,6 @@ public sealed class CreateCollectionPointHandler(
             return pointResult.Errors;
         }
 
-        // Vincula a imagem ao ponto (associação fraca usada pelo storage).
         image.AttachToOwner(nameof(CollectionPoint), pointResult.Value.Id.Value, now);
 
         repository.Add(pointResult.Value);

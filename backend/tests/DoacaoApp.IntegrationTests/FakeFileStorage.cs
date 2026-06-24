@@ -12,7 +12,6 @@ public sealed class FakeFileStorage : IFileStorage
 {
     public async Task<StoredObject> UploadAsync(FileUploadRequest request, CancellationToken cancellationToken = default)
     {
-        // Drena o conteúdo para simular o consumo do stream (o handler conta com isso).
         using var sink = new MemoryStream();
         await request.Content.CopyToAsync(sink, cancellationToken);
 

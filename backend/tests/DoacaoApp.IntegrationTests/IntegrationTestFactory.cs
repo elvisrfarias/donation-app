@@ -39,7 +39,6 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
                 ["SeedData:AdminEmail"] = "admin@doacao.local",
                 ["SeedData:AdminPassword"] = "Admin@123456",
                 ["Jwt:Secret"] = "CHAVE-DE-TESTE-COM-NO-MINIMO-32-CARACTERES-12345",
-                // Endpoint morto: a verificação de bucket no startup falha rápido (best-effort, logada).
                 ["Storage:ServiceUrl"] = "http://127.0.0.1:1",
             });
         });

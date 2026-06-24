@@ -19,7 +19,6 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);
 
-        // Índice que sustenta a contagem de equidade por família dentro de um período.
         builder.HasIndex(w => new { w.FamilyId, w.OccurredAtUtc });
         builder.HasIndex(w => w.PointId);
     }

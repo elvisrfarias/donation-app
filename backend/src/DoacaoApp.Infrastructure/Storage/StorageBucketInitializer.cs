@@ -32,7 +32,6 @@ public sealed class StorageBucketInitializer(
         }
         catch (Exception ex)
         {
-            // Não derruba a aplicação: uploads falharão e serão logados até o storage normalizar.
             logger.LogError(ex, "Não foi possível garantir o bucket de storage '{Bucket}'.", bucket);
         }
     }

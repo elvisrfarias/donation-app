@@ -48,7 +48,6 @@ public static class DependencyInjection
     {
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
 
-        // Cliente S3 (server-side): aponta para o endpoint interno (MinIO) ou para a região AWS.
         services.AddSingleton<IAmazonS3>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<StorageOptions>>().Value;
@@ -89,14 +88,11 @@ public static class DependencyInjection
             options.AddInterceptors(serviceProvider.GetRequiredService<DomainEventsDispatchInterceptor>());
         });
 
-        // O DbContext É a Unit of Work.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
     }
 
     private static void AddIdentityWithBCrypt(this IServiceCollection services)
     {
-        // Registrar o hasher BCrypt ANTES do AddIdentityCore: o Identity usa TryAdd para o
-        // IPasswordHasher, então o nosso (BCrypt) prevalece sobre o PBKDF2 padrão.
         services.AddScoped<IPasswordHasher<ApplicationUser>, BCryptPasswordHasher<ApplicationUser>>();
 
         services.AddIdentityCore<ApplicationUser>(options =>

@@ -34,7 +34,6 @@ public sealed record Cpf
             return DomainErrors.Cpf.InvalidFormat;
         }
 
-        // CPFs com todos os dígitos iguais passam no cálculo, mas são inválidos.
         if (digits.Distinct().Count() == 1)
         {
             return DomainErrors.Cpf.InvalidCheckDigits;

@@ -13,8 +13,8 @@ interface FormComponentProps<TValues extends Record<string, unknown>> {
   /** Chamado apenas quando o formulário é válido. Recebe os valores e a API do form. */
   onSubmit: (value: TValues, form: AnyFormApi) => void | Promise<void>
   fields: FormFieldConfig[]
-  /** Layout em 1 ou 2 colunas (padrão: 1). */
-  columns?: 1 | 2
+  /** Layout em 1, 2 ou 3 colunas (padrão: 1). 3 vira 2 em telas médias. */
+  columns?: 1 | 2 | 3
   submitLabel: string
   submitIcon?: ReactNode
   submitSize?: 'sm' | 'md' | 'lg'
@@ -47,7 +47,6 @@ export function FormComponent<TValues extends Record<string, unknown>>({
 }: FormComponentProps<TValues>) {
   const form = useForm({
     defaultValues,
-    // zod v4 é Standard Schema; o cast contorna a variância de input (unknown vs TValues).
     validators: { onChange: schema as never, onSubmit: schema as never },
     onSubmit: async ({ value, formApi }) => {
       await onSubmit(value, formApi as unknown as AnyFormApi)
@@ -55,7 +54,11 @@ export function FormComponent<TValues extends Record<string, unknown>>({
     },
   })
 
-  const spanFull = columns === 2 ? 'sm:col-span-2' : undefined
+  const gridCols =
+    columns === 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : columns === 2 ? 'sm:grid-cols-2' : undefined
+  const spanFull = columns > 1 ? 'col-span-full' : undefined
+  const spanFor = (colSpan?: 1 | 2 | 'full') =>
+    colSpan === 'full' ? 'col-span-full' : colSpan === 2 ? 'sm:col-span-2' : undefined
 
   return (
     <form
@@ -65,10 +68,10 @@ export function FormComponent<TValues extends Record<string, unknown>>({
         e.stopPropagation()
         void form.handleSubmit()
       }}
-      className={cn('grid gap-4', columns === 2 && 'sm:grid-cols-2', className)}
+      className={cn('grid gap-4', gridCols, className)}
     >
       {fields.map((cfg) => {
-        const span = cfg.colSpan === 2 ? 'sm:col-span-2' : undefined
+        const span = spanFor(cfg.colSpan)
 
         if (cfg.type === 'custom') {
           return (

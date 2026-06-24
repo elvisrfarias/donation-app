@@ -33,7 +33,6 @@ public sealed class DeleteFileHandler(
         }
         catch (Exception ex)
         {
-            // Mesmo que o objeto físico falhe ao apagar, mantemos a remoção lógica consistente.
             logger.LogWarning(ex, "Falha ao apagar objeto {Key} do storage; metadado será marcado como removido.", file.ObjectKey);
         }
 

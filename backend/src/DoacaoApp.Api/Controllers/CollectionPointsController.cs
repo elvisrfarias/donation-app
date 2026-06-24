@@ -52,7 +52,6 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
         [FromBody] UpdateCollectionPointCommand command,
         CancellationToken cancellationToken)
     {
-        // O id da rota é a fonte da verdade — sobrescreve qualquer valor enviado no corpo.
         var result = await Sender.Send(command with { Id = id }, cancellationToken);
         return Respond(result, Ok);
     }

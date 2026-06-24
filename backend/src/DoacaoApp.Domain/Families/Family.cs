@@ -15,7 +15,6 @@ public sealed class Family : AggregateRoot<FamilyId>
 {
     private readonly List<Beneficiary> _beneficiaries = [];
 
-    // Usado pela materialização do EF Core.
     private Family()
     {
         Name = string.Empty;

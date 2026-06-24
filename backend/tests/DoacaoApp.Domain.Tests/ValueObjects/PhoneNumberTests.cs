@@ -31,7 +31,7 @@ public class PhoneNumberTests
 
     [Theory]
     [InlineData("123")]
-    [InlineData("119876543210")] // 12 dígitos
+    [InlineData("119876543210")]
     public void Create_ComTamanhoInvalido_DeveRetornarErro(string input)
     {
         var result = PhoneNumber.Create(input);

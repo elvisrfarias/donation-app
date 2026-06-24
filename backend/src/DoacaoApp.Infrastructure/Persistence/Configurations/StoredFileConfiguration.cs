@@ -53,8 +53,6 @@ public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFil
         builder.Property(f => f.UpdatedAtUtc).HasColumnName("updated_at_utc");
         builder.Property(f => f.DeletedAtUtc).HasColumnName("deleted_at_utc");
 
-        // Metadados extensíveis: Dictionary<string,string> <-> jsonb. A propriedade pública é
-        // somente leitura, então mapeamos o campo de apoio diretamente.
         var metadataConverter = new ValueConverter<Dictionary<string, string>, string>(
             value => JsonSerializer.Serialize(value, JsonSerializerOptions.Default),
             json => JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonSerializerOptions.Default)
@@ -75,13 +73,9 @@ public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFil
             .HasColumnType("jsonb")
             .HasConversion(metadataConverter, metadataComparer);
 
-        // Chave natural: cada (bucket, chave) é único.
         builder.HasIndex(f => new { f.Bucket, f.ObjectKey }).IsUnique();
-        // Buscas por dono (ex.: fotos de um ponto de coleta).
         builder.HasIndex(f => new { f.OwnerType, f.OwnerId });
-        // Filtragem por ciclo de vida.
         builder.HasIndex(f => f.Status);
-        // Deduplicação por conteúdo.
         builder.HasIndex(f => f.ChecksumSha256);
     }
 }

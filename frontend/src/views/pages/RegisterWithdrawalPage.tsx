@@ -77,7 +77,7 @@ export function RegisterWithdrawalPage() {
   ]
 
   function openWithdrawal() {
-    withdrawal.reset() // limpa erro/sucesso anterior
+    withdrawal.reset()
     setWithdrawalOpen(true)
   }
 
@@ -95,7 +95,6 @@ export function RegisterWithdrawalPage() {
         </Alert>
       )}
 
-      {/* Painel da família — saldo/limite ficam visíveis na tela */}
       <Card className="p-6">
         {!loadedFamilyId ? (
           <div className="flex flex-col items-start gap-3">
@@ -166,7 +165,6 @@ export function RegisterWithdrawalPage() {
         ) : null}
       </Card>
 
-      {/* Carregar / trocar família (busca) */}
       <ModalComponent
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -196,7 +194,6 @@ export function RegisterWithdrawalPage() {
         />
       </ModalComponent>
 
-      {/* Registrar retirada */}
       {family.family && (
         <ModalComponent
           open={withdrawalOpen}

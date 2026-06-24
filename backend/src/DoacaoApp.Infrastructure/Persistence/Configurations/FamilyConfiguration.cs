@@ -16,7 +16,6 @@ public sealed class FamilyConfiguration : IEntityTypeConfiguration<Family>
         builder.Property(f => f.Name).IsRequired().HasMaxLength(200);
         builder.Property(f => f.CreatedAtUtc).IsRequired();
 
-        // WithdrawalCycle (Value Object) inline.
         builder.OwnsOne(f => f.Cycle, cycle =>
         {
             cycle.Property(x => x.Type).HasColumnName("cycle_type").HasConversion<string>().HasMaxLength(20).IsRequired();

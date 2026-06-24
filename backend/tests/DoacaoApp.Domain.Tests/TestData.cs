@@ -7,7 +7,6 @@ namespace DoacaoApp.Domain.Tests;
 /// <summary>Fábricas de objetos válidos para reduzir repetição nos testes.</summary>
 public static class TestData
 {
-    // CPFs válidos (dígitos verificadores corretos).
     public const string ValidCpfA = "111.444.777-35";
     public const string ValidCpfB = "529.982.247-25";
 

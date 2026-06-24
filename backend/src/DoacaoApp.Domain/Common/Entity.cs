@@ -13,7 +13,6 @@ public abstract class Entity<TId> : IHasDomainEvents, IEquatable<Entity<TId>>
 
     protected Entity(TId id) => Id = id;
 
-    // Construtor sem parâmetros exigido pela materialização do EF Core.
     protected Entity()
     {
         Id = default!;

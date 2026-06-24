@@ -17,16 +17,13 @@ public static class WebApplicationExtensions
 {
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
-        // Logging de request com contexto (inclui o CorrelationId via LogContext).
         app.UseSerilogRequestLogging();
 
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseExceptionHandler();
 
-        // Rate limiting por IP (rotas de auth — ver "IpRateLimiting" no appsettings).
         app.UseIpRateLimiting();
 
-        // OpenAPI + Scalar (documentação interativa).
         app.MapOpenApi();
         app.MapScalarApiReference();
 
@@ -37,7 +34,6 @@ public static class WebApplicationExtensions
         app.MapAuthEndpoints();
         app.MapPublicEndpoints();
 
-        // Health checks (app + banco).
         app.MapHealthChecks("/health", new HealthCheckOptions
         {
             ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,

@@ -20,7 +20,6 @@ public static class CollectionPointSeeder
     /// <summary>Cidade-base usada para gerar um ponto (UF, DDD e prefixo de CEP).</summary>
     private readonly record struct Place(string City, string State, string Ddd, string Cep5);
 
-    // 10 pontos no Oeste/Meio-Oeste catarinense (DDD 49), Concórdia à frente.
     private static readonly Place[] OesteSantaCatarina =
     [
         new("Concórdia", "SC", "49", "89700"),
@@ -35,7 +34,6 @@ public static class CollectionPointSeeder
         new("Maravilha", "SC", "49", "89874"),
     ];
 
-    // 40 pontos espalhados pelo Brasil.
     private static readonly Place[] Brasil =
     [
         new("Florianópolis", "SC", "48", "88010"),
@@ -168,7 +166,6 @@ public static class CollectionPointSeeder
         var unitOfWork = services.GetRequiredService<IUnitOfWork>();
         var now = services.GetRequiredService<IDateTimeProvider>().UtcNow;
 
-        // Determinístico: o seed produz sempre o mesmo conjunto.
         var random = new Random(20240622);
         var places = new List<Place>(OesteSantaCatarina.Length + Brasil.Length);
         places.AddRange(OesteSantaCatarina);
@@ -222,7 +219,6 @@ public static class CollectionPointSeeder
             OesteSantaCatarina.Length);
     }
 
-    // Sorteia de 1 a 4 categorias de itens distintas para o ponto.
     private static IReadOnlyList<ItemCategory> PickItems(Random random)
     {
         var all = Enum.GetValues<ItemCategory>();

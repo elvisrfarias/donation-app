@@ -26,7 +26,6 @@ public sealed class ListPublicCollectionPointsHandler(
     {
         var points = await repository.ListActiveAsync(cancellationToken);
 
-        // Resolve a URL (pré-assinada) de cada imagem em uma única consulta para evitar N+1.
         var imageIds = points
             .Where(p => p.ImageFileId is not null)
             .Select(p => p.ImageFileId!.Value)
@@ -39,7 +38,6 @@ public sealed class ListPublicCollectionPointsHandler(
             var files = await fileRepository.ListByIdsAsync(imageIds, cancellationToken);
             foreach (var file in files)
             {
-                // Presign é cálculo local (não chama o storage), então iterar é barato.
                 var url = await storage.GetPresignedDownloadUrlAsync(
                     file.ObjectKey, file.OriginalFileName, cancellationToken);
                 urlByFileId[file.Id] = url.ToString();

@@ -17,7 +17,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     private readonly List<Withdrawal> _withdrawals = [];
     private readonly List<ItemCategory> _acceptedItems = [];
 
-    // Usado pela materialização do EF Core.
     private CollectionPoint()
     {
         Name = string.Empty;
@@ -106,7 +105,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         _acceptedItems.AddRange(Normalize(acceptedItems));
     }
 
-    // Remove duplicatas mantendo uma ordem estável (por valor do enum).
     private static List<ItemCategory> Normalize(IEnumerable<ItemCategory> items) =>
         [.. items.Distinct().OrderBy(static i => (int)i)];
 

@@ -19,8 +19,6 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
         builder.Property(p => p.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
 
-        // Categorias de itens (coleção de enum) persistidas como CSV em uma única coluna,
-        // seguindo a convenção do projeto de converter enums para string.
         var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
             items => string.Join(',', items.Select(static i => i.ToString())),
             value => value.Length == 0
@@ -47,10 +45,8 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         builder.Property(p => p.IsActive).IsRequired();
         builder.Property(p => p.CreatedAtUtc).IsRequired();
 
-        // Imagem opcional (associação fraca ao StoredFile, sem FK — igual ao OwnerId do storage).
         builder.Property(p => p.ImageFileId).HasColumnName("image_file_id");
 
-        // Address (Value Object) inline como owned type.
         builder.OwnsOne(p => p.Address, address =>
         {
             address.Property(x => x.Street).HasColumnName("address_street").IsRequired().HasMaxLength(200);
@@ -63,7 +59,6 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         });
         builder.Navigation(p => p.Address).IsRequired();
 
-        // ContactInfo (Value Object) inline; Email/Phone convertidos para string.
         builder.OwnsOne(p => p.Contact, contact =>
         {
             contact.Property(x => x.ResponsibleName).HasColumnName("contact_name").HasMaxLength(160);
@@ -74,7 +69,6 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         });
         builder.Navigation(p => p.Contact).IsRequired();
 
-        // Withdrawals: entidades do agregado, acessadas pelo campo privado _withdrawals.
         builder.HasMany(p => p.Withdrawals)
             .WithOne()
             .HasForeignKey(w => w.PointId)

@@ -34,7 +34,6 @@ public sealed class DomainEventsDispatchInterceptor(IPublisher publisher) : Save
 
         var domainEvents = entities.SelectMany(e => e.DomainEvents).ToList();
 
-        // Limpa antes de publicar para evitar reprocessamento em saves aninhados.
         entities.ForEach(e => e.ClearDomainEvents());
 
         foreach (var domainEvent in domainEvents)

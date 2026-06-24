@@ -28,10 +28,8 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         var client = factory.CreateClient();
         await AuthenticateAsAdminAsync(client);
 
-        // 0) Envia a imagem do ponto (agora obrigatória).
         var imageId = await UploadPointImageAsync(client);
 
-        // 1) Cria o ponto de coleta.
         var pointResponse = await client.PostAsJsonAsync("/api/collection-points", new
         {
             name = "Paróquia São José",
@@ -51,7 +49,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         pointResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var point = (await pointResponse.Content.ReadFromJsonAsync<CollectionPointResponse>())!;
 
-        // 2) Cria a família com limite de 1 retirada por mês.
         var familyResponse = await client.PostAsJsonAsync("/api/families", new
         {
             name = "Família Silva",
@@ -61,7 +58,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         familyResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var family = (await familyResponse.Content.ReadFromJsonAsync<FamilyResponse>())!;
 
-        // 3) Cadastra e vincula o beneficiário.
         var beneficiaryResponse = await client.PostAsJsonAsync($"/api/families/{family.Id}/beneficiaries", new
         {
             name = "João Silva",
@@ -72,7 +68,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         beneficiaryResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var beneficiary = (await beneficiaryResponse.Content.ReadFromJsonAsync<BeneficiaryResponse>())!;
 
-        // 4) Primeira retirada -> 201 Created.
         var firstWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
         {
             pointId = point.Id,
@@ -83,7 +78,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         });
         firstWithdrawal.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // 5) Segunda retirada no mesmo ciclo -> 409 Conflict (regra de equidade municipal).
         var secondWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
         {
             pointId = point.Id,
@@ -94,7 +88,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         });
         secondWithdrawal.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // 6) A lista pública agora exibe o ponto criado, com a URL da imagem.
         var publicList = await client.GetFromJsonAsync<List<CollectionPointResponse>>("/api/public/collection-points");
         publicList.Should().ContainSingle(p => p.Id == point.Id)
             .Which.ImageUrl.Should().NotBeNullOrEmpty();
@@ -120,7 +113,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
             responsibleName = "José",
             email = "jose@doacao.org",
             phone = "49987654321",
-            // imageFileId ausente -> Guid.Empty -> validação falha.
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -142,7 +134,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         return file.Id;
     }
 
-    // PNG 1x1 transparente (base64) — suficiente para passar pela validação de imagem.
     private static readonly byte[] MinimalPng = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 

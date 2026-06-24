@@ -45,7 +45,6 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/views/components/ui'
 
-// Metadados por coluna usados pelo DataTable (rótulo amigável, alinhamento, etc.).
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
@@ -157,8 +156,6 @@ export function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [showFilters, setShowFilters] = useState(false)
 
-  // Anexa a coluna fixa de ações (à direita) quando `actions` é informado. Ela
-  // não é ordenável, filtrável nem ocultável — é só uma coluna de exibição.
   const tableColumns = useMemo<ColumnDef<TData, TValue>[]>(() => {
     if (!actions || actions.length === 0) return columns
     const actionColumn: ColumnDef<TData, TValue> = {
@@ -173,8 +170,6 @@ export function DataTable<TData, TValue>({
     return [...columns, actionColumn]
   }, [columns, actions, actionsLabel])
 
-  // useReactTable retorna funções não-memoizáveis; o React Compiler pula este componente
-  // (limitação conhecida do TanStack Table, sem efeito funcional).
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
@@ -202,7 +197,6 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn('space-y-3', className)}>
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         {searchable && (
           <div className="relative max-w-xs flex-1">
@@ -257,7 +251,6 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      {/* Tabela — área rolável limitada por calc(viewport); cabeçalho fixo. */}
       <div
         className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-card"
         style={{ ['--dt-max-h' as string]: maxHeight }}
@@ -351,7 +344,6 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {/* Paginação */}
       <div className="flex flex-col-reverse items-center justify-between gap-3 sm:flex-row">
         <p className="text-xs text-stone-500">
           {totalRows === 0

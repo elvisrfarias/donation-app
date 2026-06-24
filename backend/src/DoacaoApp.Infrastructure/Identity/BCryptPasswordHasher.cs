@@ -25,7 +25,6 @@ public sealed class BCryptPasswordHasher<TUser>(IOptions<SecurityOptions> option
     private readonly int _workFactor = options.Value.BCryptWorkFactor;
 
     public string HashPassword(TUser user, string password) =>
-        // O salt é gerado internamente pelo BCrypt e fica embutido no hash retornado.
         BCryptNet.HashPassword(password, workFactor: _workFactor);
 
     public PasswordVerificationResult VerifyHashedPassword(TUser user, string hashedPassword, string providedPassword)
@@ -42,7 +41,6 @@ public sealed class BCryptPasswordHasher<TUser>(IOptions<SecurityOptions> option
         }
         catch (BCrypt.Net.SaltParseException)
         {
-            // Hash em formato inesperado (ex.: migrado de outro sistema) -> tratado como inválido.
             return PasswordVerificationResult.Failed;
         }
 
@@ -51,7 +49,6 @@ public sealed class BCryptPasswordHasher<TUser>(IOptions<SecurityOptions> option
             return PasswordVerificationResult.Failed;
         }
 
-        // Se o custo configurado mudou, sinaliza ao Identity para re-hashear no login.
         return BCryptNet.PasswordNeedsRehash(hashedPassword, _workFactor)
             ? PasswordVerificationResult.SuccessRehashNeeded
             : PasswordVerificationResult.Success;

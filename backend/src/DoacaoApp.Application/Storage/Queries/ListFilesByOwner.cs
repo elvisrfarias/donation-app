@@ -24,7 +24,6 @@ public sealed class ListFilesByOwnerHandler(
         var responses = new List<StoredFileResponse>(files.Count);
         foreach (var file in files)
         {
-            // Presign é cálculo local (não chama o storage), então iterar é barato.
             var url = await storage.GetPresignedDownloadUrlAsync(file.ObjectKey, file.OriginalFileName, cancellationToken);
             responses.Add(file.ToResponse(url.ToString()));
         }

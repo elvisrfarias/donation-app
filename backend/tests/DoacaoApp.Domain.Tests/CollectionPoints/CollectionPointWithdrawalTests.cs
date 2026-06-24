@@ -26,7 +26,6 @@ public class CollectionPointWithdrawalTests
         var beneficiary = TestData.AddBeneficiary(family);
         var point = TestData.Point();
 
-        // Já existe 1 retirada no ciclo (em qualquer ponto do município).
         var result = point.RegisterWithdrawal(family, beneficiary, familyWithdrawalsInCurrentCycle: 1, TestData.Now, null);
 
         result.IsError.Should().BeTrue();

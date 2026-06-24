@@ -277,8 +277,6 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
     return () => URL.revokeObjectURL(filePreview)
   }, [filePreview])
 
-  // Pré-visualização: o arquivo recém-escolhido tem prioridade; senão, a imagem
-  // já existente (edição). Sem nenhum dos dois, mostra a área de upload.
   const previewUrl = filePreview ?? config.previewUrl ?? null
 
   return (
@@ -291,7 +289,6 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
               alt="Pré-visualização"
               className="h-40 w-64 rounded-xl object-cover ring-1 ring-stone-200"
             />
-            {/* Limpar só faz sentido quando há um arquivo novo: volta à imagem existente (ou ao upload). */}
             {file && (
               <button
                 type="button"
@@ -328,7 +325,6 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
         </label>
       )}
       <input
-        // Remonta (esvaziando o DOM) ao definir/limpar o arquivo, inclusive no reset do form.
         key={file ? 'filled' : 'empty'}
         id={id}
         type="file"

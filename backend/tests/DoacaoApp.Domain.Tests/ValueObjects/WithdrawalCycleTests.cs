@@ -37,7 +37,7 @@ public class WithdrawalCycleTests
     public void GetCurrentPeriod_Semanal_DeveComecarNaSegundaEDurarSeteDias()
     {
         var cycle = WithdrawalCycle.Create(CycleType.Weekly, 1).Value;
-        var reference = new DateTime(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc); // domingo
+        var reference = new DateTime(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
 
         var (start, end) = cycle.GetCurrentPeriod(reference);
 

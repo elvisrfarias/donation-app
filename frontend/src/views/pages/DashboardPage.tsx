@@ -47,7 +47,6 @@ const quickLinks = [
   },
 ]
 
-// Cores por tipo alinhadas à paleta dos charts (e aos marcadores do mapa).
 const growthConfig: ChartConfig = {
   total: { label: 'Total de pontos', color: 'var(--chart-1)' },
 }
@@ -140,27 +139,37 @@ export function DashboardPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
+              gradient
+              accent="brand"
               label="Pontos ativos"
               value={active}
               icon={<MapPin className="size-5" />}
               hint={`${points.length} no total`}
             />
             <StatCard
+              gradient
+              accent="blue"
               label="Associações"
               value={byType('Association')}
               icon={<Building2 className="size-5" />}
             />
-            <StatCard label="Igrejas" value={byType('Church')} icon={<Church className="size-5" />} />
             <StatCard
+              gradient
+              accent="green"
+              label="Igrejas"
+              value={byType('Church')}
+              icon={<Church className="size-5" />}
+            />
+            <StatCard
+              gradient
+              accent="amber"
               label="Entidades públicas"
               value={byType('PublicEntity')}
               icon={<Landmark className="size-5" />}
             />
           </div>
 
-          {/* Gráficos */}
           <div className="grid gap-4 lg:grid-cols-2">
-            {/* Crescimento da rede (área) */}
             <Card className="p-6 lg:col-span-2">
               <h2 className="text-base font-semibold text-stone-900">Crescimento da rede</h2>
               <p className="mt-1 text-sm text-stone-500">
@@ -195,7 +204,6 @@ export function DashboardPage() {
               </ChartContainer>
             </Card>
 
-            {/* Distribuição por tipo (donut) */}
             <Card className="p-6">
               <h2 className="text-base font-semibold text-stone-900">Distribuição por tipo</h2>
               <p className="mt-1 text-sm text-stone-500">Pontos cadastrados por categoria.</p>
@@ -218,7 +226,6 @@ export function DashboardPage() {
               </ChartContainer>
             </Card>
 
-            {/* Pontos por cidade (barras) */}
             <Card className="p-6">
               <h2 className="text-base font-semibold text-stone-900">Pontos por cidade</h2>
               <p className="mt-1 text-sm text-stone-500">Principais municípios da rede.</p>

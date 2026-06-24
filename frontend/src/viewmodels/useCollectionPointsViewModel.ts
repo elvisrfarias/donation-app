@@ -29,7 +29,6 @@ export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
 
   const mutation = useMutation<CollectionPoint, ApiError, CreateCollectionPointForm>({
-    // Envia a imagem primeiro (obrigatória) e cria o ponto referenciando o arquivo.
     mutationFn: async ({ image, ...fields }) => {
       const uploaded = await collectionPointService.uploadImage(image)
       return collectionPointService.create({ ...fields, imageFileId: uploaded.id })
@@ -57,8 +56,6 @@ export function useUpdateCollectionPoint() {
     ApiError,
     { id: string; values: UpdateCollectionPointForm }
   >({
-    // Só envia uma nova imagem quando o usuário escolhe um arquivo; caso
-    // contrário mantém a foto atual (imageFileId omitido).
     mutationFn: async ({ id, values: { image, ...fields } }) => {
       const imageFileId = image ? (await collectionPointService.uploadImage(image)).id : undefined
       return collectionPointService.update(id, { ...fields, imageFileId })

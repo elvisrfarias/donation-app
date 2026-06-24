@@ -2,9 +2,6 @@ import { RotateCcw } from 'lucide-react'
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom'
 import { Button } from '@/views/components/ui'
 
-// errorElement da raiz: captura erros de carregamento de rota (incl. chunks
-// obsoletos que não puderam ser recuperados por reload) e oferece uma saída,
-// em vez da tela crua de erro do React Router.
 export function RouteError() {
   const error = useRouteError()
 

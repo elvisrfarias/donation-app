@@ -10,12 +10,14 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-/** Larguras máximas — `lg` é o padrão e comporta bem um formulário de 2 colunas. */
+/** Larguras máximas — `lg` é o padrão e comporta bem um formulário de 2 colunas;
+ *  `xl` é folgado o bastante para um formulário de 3 colunas sem rolagem. */
 const sizeClasses = {
   sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-2xl',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+  '2xl': 'max-w-6xl',
 } as const
 
 export interface ModalComponentProps {
@@ -63,9 +65,6 @@ export function ModalComponent({
             {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
         )}
-        {/* Miolo rolável: o cabeçalho/rodapé ficam fixos e só o conteúdo rola
-            quando passa da moldura. `-mx-6 px-6` mantém o respiro lateral e
-            evita que a barra de rolagem fique colada no conteúdo. */}
         <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">{children}</div>
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>

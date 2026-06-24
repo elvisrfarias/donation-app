@@ -87,7 +87,6 @@ public sealed class UploadImageHandler(
 
         if (fileResult.IsError)
         {
-            // Não conseguimos registrar o metadado: remove o objeto órfão (best-effort).
             await TryCleanupAsync(stored.ObjectKey, cancellationToken);
             return fileResult.Errors;
         }

@@ -41,8 +41,6 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
             return await next();
         }
 
-        // ErrorOr<T> possui conversão implícita de List<Error>; usamos dynamic para
-        // satisfazer o TResponse genérico em tempo de execução.
         return (dynamic)errors;
     }
 }

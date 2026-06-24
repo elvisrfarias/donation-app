@@ -35,9 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       if (refreshToken) {
         try {
           await authService.revoke(refreshToken)
-        } catch {
-          /* logout é best-effort; limpamos o cliente de qualquer forma */
-        }
+        } catch {}
       }
       tokenStorage.clear()
       set({ user: null, status: 'unauthenticated' })
@@ -50,7 +48,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
   }
 })
 
-// Quando o refresh falha no interceptor HTTP, derruba a sessão na UI.
 setForcedLogoutHandler(() => {
   tokenStorage.clear()
   useAuthStore.setState({ user: null, status: 'unauthenticated' })

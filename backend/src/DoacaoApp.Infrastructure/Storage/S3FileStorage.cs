@@ -97,7 +97,6 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
 
     public async Task DeleteAsync(string objectKey, CancellationToken cancellationToken = default)
     {
-        // O S3/MinIO devolve sucesso mesmo se a chave não existir (idempotente).
         await _serverClient.DeleteObjectAsync(_options.Bucket, objectKey, cancellationToken);
     }
 

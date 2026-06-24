@@ -19,8 +19,11 @@ interface BaseField {
   hint?: string
   required?: boolean
   disabled?: boolean
-  /** Em layout de 2 colunas, ocupa a linha inteira quando `2`. */
-  colSpan?: 1 | 2
+  /**
+   * Largura do campo na grade do formulário. `'full'` ocupa a linha inteira
+   * (em qualquer nº de colunas); `2` ocupa duas colunas; `1` (padrão) ocupa uma.
+   */
+  colSpan?: 1 | 2 | 'full'
 }
 
 type TextLikeField = BaseField & {
@@ -78,7 +81,7 @@ type ImageField = BaseField & {
 type CustomField = {
   type: 'custom'
   key: string
-  colSpan?: 1 | 2
+  colSpan?: 1 | 2 | 'full'
   render: (form: AnyFormApi) => ReactNode
 }
 

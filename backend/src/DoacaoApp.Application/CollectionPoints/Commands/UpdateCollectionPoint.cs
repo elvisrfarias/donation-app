@@ -74,7 +74,6 @@ public sealed class UpdateCollectionPointHandler(
 
         var contact = ContactInfo.Create(command.ResponsibleName, command.Email, command.Phone);
 
-        // Acumula erros dos Value Objects para uma resposta de validação completa.
         List<Error> voErrors = [.. address.ErrorsOrEmptyList, .. contact.ErrorsOrEmptyList];
         if (voErrors.Count > 0)
         {
@@ -93,7 +92,6 @@ public sealed class UpdateCollectionPointHandler(
 
         var now = clock.UtcNow;
 
-        // Imagem só é trocada quando um novo arquivo é informado e difere do atual.
         if (command.ImageFileId is { } imageFileId && point.ImageFileId?.Value != imageFileId)
         {
             var newImage = await fileRepository.GetByIdAsync(StoredFileId.From(imageFileId), cancellationToken);
@@ -113,7 +111,6 @@ public sealed class UpdateCollectionPointHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Resolve a URL temporária da imagem vigente (nova ou antiga), se houver.
         string? imageUrl = null;
         if (point.ImageFileId is { } currentImageId)
         {

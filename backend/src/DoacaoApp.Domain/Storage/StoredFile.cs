@@ -15,7 +15,6 @@ public sealed class StoredFile : AggregateRoot<StoredFileId>
 {
     private Dictionary<string, string> _metadata = new();
 
-    // Usado pela materialização do EF Core.
     private StoredFile()
     {
         Bucket = string.Empty;

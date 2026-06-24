@@ -5,9 +5,6 @@ import { lazyWithReload } from './lazyWithReload'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RouteError } from './RouteError'
 
-// Code-splitting por rota: cada página vira um chunk próprio (o Leaflet, pesado,
-// fica isolado no chunk do mapa e não pesa nas demais telas). lazyWithReload
-// recupera chunks obsoletos após um deploy recarregando a página uma vez.
 const MapPage = lazyWithReload(() =>
   import('@/views/pages/MapPage').then((m) => ({ default: m.MapPage })),
 )

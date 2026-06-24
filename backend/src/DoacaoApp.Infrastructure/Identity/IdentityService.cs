@@ -89,7 +89,6 @@ public sealed class IdentityService(
             return AuthErrors.InvalidRefreshToken;
         }
 
-        // Rotação: o token usado é revogado e substituído por um novo.
         stored.RevokedAtUtc = now;
 
         return await IssueTokensAsync(user, cancellationToken, replaced: stored);

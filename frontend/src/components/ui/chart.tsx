@@ -2,7 +2,6 @@ import * as React from 'react'
 import * as RechartsPrimitive from 'recharts'
 import { cn } from '@/lib/utils'
 
-// Formato do tema — estende a config com cores por dataKey/série.
 const THEMES = { light: '', dark: '.dark' } as const
 
 export type ChartConfig = {
@@ -279,7 +278,6 @@ function ChartLegendContent({
   )
 }
 
-// Resolve a entrada de config a partir de um item do payload do recharts.
 function getPayloadConfig(
   config: ChartConfig,
   payload: TooltipPayloadItem | LegendPayloadItem,

@@ -50,8 +50,8 @@ public class CpfTests
     }
 
     [Theory]
-    [InlineData("11111111111")] // todos iguais
-    [InlineData("12345678900")] // dígitos verificadores incorretos
+    [InlineData("11111111111")]
+    [InlineData("12345678900")]
     [InlineData("11144477700")]
     public void Create_ComDigitosVerificadoresInvalidos_DeveRetornarErro(string input)
     {

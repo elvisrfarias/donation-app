@@ -18,7 +18,6 @@ public enum CycleType
 /// </summary>
 public sealed record WithdrawalCycle
 {
-    // Segunda-feira, usada como âncora para o ciclo quinzenal.
     private static readonly DateTime BiweeklyEpoch = new(2000, 1, 3, 0, 0, 0, DateTimeKind.Utc);
 
     private WithdrawalCycle(CycleType type, int maxWithdrawalsPerCycle)
@@ -84,7 +83,6 @@ public sealed record WithdrawalCycle
 
     private static DateTime StartOfWeek(DateTime reference)
     {
-        // Segunda-feira como início da semana.
         var diff = (7 + (int)reference.DayOfWeek - (int)DayOfWeek.Monday) % 7;
         return reference.Date.AddDays(-diff);
     }
