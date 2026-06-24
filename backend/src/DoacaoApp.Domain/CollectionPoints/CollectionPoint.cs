@@ -86,6 +86,19 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         return point;
     }
 
+    /// <summary>Atualiza o nome e o tipo do ponto (valida que o nome não fica vazio).</summary>
+    public ErrorOr<Updated> UpdateDetails(string? name, CollectionPointType type)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.CollectionPoint.NameRequired;
+        }
+
+        Name = name.Trim();
+        Type = type;
+        return Result.Updated;
+    }
+
     /// <summary>Redefine as categorias de itens aceitas pelo ponto (substitui a lista atual).</summary>
     public void UpdateAcceptedItems(IEnumerable<ItemCategory> acceptedItems)
     {

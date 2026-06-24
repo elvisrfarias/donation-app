@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -57,6 +57,22 @@ declare module '@tanstack/react-table' {
   }
 }
 
+/**
+ * Botão de ação exibido na coluna de ações (uma por linha). O `icon` é qualquer
+ * nó — normalmente um ícone do lucide (`<Pencil className="size-4" />`). Use
+ * `tone: 'danger'` para ações destrutivas (ex.: remover) e `hidden`/`disabled`
+ * para controlar a visibilidade por linha.
+ */
+export interface RowAction<TData> {
+  icon: ReactNode
+  /** Rótulo acessível, usado no `aria-label` e no tooltip nativo. */
+  label: string
+  onClick: (row: TData) => void
+  tone?: 'default' | 'danger'
+  hidden?: (row: TData) => boolean
+  disabled?: (row: TData) => boolean
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
@@ -71,6 +87,13 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean
   /** Ações extras à direita da toolbar. */
   toolbar?: ReactNode
+  /**
+   * Botões de ação por linha (editar, remover, etc.). Quando informado, uma
+   * coluna fixa de ações é anexada automaticamente à direita da tabela.
+   */
+  actions?: RowAction<TData>[]
+  /** Cabeçalho da coluna de ações. */
+  actionsLabel?: string
   className?: string
   /**
    * Altura máxima da área rolável da tabela (o cabeçalho fica fixo). Use `calc`
@@ -83,6 +106,35 @@ interface DataTableProps<TData, TValue> {
 
 const alignClass = { left: 'text-left', center: 'text-center', right: 'text-right' } as const
 
+/** Botões de ação renderizados na coluna fixa de ações de cada linha. */
+function RowActions<TData>({ row, actions }: { row: TData; actions: RowAction<TData>[] }) {
+  const visible = actions.filter((action) => !action.hidden?.(row))
+  if (visible.length === 0) return null
+
+  return (
+    <div className="flex items-center justify-end gap-0.5">
+      {visible.map((action) => (
+        <button
+          key={action.label}
+          type="button"
+          title={action.label}
+          aria-label={action.label}
+          disabled={action.disabled?.(row)}
+          onClick={() => action.onClick(row)}
+          className={cn(
+            'inline-flex size-8 items-center justify-center rounded-lg text-stone-500 transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+            action.tone === 'danger'
+              ? 'hover:bg-red-50 hover:text-red-600'
+              : 'hover:bg-stone-100 hover:text-stone-900',
+          )}
+        >
+          {action.icon}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -94,6 +146,8 @@ export function DataTable<TData, TValue>({
   emptyMessage = 'Nenhum registro encontrado.',
   isLoading = false,
   toolbar,
+  actions,
+  actionsLabel = 'Ações',
   className,
   maxHeight = 'calc(100dvh - 18rem)',
 }: DataTableProps<TData, TValue>) {
@@ -103,12 +157,28 @@ export function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [showFilters, setShowFilters] = useState(false)
 
+  // Anexa a coluna fixa de ações (à direita) quando `actions` é informado. Ela
+  // não é ordenável, filtrável nem ocultável — é só uma coluna de exibição.
+  const tableColumns = useMemo<ColumnDef<TData, TValue>[]>(() => {
+    if (!actions || actions.length === 0) return columns
+    const actionColumn: ColumnDef<TData, TValue> = {
+      id: '__actions',
+      header: actionsLabel,
+      enableSorting: false,
+      enableColumnFilter: false,
+      enableHiding: false,
+      meta: { label: actionsLabel, align: 'right', className: 'w-0 whitespace-nowrap' },
+      cell: ({ row }) => <RowActions row={row.original} actions={actions} />,
+    }
+    return [...columns, actionColumn]
+  }, [columns, actions, actionsLabel])
+
   // useReactTable retorna funções não-memoizáveis; o React Compiler pula este componente
   // (limitação conhecida do TanStack Table, sem efeito funcional).
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
     state: { sorting, columnFilters, globalFilter, columnVisibility },
     globalFilterFn: 'includesString',
     onSortingChange: setSorting,

@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { CalendarClock, Plus, Search, UserPlus, Users } from 'lucide-react'
+import { CalendarClock, Pencil, Plus, Search, Trash2, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
 import { formatDate, formatDateTime } from '@/lib/utils'
@@ -15,7 +15,7 @@ import {
   type CreateFamilyForm,
   type RegisterBeneficiaryForm,
 } from '@/viewmodels'
-import { DataTable } from '@/views/components/data-table'
+import { DataTable, type RowAction } from '@/views/components/data-table'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, Card, CenteredSpinner, SectionTitle } from '@/views/components/ui'
@@ -127,6 +127,30 @@ export function FamiliesPage() {
         ) : (
           <span className="text-stone-400">—</span>
         )
+      },
+    },
+  ]
+
+  // Ações por linha dos beneficiários — só para gestores. Conecte os handlers
+  // aos viewmodels de edição/remoção quando existirem.
+  const beneficiaryActions: RowAction<Beneficiary>[] = [
+    {
+      label: 'Editar',
+      icon: <Pencil className="size-4" />,
+      onClick: (beneficiary) => {
+        // TODO: abrir o modal de edição do beneficiário.
+        window.alert(`Editar "${beneficiary.name}" — em breve.`)
+      },
+    },
+    {
+      label: 'Remover',
+      tone: 'danger',
+      icon: <Trash2 className="size-4" />,
+      onClick: (beneficiary) => {
+        // TODO: integrar com o viewmodel de remoção do beneficiário.
+        if (window.confirm(`Remover o beneficiário "${beneficiary.name}"?`)) {
+          // chamar a remoção aqui
+        }
       },
     },
   ]
@@ -311,6 +335,7 @@ export function FamiliesPage() {
                   data={family.family.beneficiaries}
                   pageSize={5}
                   pageSizeOptions={[5, 10, 20]}
+                  actions={isManager ? beneficiaryActions : undefined}
                   searchPlaceholder="Buscar beneficiário…"
                   emptyMessage="Nenhum beneficiário cadastrado."
                 />

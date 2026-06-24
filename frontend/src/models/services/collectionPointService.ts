@@ -1,5 +1,10 @@
 import { http } from '@/models/api/httpClient'
-import type { CollectionPoint, CreateCollectionPointInput, UploadedImage } from '@/models/types'
+import type {
+  CollectionPoint,
+  CreateCollectionPointInput,
+  UpdateCollectionPointInput,
+  UploadedImage,
+} from '@/models/types'
 
 export const collectionPointService = {
   /** Lista pública (anônima) dos pontos de coleta ativos. */
@@ -23,6 +28,12 @@ export const collectionPointService = {
   /** Cadastra um novo ponto de coleta (requer role Admin). */
   async create(input: CreateCollectionPointInput): Promise<CollectionPoint> {
     const { data } = await http.post<CollectionPoint>('/collection-points', input)
+    return data
+  },
+
+  /** Atualiza um ponto de coleta existente (requer role Admin). */
+  async update(id: string, input: UpdateCollectionPointInput): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(`/collection-points/${id}`, input)
     return data
   },
 }

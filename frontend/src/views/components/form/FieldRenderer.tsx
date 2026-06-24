@@ -271,29 +271,48 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
   const value: unknown = field.state.value
   const file = value instanceof File ? value : undefined
 
-  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+  const filePreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
   useEffect(() => {
-    if (!previewUrl) return
-    return () => URL.revokeObjectURL(previewUrl)
-  }, [previewUrl])
+    if (!filePreview) return
+    return () => URL.revokeObjectURL(filePreview)
+  }, [filePreview])
+
+  // Pré-visualização: o arquivo recém-escolhido tem prioridade; senão, a imagem
+  // já existente (edição). Sem nenhum dos dois, mostra a área de upload.
+  const previewUrl = filePreview ?? config.previewUrl ?? null
 
   return (
     <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
       {previewUrl ? (
-        <div className="relative w-fit">
-          <img
-            src={previewUrl}
-            alt="Pré-visualização"
-            className="h-40 w-64 rounded-xl object-cover ring-1 ring-stone-200"
-          />
-          <button
-            type="button"
-            onClick={() => field.handleChange(undefined)}
-            aria-label="Remover imagem"
-            className="absolute -top-2 -right-2 grid size-7 place-items-center rounded-full bg-stone-900/80 text-white transition-colors hover:bg-stone-900"
+        <div className="space-y-2">
+          <div className="relative w-fit">
+            <img
+              src={previewUrl}
+              alt="Pré-visualização"
+              className="h-40 w-64 rounded-xl object-cover ring-1 ring-stone-200"
+            />
+            {/* Limpar só faz sentido quando há um arquivo novo: volta à imagem existente (ou ao upload). */}
+            {file && (
+              <button
+                type="button"
+                onClick={() => field.handleChange(undefined)}
+                aria-label="Remover imagem"
+                className="absolute -top-2 -right-2 grid size-7 place-items-center rounded-full bg-stone-900/80 text-white transition-colors hover:bg-stone-900"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <label
+            htmlFor={id}
+            className={cn(
+              'inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700',
+              config.disabled && 'pointer-events-none opacity-50',
+            )}
           >
-            <X className="size-4" />
-          </button>
+            <ImagePlus className="size-4" />
+            Trocar imagem
+          </label>
         </div>
       ) : (
         <label

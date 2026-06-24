@@ -52,6 +52,13 @@ export const createCollectionPointSchema = z.object({
 })
 export type CreateCollectionPointForm = z.infer<typeof createCollectionPointSchema>
 
+/** Edição de ponto de coleta: mesmos campos, mas a imagem é opcional (mantém a
+ * atual quando nenhum arquivo novo é escolhido). */
+export const updateCollectionPointSchema = createCollectionPointSchema.extend({
+  image: imageFileSchema.optional(),
+})
+export type UpdateCollectionPointForm = z.infer<typeof updateCollectionPointSchema>
+
 export const createFamilySchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').max(200),
   cycleType: z.enum(['Weekly', 'Biweekly', 'Monthly']),

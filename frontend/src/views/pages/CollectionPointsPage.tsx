@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Building2, Church, Landmark, MapPin, Plus } from 'lucide-react'
+import { Building2, Church, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import {
   collectionPointTypeLabels,
@@ -10,12 +10,15 @@ import {
 } from '@/models/types'
 import {
   createCollectionPointSchema,
+  updateCollectionPointSchema,
   useAuth,
   useCollectionPoints,
   useCreateCollectionPoint,
+  useUpdateCollectionPoint,
   type CreateCollectionPointForm,
+  type UpdateCollectionPointForm,
 } from '@/viewmodels'
-import { DataTable } from '@/views/components/data-table'
+import { DataTable, type RowAction } from '@/views/components/data-table'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
@@ -183,13 +186,72 @@ export function CollectionPointsPage() {
   const { isAdmin } = useAuth()
   const { points, isLoading, isError, error } = useCollectionPoints()
   const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
+  const { update, error: updateError, reset: resetUpdate } = useUpdateCollectionPoint()
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingPoint, setEditingPoint] = useState<CollectionPoint | null>(null)
 
   function openCreate() {
     reset() // limpa erro/sucesso de tentativas anteriores
     setCreateOpen(true)
   }
+
+  function openEdit(point: CollectionPoint) {
+    resetUpdate() // limpa erro de tentativas anteriores
+    setEditingPoint(point)
+  }
+
+  // Valores e campos do formulário de edição derivados do ponto selecionado. A
+  // imagem é opcional: o `previewUrl` mostra a atual e ela só é trocada se o
+  // usuário escolher um arquivo novo.
+  const editDefaults: UpdateCollectionPointForm | null = editingPoint && {
+    name: editingPoint.name,
+    type: editingPoint.type,
+    street: editingPoint.address.street,
+    number: editingPoint.address.number,
+    complement: editingPoint.address.complement ?? '',
+    district: editingPoint.address.district,
+    city: editingPoint.address.city,
+    state: editingPoint.address.state,
+    zipCode: editingPoint.address.zipCode,
+    responsibleName: editingPoint.contact.responsibleName,
+    email: editingPoint.contact.email,
+    phone: editingPoint.contact.phone,
+    acceptedItems: editingPoint.acceptedItems,
+    image: undefined,
+  }
+
+  const editFields: FormFieldConfig[] = collectionPointFields.map((field) =>
+    field.type === 'image'
+      ? {
+          ...field,
+          required: false,
+          previewUrl: editingPoint?.imageUrl,
+          hint: 'Deixe como está para manter a imagem atual.',
+        }
+      : field,
+  )
+
+  // Ações por linha — exibidas só para administradores. Remover ainda é um stub
+  // (sem viewmodel de remoção); editar abre o modal de edição.
+  const pointActions: RowAction<CollectionPoint>[] = [
+    {
+      label: 'Editar',
+      icon: <Pencil className="size-4" />,
+      onClick: openEdit,
+    },
+    {
+      label: 'Remover',
+      tone: 'danger',
+      icon: <Trash2 className="size-4" />,
+      onClick: (point) => {
+        // TODO: integrar com o viewmodel de remoção do ponto.
+        if (window.confirm(`Remover o ponto "${point.name}"?`)) {
+          // chamar a remoção aqui
+        }
+      },
+    },
+  ]
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -224,6 +286,7 @@ export function CollectionPointsPage() {
           columns={collectionPointColumns}
           data={points}
           isLoading={isLoading}
+          actions={isAdmin ? pointActions : undefined}
           searchPlaceholder="Buscar por nome, cidade, responsável…"
           emptyMessage="Nenhum ponto cadastrado ainda."
         />
@@ -251,6 +314,33 @@ export function CollectionPointsPage() {
             }}
             submitLabel="Cadastrar ponto"
             submitIcon={<Plus className="size-4" />}
+            submitFullWidth
+          />
+        </ModalComponent>
+      )}
+
+      {isAdmin && editingPoint && editDefaults && (
+        <ModalComponent
+          open={!!editingPoint}
+          onOpenChange={(open) => !open && setEditingPoint(null)}
+          title="Editar ponto"
+          description={`Atualize os dados de ${editingPoint.name}.`}
+          size="xl"
+        >
+          {updateError && <Alert tone="error">{updateError.displayMessage}</Alert>}
+          <FormComponent
+            // Remonta ao trocar de ponto para recarregar os valores padrão.
+            key={editingPoint.id}
+            columns={2}
+            schema={updateCollectionPointSchema}
+            defaultValues={editDefaults}
+            fields={editFields}
+            onSubmit={async (values) => {
+              await update({ id: editingPoint.id, values })
+              setEditingPoint(null)
+            }}
+            submitLabel="Salvar alterações"
+            submitIcon={<Pencil className="size-4" />}
             submitFullWidth
           />
         </ModalComponent>

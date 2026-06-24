@@ -32,4 +32,28 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, value => Created($"/api/collection-points/{value.Id}", value));
     }
+
+    /// <summary>Atualiza um ponto de coleta existente.</summary>
+    /// <remarks>Requer a role <c>Admin</c>. A imagem é opcional: informe <c>imageFileId</c> só para trocá-la.</remarks>
+    /// <response code="200">Ponto atualizado.</response>
+    /// <response code="400">Dados inválidos (endereço, contato, etc.).</response>
+    /// <response code="401">Não autenticado.</response>
+    /// <response code="403">Sem permissão.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateCollectionPointCommand command,
+        CancellationToken cancellationToken)
+    {
+        // O id da rota é a fonte da verdade — sobrescreve qualquer valor enviado no corpo.
+        var result = await Sender.Send(command with { Id = id }, cancellationToken);
+        return Respond(result, Ok);
+    }
 }

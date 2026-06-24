@@ -66,7 +66,13 @@ type AutoCompleteField = BaseField & {
 
 type CheckboxField = BaseField & { type: 'checkbox' }
 
-type ImageField = BaseField & { type: 'image'; accept?: string }
+type ImageField = BaseField & {
+  type: 'image'
+  accept?: string
+  /** URL de uma imagem já existente (ex.: edição). Serve de pré-visualização
+   * inicial enquanto nenhum arquivo novo é selecionado. */
+  previewUrl?: string | null
+}
 
 /** Escape hatch: conteúdo arbitrário com acesso à API do formulário. */
 type CustomField = {

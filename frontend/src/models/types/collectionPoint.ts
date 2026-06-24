@@ -93,6 +93,26 @@ export interface CreateCollectionPointInput {
   imageFileId: string
 }
 
+/** Corpo do UpdateCollectionPointCommand. A imagem é opcional: envie `imageFileId`
+ * só quando quiser trocar a foto; ausente/nulo mantém a atual. */
+export interface UpdateCollectionPointInput {
+  name: string
+  type: CollectionPointType
+  street: string
+  number: string
+  complement?: string | null
+  district: string
+  city: string
+  state: string
+  zipCode: string
+  responsibleName: string
+  email: string
+  phone: string
+  acceptedItems: ItemCategory[]
+  /** Id da nova imagem (POST /api/files). Omitido mantém a imagem atual. */
+  imageFileId?: string | null
+}
+
 /** Metadados de um arquivo enviado ao storage (subconjunto do StoredFileResponse). */
 export interface UploadedImage {
   id: string

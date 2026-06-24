@@ -3,7 +3,10 @@ import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
 import { collectionPointService } from '@/models/services'
 import type { CollectionPoint } from '@/models/types'
-import type { CreateCollectionPointForm } from '@/viewmodels/schemas'
+import type {
+  CreateCollectionPointForm,
+  UpdateCollectionPointForm,
+} from '@/viewmodels/schemas'
 
 /** Lista de pontos de coleta (reaproveita o endpoint público). */
 export function useCollectionPoints() {
@@ -41,6 +44,35 @@ export function useCreateCollectionPoint() {
     isPending: mutation.isPending,
     error: mutation.error,
     createdPoint: mutation.data,
+    reset: mutation.reset,
+  }
+}
+
+/** Mutação de atualização de ponto de coleta (Admin). */
+export function useUpdateCollectionPoint() {
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation<
+    CollectionPoint,
+    ApiError,
+    { id: string; values: UpdateCollectionPointForm }
+  >({
+    // Só envia uma nova imagem quando o usuário escolhe um arquivo; caso
+    // contrário mantém a foto atual (imageFileId omitido).
+    mutationFn: async ({ id, values: { image, ...fields } }) => {
+      const imageFileId = image ? (await collectionPointService.uploadImage(image)).id : undefined
+      return collectionPointService.update(id, { ...fields, imageFileId })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
+    },
+  })
+
+  return {
+    update: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
+    updatedPoint: mutation.data,
     reset: mutation.reset,
   }
 }
