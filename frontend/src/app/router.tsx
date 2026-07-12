@@ -23,6 +23,9 @@ const CollectionPointsPage = lazyWithReload(() =>
 const FamiliesPage = lazyWithReload(() =>
   import('@/views/pages/FamiliesPage').then((m) => ({ default: m.FamiliesPage })),
 )
+const BeneficiariesPage = lazyWithReload(() =>
+  import('@/views/pages/BeneficiariesPage').then((m) => ({ default: m.BeneficiariesPage })),
+)
 const RegisterWithdrawalPage = lazyWithReload(() =>
   import('@/views/pages/RegisterWithdrawalPage').then((m) => ({
     default: m.RegisterWithdrawalPage,
@@ -59,6 +62,7 @@ export const router = createBrowserRouter([
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'collection-points', element: withSuspense(<CollectionPointsPage />) },
       { path: 'families', element: withSuspense(<FamiliesPage />) },
+      { path: 'beneficiaries', element: withSuspense(<BeneficiariesPage />) },
       { path: 'withdrawals/new', element: withSuspense(<RegisterWithdrawalPage />) },
     ],
   },

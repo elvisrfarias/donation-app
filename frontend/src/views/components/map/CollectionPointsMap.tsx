@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { env } from '@/lib/env'
@@ -7,6 +7,7 @@ import {
   formatAddress,
   type CollectionPoint,
   type Geocoded,
+  type LatLng,
 } from '@/models/types'
 import { Badge } from '@/views/components/ui'
 import { createMarkerIcon } from './markerIcon'
@@ -17,8 +18,20 @@ interface Props {
   onSelect: (id: string | null) => void
 }
 
-/** Anima a câmera até o ponto selecionado na lista. */
-function FlyToSelected({ points, selectedId }: Pick<Props, 'points' | 'selectedId'>) {
+type LocatedPoint = Geocoded<CollectionPoint> & { position: LatLng }
+
+type MarkerRegistry = RefObject<Record<string, L.Marker>>
+
+function hasPosition(point: Geocoded<CollectionPoint>): point is LocatedPoint {
+  return point.position !== null
+}
+
+/** Anima a câmera até o ponto selecionado na lista e abre o seu tooltip. */
+function FlyToSelected({
+  points,
+  selectedId,
+  markerRefs,
+}: Pick<Props, 'points' | 'selectedId'> & { markerRefs: MarkerRegistry }) {
   const map = useMap()
   useEffect(() => {
     if (!selectedId) return
@@ -27,8 +40,9 @@ function FlyToSelected({ points, selectedId }: Pick<Props, 'points' | 'selectedI
       map.flyTo([target.position.lat, target.position.lng], Math.max(map.getZoom(), 15), {
         duration: 0.8,
       })
+      markerRefs.current[selectedId]?.openPopup()
     }
-  }, [selectedId, points, map])
+  }, [selectedId, points, map, markerRefs])
   return null
 }
 
@@ -53,7 +67,8 @@ function FitToPoints({ points }: Pick<Props, 'points'>) {
 }
 
 export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
-  const located = points.filter((p) => p.position)
+  const located = points.filter(hasPosition)
+  const markerRefs = useRef<Record<string, L.Marker>>({})
 
   return (
     <MapContainer
@@ -78,6 +93,10 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
           icon={createMarkerIcon(item.type, item.id === selectedId)}
           eventHandlers={{ click: () => onSelect(item.id) }}
           zIndexOffset={item.id === selectedId ? 1000 : 0}
+          ref={(instance) => {
+            if (instance) markerRefs.current[item.id] = instance
+            else delete markerRefs.current[item.id]
+          }}
         >
           <Popup>
             <div className="min-w-60 space-y-2 p-3.5">
@@ -106,7 +125,7 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
       ))}
 
       <FitToPoints points={points} />
-      <FlyToSelected points={points} selectedId={selectedId} />
+      <FlyToSelected points={points} selectedId={selectedId} markerRefs={markerRefs} />
     </MapContainer>
   )
 }

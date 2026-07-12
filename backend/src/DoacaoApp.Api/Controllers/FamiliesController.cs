@@ -18,6 +18,13 @@ public sealed record RegisterBeneficiaryRequest(
     DateOnly? BirthDate,
     Guid RegisteredByPointId);
 
+/// <summary>Corpo de uma requisição de atualização de beneficiário.</summary>
+public sealed record UpdateBeneficiaryRequest(
+    string Name,
+    string Cpf,
+    DateOnly? BirthDate,
+    Guid RegisteredByPointId);
+
 /// <summary>Gestão de famílias e beneficiários (área privada).</summary>
 [Route("api/families")]
 [Produces("application/json")]
@@ -64,6 +71,26 @@ public sealed class FamiliesController(ISender sender) : ApiController(sender)
 
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, value => Created($"/api/families/{familyId}/beneficiaries/{value.Id}", value));
+    }
+
+    /// <summary>Atualiza os dados de um beneficiário já vinculado à família.</summary>
+    [HttpPut("{familyId:guid}/beneficiaries/{beneficiaryId:guid}")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
+    [ProducesResponseType(typeof(BeneficiaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateBeneficiary(
+        Guid familyId,
+        Guid beneficiaryId,
+        [FromBody] UpdateBeneficiaryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateBeneficiaryCommand(
+            familyId, beneficiaryId, request.Name, request.Cpf, request.BirthDate, request.RegisteredByPointId);
+
+        var result = await Sender.Send(command, cancellationToken);
+        return Respond(result, Ok);
     }
 
     /// <summary>Histórico municipal de retiradas da família + saldo do ciclo vigente.</summary>

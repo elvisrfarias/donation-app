@@ -5,6 +5,12 @@
 #  Como NÃO há SDK .NET local, tudo roda dentro de containers do SDK .NET 9,
 #  com um volume NuGet persistente para acelerar restores.
 #  Rode `make` ou `make help` para ver os alvos.
+#
+#  Atalhos do dia a dia (reiniciam TODA a stack num comando só):
+#    make dev         -> sobe/reinicia o ambiente de desenvolvimento (Vite HMR)
+#    make dev-reset   -> idem, zerando o banco/arquivos (re-roda o seed)
+#    make prod        -> sobe/reinicia o ambiente de produção (nginx)
+#    make prod-reset  -> idem, zerando o banco/arquivos
 # ============================================================================
 
 SDK_IMAGE  ?= mcr.microsoft.com/dotnet/sdk:9.0
@@ -22,7 +28,9 @@ EF_RUN = docker run --rm -v "$(CURDIR)/backend":/src -v $(NUGET_VOL):/root/.nuge
 
 .DEFAULT_GOAL := help
 .PHONY: help restore build rebuild test test-domain test-application test-integration test-filter \
-        migration migration-remove db-update image up up-build down down-v logs ps clean env
+        migration migration-remove db-update image env \
+        dev dev-reset dev-logs prod prod-reset prod-logs \
+        down down-v logs ps clean
 
 help: ## Mostra esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -72,25 +80,54 @@ db-update: ## Aplica as migrations no banco (lê ConnectionStrings__Database do 
 	  dotnet ef database update -p $(INFRA) -s $(API)'
 
 # ---- Docker / execução -----------------------------------------------------
+# Conjuntos de arquivos compose por ambiente. Um único `make dev`/`make prod`
+# reinicia TODA a stack (down + build + up), sem precisar encadear comandos.
+#   DEV  = base + override (API em Development) + frontend Vite com HMR.
+#   PROD = somente a base (frontend nginx + API em Production), sem overrides de dev.
+COMPOSE_DEV  := docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml
+# Força Production mesmo que o .env (voltado a dev) defina ASPNETCORE_ENVIRONMENT=Development.
+COMPOSE_PROD := ASPNETCORE_ENVIRONMENT=Production docker compose -f docker-compose.yml
 
 env: ## Cria o .env a partir do .env.example (se não existir)
 	@test -f .env || cp .env.example .env
 	@echo ".env pronto."
 
-image: ## Builda a imagem de produção (Dockerfile multi-stage)
+image: ## Builda a imagem de produção da API (Dockerfile multi-stage)
 	docker build -t doacao-api:latest backend
 
-up: env ## Sobe a stack (postgres + api + frontend + pgadmin)
-	docker compose up -d
+dev: env ## Reinicia TODA a stack de desenvolvimento (Vite HMR + API + Postgres + MinIO + pgAdmin)
+	$(COMPOSE_DEV) down --remove-orphans
+	$(COMPOSE_DEV) up -d --build
+	@$(COMPOSE_DEV) ps
+	@printf '\n  Stack de DEV no ar (portas padrão; ajuste no .env):\n    Frontend (Vite/HMR)  http://localhost:5445\n    API (Scalar)         http://localhost:8080/scalar/v1\n    pgAdmin              http://localhost:5050\n    MinIO console        http://localhost:9001\n  Logs: make dev-logs\n\n'
 
-up-build: env ## Sobe a stack reconstruindo as imagens (api + frontend)
-	docker compose up -d --build
+dev-reset: env ## Igual ao dev, mas APAGA os volumes (banco + arquivos) e re-seeda do zero
+	$(COMPOSE_DEV) down -v --remove-orphans
+	$(COMPOSE_DEV) up -d --build
+	@$(COMPOSE_DEV) ps
 
-down: ## Para a stack
-	docker compose down
+dev-logs: ## Acompanha os logs de desenvolvimento (frontend Vite + API)
+	$(COMPOSE_DEV) logs -f frontend api
 
-down-v: ## Para a stack e remove os volumes (apaga os dados do Postgres)
-	docker compose down -v
+prod: env ## Reinicia TODA a stack de produção (frontend nginx + API em Production)
+	$(COMPOSE_PROD) down --remove-orphans
+	$(COMPOSE_PROD) up -d --build
+	@$(COMPOSE_PROD) ps
+	@printf '\n  Stack de PRODUÇÃO no ar (porta segue FRONTEND_PORT do .env; padrão 3000):\n    Frontend (nginx)  http://localhost:3000\n    API               http://localhost:8080\n  Logs: make prod-logs\n\n'
+
+prod-reset: env ## Igual ao prod, mas APAGA os volumes (banco + arquivos) e re-seeda do zero
+	$(COMPOSE_PROD) down -v --remove-orphans
+	$(COMPOSE_PROD) up -d --build
+	@$(COMPOSE_PROD) ps
+
+prod-logs: ## Acompanha os logs de produção (API)
+	$(COMPOSE_PROD) logs -f api
+
+down: ## Para a stack (mantém os dados)
+	docker compose down --remove-orphans
+
+down-v: ## Para a stack e remove os volumes (apaga banco + arquivos do MinIO)
+	docker compose down -v --remove-orphans
 
 logs: ## Acompanha os logs da API
 	docker compose logs -f api

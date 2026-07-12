@@ -7,6 +7,11 @@ export {
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
 } from './useCollectionPointsViewModel'
-export { useCreateFamily, useFamily, useRegisterBeneficiary } from './useFamiliesViewModel'
+export {
+  useCreateFamily,
+  useFamily,
+  useRegisterBeneficiary,
+  useUpdateBeneficiary,
+} from './useFamiliesViewModel'
 export { useRegisterWithdrawal } from './useRegisterWithdrawalViewModel'
 export * from './schemas'

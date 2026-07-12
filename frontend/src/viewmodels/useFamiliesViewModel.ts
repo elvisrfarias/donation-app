@@ -8,6 +8,7 @@ import type {
   Family,
   FamilyWithdrawalHistory,
   RegisterBeneficiaryInput,
+  UpdateBeneficiaryInput,
 } from '@/models/types'
 
 export function useCreateFamily() {
@@ -63,6 +64,29 @@ export function useRegisterBeneficiary(familyId: string) {
 
   return {
     register: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
+    reset: mutation.reset,
+  }
+}
+
+export function useUpdateBeneficiary(familyId: string) {
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation<
+    Beneficiary,
+    ApiError,
+    { beneficiaryId: string; input: UpdateBeneficiaryInput }
+  >({
+    mutationFn: ({ beneficiaryId, input }) =>
+      familyService.updateBeneficiary(familyId, beneficiaryId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(familyId) })
+    },
+  })
+
+  return {
+    update: mutation.mutateAsync,
     isPending: mutation.isPending,
     error: mutation.error,
     reset: mutation.reset,

@@ -82,7 +82,7 @@ export function RegisterWithdrawalPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <SectionTitle
         icon={<PackageCheck className="size-5" />}
         title="Registrar Retirada"

@@ -81,4 +81,36 @@ public sealed class Family : AggregateRoot<FamilyId>
 
     public Beneficiary? FindBeneficiary(BeneficiaryId beneficiaryId) =>
         _beneficiaries.SingleOrDefault(b => b.Id == beneficiaryId);
+
+    /// <summary>
+    /// Atualiza os dados de um beneficiário já vinculado a esta família. Garante CPF
+    /// único dentro da família (exceto para o próprio beneficiário).
+    /// </summary>
+    public ErrorOr<Beneficiary> UpdateBeneficiary(
+        BeneficiaryId beneficiaryId,
+        string? name,
+        Cpf cpf,
+        DateOnly? birthDate,
+        CollectionPointId registeredByPointId)
+    {
+        var beneficiary = FindBeneficiary(beneficiaryId);
+        if (beneficiary is null)
+        {
+            return DomainErrors.Beneficiary.NotFound;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.Beneficiary.NameRequired;
+        }
+
+        if (_beneficiaries.Any(b => b.Id != beneficiaryId && b.Cpf == cpf))
+        {
+            return DomainErrors.Family.DuplicatedBeneficiaryCpf;
+        }
+
+        beneficiary.UpdateDetails(name, cpf, birthDate, registeredByPointId);
+
+        return beneficiary;
+    }
 }

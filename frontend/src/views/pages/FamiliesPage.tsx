@@ -166,7 +166,7 @@ export function FamiliesPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <SectionTitle
         icon={<Users className="size-5" />}
         title="Famílias"

@@ -57,5 +57,16 @@ public sealed class Beneficiary : Entity<BeneficiaryId>
 
     public void Deactivate() => IsActive = false;
 
-    public void Rename(string name) => Name = name.Trim();
+    /// <summary>Atualização controlada pelo agregado <see cref="Family"/>.</summary>
+    internal void UpdateDetails(
+        string name,
+        Cpf cpf,
+        DateOnly? birthDate,
+        CollectionPointId registeredByPointId)
+    {
+        Name = name.Trim();
+        Cpf = cpf;
+        BirthDate = birthDate;
+        RegisteredByPointId = registeredByPointId;
+    }
 }

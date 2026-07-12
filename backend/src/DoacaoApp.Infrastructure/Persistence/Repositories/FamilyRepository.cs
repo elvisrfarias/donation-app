@@ -20,4 +20,9 @@ public sealed class FamilyRepository(AppDbContext context) : IFamilyRepository
 
     public async Task<bool> ExistsBeneficiaryWithCpfAsync(Cpf cpf, CancellationToken cancellationToken = default) =>
         await context.Beneficiaries.AnyAsync(b => b.Cpf == cpf, cancellationToken);
+
+    public async Task<bool> ExistsBeneficiaryWithCpfAsync(
+        Cpf cpf, BeneficiaryId excludeBeneficiaryId, CancellationToken cancellationToken = default) =>
+        await context.Beneficiaries.AnyAsync(
+            b => b.Cpf == cpf && b.Id != excludeBeneficiaryId, cancellationToken);
 }

@@ -20,6 +20,7 @@ import {
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
+import { AddressLocationField } from '@/views/components/map/AddressLocationField'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
@@ -142,6 +143,12 @@ const collectionPointFields: FormFieldConfig[] = [
   { name: 'district', type: 'text', label: 'Bairro', required: true },
   { name: 'city', type: 'text', label: 'Cidade', required: true },
   { name: 'state', type: 'text', label: 'UF', maxLength: 2, placeholder: 'SP', required: true },
+  {
+    type: 'custom',
+    key: 'addressLocation',
+    colSpan: 'full',
+    render: (form) => <AddressLocationField form={form} />,
+  },
   { name: 'responsibleName', type: 'text', label: 'Responsável', required: true },
   { name: 'email', type: 'email', label: 'E-mail de contato', required: true },
   { name: 'phone', type: 'text', label: 'Telefone', placeholder: '11987654321', required: true },
@@ -210,6 +217,8 @@ export function CollectionPointsPage() {
     city: editingPoint.address.city,
     state: editingPoint.address.state,
     zipCode: editingPoint.address.zipCode,
+    latitude: editingPoint.address.latitude ?? undefined,
+    longitude: editingPoint.address.longitude ?? undefined,
     responsibleName: editingPoint.contact.responsibleName,
     email: editingPoint.contact.email,
     phone: editingPoint.contact.phone,
@@ -245,7 +254,7 @@ export function CollectionPointsPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <SectionTitle
         icon={<MapPin className="size-5" />}
         title="Pontos de Coleta"

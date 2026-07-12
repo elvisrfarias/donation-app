@@ -1,4 +1,12 @@
-import { LayoutDashboard, LogOut, Map, MapPin, PackageCheck, Users } from 'lucide-react'
+import {
+  LayoutDashboard,
+  LogOut,
+  Map,
+  MapPin,
+  PackageCheck,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { cn, initials } from '@/lib/utils'
 import { roleLabels } from '@/models/types/auth'
@@ -9,6 +17,7 @@ const navItems = [
   { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/app/collection-points', label: 'Pontos de Coleta', icon: MapPin, end: false },
   { to: '/app/families', label: 'Famílias', icon: Users, end: false },
+  { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false },
   { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },
 ]
 

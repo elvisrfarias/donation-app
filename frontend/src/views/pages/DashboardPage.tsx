@@ -122,7 +122,7 @@ export function DashboardPage() {
   }, [points])
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto w-[90%] space-y-8">
       <div>
         <p className="text-sm font-semibold text-brand-600">Painel</p>
         <h1 className="mt-1 text-3xl font-bold text-stone-900">

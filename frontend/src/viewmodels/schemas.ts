@@ -28,6 +28,8 @@ export const createCollectionPointSchema = z.object({
   city: z.string().min(1, 'Cidade é obrigatória.').max(120),
   state: z.string().length(2, 'UF deve ter 2 letras.'),
   zipCode: z.string().min(8, 'CEP inválido (8 dígitos).').max(9),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   responsibleName: z.string().min(1, 'Responsável é obrigatório.').max(160),
   email: z.email('E-mail de contato inválido.'),
   phone: z.string().min(10, 'Telefone inválido.').max(15),
@@ -77,6 +79,9 @@ export const registerBeneficiarySchema = z.object({
   registeredByPointId: z.string().min(1, 'Selecione o ponto de cadastro.'),
 })
 export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
+
+export const updateBeneficiarySchema = registerBeneficiarySchema
+export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
 
 export const registerWithdrawalSchema = z.object({
   pointId: z.string().min(1, 'Selecione o ponto de coleta.'),

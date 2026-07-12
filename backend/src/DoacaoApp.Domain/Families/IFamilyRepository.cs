@@ -15,4 +15,8 @@ public interface IFamilyRepository
 
     /// <summary>Unicidade municipal de CPF entre beneficiários (todas as famílias).</summary>
     Task<bool> ExistsBeneficiaryWithCpfAsync(Cpf cpf, CancellationToken cancellationToken = default);
+
+    /// <summary>Unicidade municipal de CPF entre beneficiários, ignorando o próprio beneficiário (edição).</summary>
+    Task<bool> ExistsBeneficiaryWithCpfAsync(
+        Cpf cpf, BeneficiaryId excludeBeneficiaryId, CancellationToken cancellationToken = default);
 }

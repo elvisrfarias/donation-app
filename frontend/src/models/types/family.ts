@@ -37,6 +37,8 @@ export interface RegisterBeneficiaryInput {
   registeredByPointId: string
 }
 
+export type UpdateBeneficiaryInput = RegisterBeneficiaryInput
+
 export const cycleTypeLabels: Record<CycleType, string> = {
   Weekly: 'Semanal',
   Biweekly: 'Quinzenal',

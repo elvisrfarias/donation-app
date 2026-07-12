@@ -5,6 +5,7 @@ import type {
   Family,
   FamilyWithdrawalHistory,
   RegisterBeneficiaryInput,
+  UpdateBeneficiaryInput,
 } from '@/models/types'
 
 export const familyService = {
@@ -23,6 +24,18 @@ export const familyService = {
     input: RegisterBeneficiaryInput,
   ): Promise<Beneficiary> {
     const { data } = await http.post<Beneficiary>(`/families/${familyId}/beneficiaries`, input)
+    return data
+  },
+
+  async updateBeneficiary(
+    familyId: string,
+    beneficiaryId: string,
+    input: UpdateBeneficiaryInput,
+  ): Promise<Beneficiary> {
+    const { data } = await http.put<Beneficiary>(
+      `/families/${familyId}/beneficiaries/${beneficiaryId}`,
+      input,
+    )
     return data
   },
 
