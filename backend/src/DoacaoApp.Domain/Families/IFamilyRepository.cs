@@ -7,6 +7,9 @@ public interface IFamilyRepository
 {
     void Add(Family family);
 
+    /// <summary>Lista todas as famílias com seus beneficiários.</summary>
+    Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Carrega a família com seus beneficiários.</summary>
     Task<Family?> GetByIdAsync(FamilyId id, CancellationToken cancellationToken = default);
 

@@ -8,6 +8,12 @@ public sealed class FamilyRepository(AppDbContext context) : IFamilyRepository
 {
     public void Add(Family family) => context.Families.Add(family);
 
+    public async Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default) =>
+        await context.Families
+            .Include(f => f.Beneficiaries)
+            .OrderBy(f => f.Name)
+            .ToListAsync(cancellationToken);
+
     public async Task<Family?> GetByIdAsync(FamilyId id, CancellationToken cancellationToken = default) =>
         await context.Families
             .Include(f => f.Beneficiaries)

@@ -72,7 +72,7 @@ export function FamiliesPage() {
 
   const [familyId, setFamilyId] = useState<string | null>(null)
   const family = useFamily(familyId)
-  const registerBeneficiary = useRegisterBeneficiary(familyId ?? '')
+  const registerBeneficiary = useRegisterBeneficiary()
 
   const [newFamilyOpen, setNewFamilyOpen] = useState(false)
   const [lookupOpen, setLookupOpen] = useState(false)
@@ -345,6 +345,7 @@ export function FamiliesPage() {
                       fields={beneficiaryFields}
                       onSubmit={async (values) => {
                         await registerBeneficiary.register({
+                          familyId: family.family.id,
                           name: values.name,
                           cpf: values.cpf,
                           birthDate: values.birthDate || null,

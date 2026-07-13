@@ -25,6 +25,21 @@ export function useCreateFamily() {
   }
 }
 
+/** Lista todas as famílias com seus beneficiários. */
+export function useFamilies() {
+  const query = useQuery<Family[], ApiError>({
+    queryKey: queryKeys.families.all,
+    queryFn: ({ signal }) => familyService.list(signal),
+  })
+
+  return {
+    families: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  }
+}
+
 /** Carrega uma família e seu histórico de retiradas (saldo do ciclo vigente). */
 export function useFamily(familyId: string | null) {
   const enabled = !!familyId
@@ -52,13 +67,18 @@ export function useFamily(familyId: string | null) {
   }
 }
 
-export function useRegisterBeneficiary(familyId: string) {
+export function useRegisterBeneficiary() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<Beneficiary, ApiError, RegisterBeneficiaryInput>({
-    mutationFn: (input) => familyService.registerBeneficiary(familyId, input),
-    onSuccess: () => {
+  const mutation = useMutation<
+    Beneficiary,
+    ApiError,
+    { familyId: string } & RegisterBeneficiaryInput
+  >({
+    mutationFn: ({ familyId, ...input }) => familyService.registerBeneficiary(familyId, input),
+    onSuccess: (_, { familyId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(familyId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.all })
     },
   })
 
@@ -70,18 +90,19 @@ export function useRegisterBeneficiary(familyId: string) {
   }
 }
 
-export function useUpdateBeneficiary(familyId: string) {
+export function useUpdateBeneficiary() {
   const queryClient = useQueryClient()
 
   const mutation = useMutation<
     Beneficiary,
     ApiError,
-    { beneficiaryId: string; input: UpdateBeneficiaryInput }
+    { familyId: string; beneficiaryId: string; input: UpdateBeneficiaryInput }
   >({
-    mutationFn: ({ beneficiaryId, input }) =>
+    mutationFn: ({ familyId, beneficiaryId, input }) =>
       familyService.updateBeneficiary(familyId, beneficiaryId, input),
-    onSuccess: () => {
+    onSuccess: (_, { familyId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(familyId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.all })
     },
   })
 

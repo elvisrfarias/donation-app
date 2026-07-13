@@ -44,6 +44,15 @@ public sealed class FamiliesController(ISender sender) : ApiController(sender)
         return Respond(result, value => Created($"/api/families/{value.Id}", value));
     }
 
+    /// <summary>Lista todas as famílias com seus beneficiários.</summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<FamilyResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> List(CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new ListFamiliesQuery(), cancellationToken);
+        return Respond(result, Ok);
+    }
+
     /// <summary>Obtém uma família e seus beneficiários.</summary>
     [HttpGet("{familyId:guid}")]
     [ProducesResponseType(typeof(FamilyResponse), StatusCodes.Status200OK)]

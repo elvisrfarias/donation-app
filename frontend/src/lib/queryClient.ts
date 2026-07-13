@@ -20,6 +20,7 @@ export const queryKeys = {
     public: ['collection-points', 'public'] as const,
   },
   families: {
+    all: ['families', 'all'] as const,
     byId: (id: string) => ['families', id] as const,
     withdrawals: (id: string) => ['families', id, 'withdrawals'] as const,
   },

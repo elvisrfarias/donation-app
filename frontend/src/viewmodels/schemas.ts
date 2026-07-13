@@ -83,6 +83,13 @@ export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
 export const updateBeneficiarySchema = registerBeneficiarySchema
 export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
 
+/** Cadastro de beneficiário fora do contexto de uma família já selecionada: exige
+ * escolher a família de destino. */
+export const registerBeneficiaryWithFamilySchema = registerBeneficiarySchema.extend({
+  familyId: z.string().min(1, 'Selecione a família.'),
+})
+export type RegisterBeneficiaryWithFamilyForm = z.infer<typeof registerBeneficiaryWithFamilySchema>
+
 export const registerWithdrawalSchema = z.object({
   pointId: z.string().min(1, 'Selecione o ponto de coleta.'),
   familyId: z.string().min(1, 'Informe o ID da família.'),

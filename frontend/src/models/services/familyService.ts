@@ -14,6 +14,11 @@ export const familyService = {
     return data
   },
 
+  async list(signal?: AbortSignal): Promise<Family[]> {
+    const { data } = await http.get<Family[]>('/families', { signal })
+    return data
+  },
+
   async getById(id: string): Promise<Family> {
     const { data } = await http.get<Family>(`/families/${id}`)
     return data

@@ -9,6 +9,7 @@ export {
 } from './useCollectionPointsViewModel'
 export {
   useCreateFamily,
+  useFamilies,
   useFamily,
   useRegisterBeneficiary,
   useUpdateBeneficiary,

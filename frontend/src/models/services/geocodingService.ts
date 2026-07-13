@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import { logger } from '@/lib/logger'
 import type { LatLng } from '@/models/types'
 
 const CACHE_KEY = 'doacao.geocode.cache.v1'
