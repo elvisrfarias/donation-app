@@ -16,6 +16,9 @@ public interface IFamilyRepository
     /// <summary>Localiza a família dona de um beneficiário (carrega o agregado completo).</summary>
     Task<Family?> GetByBeneficiaryIdAsync(BeneficiaryId beneficiaryId, CancellationToken cancellationToken = default);
 
+    /// <summary>Localiza a família dona do beneficiário com o CPF informado (busca rápida na retirada).</summary>
+    Task<Family?> GetByBeneficiaryCpfAsync(Cpf cpf, CancellationToken cancellationToken = default);
+
     /// <summary>Unicidade municipal de CPF entre beneficiários (todas as famílias).</summary>
     Task<bool> ExistsBeneficiaryWithCpfAsync(Cpf cpf, CancellationToken cancellationToken = default);
 

@@ -40,6 +40,11 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
                     b.Property<Guid?>("ImageFileId")
                         .HasColumnType("uuid")
                         .HasColumnName("image_file_id");
@@ -51,6 +56,18 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Needs")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("needs")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
+                    b.Property<string>("OpeningHours")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("opening_hours");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -149,6 +166,55 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("families", (string)null);
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("author_name");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<bool>("IsHidden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_hidden");
+
+                    b.Property<Guid>("PointId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_point_id");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<int>("ReportCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("report_count");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsHidden");
+
+                    b.HasIndex("PointId");
+
+                    b.ToTable("reviews", (string)null);
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.Storage.StoredFile", b =>
@@ -534,6 +600,14 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                                 .HasColumnType("character varying(120)")
                                 .HasColumnName("address_district");
 
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("double precision")
+                                .HasColumnName("address_latitude");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("double precision")
+                                .HasColumnName("address_longitude");
+
                             b1.Property<string>("Number")
                                 .IsRequired()
                                 .HasMaxLength(20)
@@ -648,6 +722,15 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Cycle")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
+                        .WithMany()
+                        .HasForeignKey("PointId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

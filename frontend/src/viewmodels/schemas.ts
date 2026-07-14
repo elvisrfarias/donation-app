@@ -21,6 +21,9 @@ const imageFileSchema = z
 export const createCollectionPointSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').max(200),
   type: z.enum(['Association', 'Church', 'PublicEntity']),
+  description: z.string().max(2000, 'Máximo de 2000 caracteres.').optional(),
+  openingHours: z.string().max(200, 'Máximo de 200 caracteres.').optional(),
+  needs: z.string().max(2000, 'Máximo de 2000 caracteres.').optional(),
   street: z.string().min(1, 'Rua é obrigatória.').max(200),
   number: z.string().min(1, 'Número é obrigatório.').max(20),
   complement: z.string().max(120).optional(),
@@ -89,6 +92,17 @@ export const registerBeneficiaryWithFamilySchema = registerBeneficiarySchema.ext
   familyId: z.string().min(1, 'Selecione a família.'),
 })
 export type RegisterBeneficiaryWithFamilyForm = z.infer<typeof registerBeneficiaryWithFamilySchema>
+
+export const createReviewSchema = z.object({
+  authorName: z.string().min(1, 'Informe seu nome.').max(120),
+  rating: z
+    .number({ message: 'Selecione uma nota.' })
+    .int()
+    .min(1, 'Selecione uma nota.')
+    .max(5, 'A nota máxima é 5.'),
+  comment: z.string().max(1000, 'Máximo de 1000 caracteres.').optional(),
+})
+export type CreateReviewForm = z.infer<typeof createReviewSchema>
 
 export const registerWithdrawalSchema = z.object({
   pointId: z.string().min(1, 'Selecione o ponto de coleta.'),

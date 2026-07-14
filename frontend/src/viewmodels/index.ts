@@ -15,4 +15,5 @@ export {
   useUpdateBeneficiary,
 } from './useFamiliesViewModel'
 export { useRegisterWithdrawal } from './useRegisterWithdrawalViewModel'
+export { useReviewsViewModel } from './useReviewsViewModel'
 export * from './schemas'

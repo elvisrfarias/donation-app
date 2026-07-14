@@ -4,6 +4,7 @@ using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Authentication;
 using DoacaoApp.Infrastructure.Identity;
@@ -36,6 +37,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICollectionPointRepository, CollectionPointRepository>();
+        services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IFamilyRepository, FamilyRepository>();
         services.AddScoped<IStoredFileRepository, StoredFileRepository>();
         services.AddScoped<IIdentityService, IdentityService>();

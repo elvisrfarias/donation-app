@@ -1,5 +1,6 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -23,3 +24,6 @@ public sealed class BeneficiaryIdConverter()
 
 public sealed class StoredFileIdConverter()
     : ValueConverter<StoredFileId, Guid>(id => id.Value, value => StoredFileId.From(value));
+
+public sealed class ReviewIdConverter()
+    : ValueConverter<ReviewId, Guid>(id => id.Value, value => ReviewId.From(value));

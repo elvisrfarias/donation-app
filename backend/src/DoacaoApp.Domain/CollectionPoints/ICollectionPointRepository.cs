@@ -13,6 +13,14 @@ public interface ICollectionPointRepository
     Task<IReadOnlyList<CollectionPoint>> ListActiveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Total de famílias distintas já atendidas em cada ponto informado (indicador de impacto
+    /// para a divulgação/ranking). Pontos sem atendimentos não aparecem no resultado.
+    /// </summary>
+    Task<IReadOnlyDictionary<CollectionPointId, int>> GetFamiliesServedAsync(
+        IReadOnlyCollection<CollectionPointId> pointIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Conta as retiradas de uma família dentro da janela [início, fim) considerando
     /// TODOS os pontos do município. É o coração do controle de equidade compartilhado.
     /// </summary>

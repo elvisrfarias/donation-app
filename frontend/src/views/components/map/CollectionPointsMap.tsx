@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import L from 'leaflet'
+import { Clock, HeartHandshake } from 'lucide-react'
 import { MapContainer, Marker, Popup, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { env } from '@/lib/env'
 import {
@@ -10,12 +11,32 @@ import {
   type LatLng,
 } from '@/models/types'
 import { Badge } from '@/views/components/ui'
+import { StarRating } from '@/views/components/reviews/StarRating'
 import { createMarkerIcon } from './markerIcon'
 
 interface Props {
   points: Geocoded<CollectionPoint>[]
   selectedId: string | null
   onSelect: (id: string | null) => void
+  userLocation?: LatLng | null
+}
+
+const userLocationIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:16px;height:16px;border-radius:9999px;background:#2563eb;border:3px solid white;box-shadow:0 0 0 4px rgba(37,99,235,.25)"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+})
+
+/** Centraliza o mapa na localização do usuário quando ela é obtida. */
+function FlyToUser({ position }: { position: LatLng | null | undefined }) {
+  const map = useMap()
+  useEffect(() => {
+    if (position) {
+      map.flyTo([position.lat, position.lng], Math.max(map.getZoom(), 13), { duration: 0.8 })
+    }
+  }, [position, map])
+  return null
 }
 
 type LocatedPoint = Geocoded<CollectionPoint> & { position: LatLng }
@@ -66,7 +87,7 @@ function FitToPoints({ points }: Pick<Props, 'points'>) {
   return null
 }
 
-export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
+export function CollectionPointsMap({ points, selectedId, onSelect, userLocation }: Props) {
   const located = points.filter(hasPosition)
   const markerRefs = useRef<Record<string, L.Marker>>({})
 
@@ -113,6 +134,47 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
                 <Badge tone="brand">{collectionPointTypeLabels[item.type]}</Badge>
               </div>
               <p className="text-sm text-stone-600">{formatAddress(item.address)}</p>
+              {item.description && (
+                <p className="line-clamp-3 text-xs text-stone-500">{item.description}</p>
+              )}
+              {item.reviewCount > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <StarRating value={item.averageRating} size="sm" />
+                  <span className="text-xs font-medium text-stone-500">
+                    {item.averageRating.toFixed(1)} ({item.reviewCount})
+                  </span>
+                </div>
+              )}
+              {item.familiesServed > 0 && (
+                <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                  <HeartHandshake className="size-3.5" />
+                  {item.familiesServed}{' '}
+                  {item.familiesServed === 1 ? 'família atendida' : 'famílias atendidas'}
+                </p>
+              )}
+              {item.openingHours && (
+                <p className="flex items-center gap-1.5 text-xs text-stone-500">
+                  <Clock className="size-3.5 shrink-0" />
+                  {item.openingHours}
+                </p>
+              )}
+              {item.needs.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                    Precisa agora
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.needs.map((need) => (
+                      <span
+                        key={need}
+                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200"
+                      >
+                        {need}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="border-t border-stone-100 pt-2 text-xs text-stone-500">
                 <p className="font-semibold text-stone-700">{item.contact.responsibleName}</p>
                 <p className="mt-0.5">
@@ -124,8 +186,15 @@ export function CollectionPointsMap({ points, selectedId, onSelect }: Props) {
         </Marker>
       ))}
 
+      {userLocation && (
+        <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
+          <Popup>Você está aqui</Popup>
+        </Marker>
+      )}
+
       <FitToPoints points={points} />
       <FlyToSelected points={points} selectedId={selectedId} markerRefs={markerRefs} />
+      <FlyToUser position={userLocation} />
     </MapContainer>
   )
 }

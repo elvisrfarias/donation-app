@@ -28,7 +28,12 @@ public sealed record UpdateCollectionPointCommand(
     string Email,
     string Phone,
     IReadOnlyList<ItemCategory> AcceptedItems,
-    Guid? ImageFileId) : IRequest<ErrorOr<CollectionPointResponse>>;
+    Guid? ImageFileId,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? Description = null,
+    string? OpeningHours = null,
+    IReadOnlyList<string>? Needs = null) : IRequest<ErrorOr<CollectionPointResponse>>;
 
 public sealed class UpdateCollectionPointValidator : AbstractValidator<UpdateCollectionPointCommand>
 {
@@ -44,6 +49,9 @@ public sealed class UpdateCollectionPointValidator : AbstractValidator<UpdateCol
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.ResponsibleName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Description).MaximumLength(CollectionPoint.MaxDescriptionLength);
+        RuleFor(x => x.OpeningHours).MaximumLength(CollectionPoint.MaxOpeningHoursLength);
+        RuleForEach(x => x.Needs).MaximumLength(CollectionPoint.MaxNeedLength);
         RuleFor(x => x.AcceptedItems)
             .NotEmpty().WithMessage("Informe ao menos uma categoria de itens do ponto de coleta.");
         RuleForEach(x => x.AcceptedItems).IsInEnum();
@@ -70,7 +78,8 @@ public sealed class UpdateCollectionPointHandler(
 
         var address = Address.Create(
             command.Street, command.Number, command.Complement,
-            command.District, command.City, command.State, command.ZipCode);
+            command.District, command.City, command.State, command.ZipCode,
+            command.Latitude, command.Longitude);
 
         var contact = ContactInfo.Create(command.ResponsibleName, command.Email, command.Phone);
 
@@ -89,6 +98,9 @@ public sealed class UpdateCollectionPointHandler(
         point.UpdateAddress(address.Value);
         point.UpdateContact(contact.Value);
         point.UpdateAcceptedItems(command.AcceptedItems);
+        point.UpdateDescription(command.Description);
+        point.UpdateOpeningHours(command.OpeningHours);
+        point.UpdateNeeds(command.Needs);
 
         var now = clock.UtcNow;
 

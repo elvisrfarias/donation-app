@@ -16,7 +16,9 @@ public sealed record Address
         string district,
         string city,
         string state,
-        string zipCode)
+        string zipCode,
+        double? latitude,
+        double? longitude)
     {
         Street = street;
         Number = number;
@@ -25,6 +27,8 @@ public sealed record Address
         City = city;
         State = state;
         ZipCode = zipCode;
+        Latitude = latitude;
+        Longitude = longitude;
     }
 
     public string Street { get; }
@@ -39,6 +43,15 @@ public sealed record Address
     /// <summary>CEP com 8 dígitos, sem máscara.</summary>
     public string ZipCode { get; }
 
+    /// <summary>Latitude do ponto exato no mapa; nula quando ainda não geolocalizado.</summary>
+    public double? Latitude { get; }
+
+    /// <summary>Longitude do ponto exato no mapa; nula quando ainda não geolocalizado.</summary>
+    public double? Longitude { get; }
+
+    /// <summary>Indica se o endereço tem coordenadas fixadas no mapa.</summary>
+    public bool HasCoordinates => Latitude is not null && Longitude is not null;
+
     public string FormattedZipCode => $"{ZipCode[..5]}-{ZipCode[5..]}";
 
     public static ErrorOr<Address> Create(
@@ -48,7 +61,9 @@ public sealed record Address
         string? district,
         string? city,
         string? state,
-        string? zipCode)
+        string? zipCode,
+        double? latitude = null,
+        double? longitude = null)
     {
         if (string.IsNullOrWhiteSpace(street)
             || string.IsNullOrWhiteSpace(city)
@@ -70,6 +85,12 @@ public sealed record Address
             return DomainErrors.Address.InvalidZipCode;
         }
 
+        var (normalizedLatitude, normalizedLongitude) = NormalizeCoordinates(latitude, longitude);
+        if (!AreCoordinatesValid(normalizedLatitude, normalizedLongitude))
+        {
+            return DomainErrors.Address.InvalidCoordinates;
+        }
+
         return new Address(
             street.Trim(),
             (number ?? "S/N").Trim(),
@@ -77,8 +98,17 @@ public sealed record Address
             (district ?? string.Empty).Trim(),
             city.Trim(),
             normalizedState,
-            zipDigits);
+            zipDigits,
+            normalizedLatitude,
+            normalizedLongitude);
     }
+
+    private static (double? Latitude, double? Longitude) NormalizeCoordinates(double? latitude, double? longitude) =>
+        latitude is null || longitude is null ? (null, null) : (latitude, longitude);
+
+    private static bool AreCoordinatesValid(double? latitude, double? longitude) =>
+        latitude is null || longitude is null
+        || (latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180);
 
     public override string ToString() =>
         $"{Street}, {Number}{(Complement is null ? string.Empty : $" - {Complement}")}, {District}, {City}/{State}, {FormattedZipCode}";

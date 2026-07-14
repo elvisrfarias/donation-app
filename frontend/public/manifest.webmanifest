@@ -1,0 +1,20 @@
+{
+  "name": "Doação App — Pontos de Coleta",
+  "short_name": "Doação App",
+  "description": "Mapa e gestão de pontos de doação e coleta para pessoas em vulnerabilidade.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#6c2bd9",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

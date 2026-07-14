@@ -1,5 +1,6 @@
 export { authService } from './authService'
 export { collectionPointService } from './collectionPointService'
+export { reviewService } from './reviewService'
 export { familyService } from './familyService'
 export { withdrawalService } from './withdrawalService'
 export { geocodingService, type ReverseAddress } from './geocodingService'

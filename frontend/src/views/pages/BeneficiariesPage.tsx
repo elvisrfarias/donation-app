@@ -123,7 +123,7 @@ export function BeneficiariesPage() {
     },
   ]
 
-  const editFields = beneficiaryFields.filter((field) => field.name !== 'familyId')
+  const editFields = beneficiaryFields.filter((field) => !('name' in field) || field.name !== 'familyId')
 
   const editDefaults: UpdateBeneficiaryForm | null = editingBeneficiary && {
     name: editingBeneficiary.name,

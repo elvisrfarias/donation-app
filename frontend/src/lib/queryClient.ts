@@ -18,6 +18,7 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   collectionPoints: {
     public: ['collection-points', 'public'] as const,
+    reviews: (pointId: string) => ['collection-points', pointId, 'reviews'] as const,
   },
   families: {
     all: ['families', 'all'] as const,

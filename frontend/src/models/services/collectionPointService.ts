@@ -7,9 +7,15 @@ import type {
 } from '@/models/types'
 
 export const collectionPointService = {
-  /** Lista pública (anônima) dos pontos de coleta ativos. */
-  async listPublic(signal?: AbortSignal): Promise<CollectionPoint[]> {
-    const { data } = await http.get<CollectionPoint[]>('/public/collection-points', { signal })
+  /** Lista pública (anônima) dos pontos de coleta ativos. Use sort='top-rated' para o ranking. */
+  async listPublic(
+    signal?: AbortSignal,
+    sort?: 'top-rated',
+  ): Promise<CollectionPoint[]> {
+    const { data } = await http.get<CollectionPoint[]>('/public/collection-points', {
+      signal,
+      params: sort ? { sort } : undefined,
+    })
     return data
   },
 

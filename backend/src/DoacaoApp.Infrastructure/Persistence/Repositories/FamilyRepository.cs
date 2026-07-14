@@ -24,6 +24,11 @@ public sealed class FamilyRepository(AppDbContext context) : IFamilyRepository
             .Include(f => f.Beneficiaries)
             .FirstOrDefaultAsync(f => f.Beneficiaries.Any(b => b.Id == beneficiaryId), cancellationToken);
 
+    public async Task<Family?> GetByBeneficiaryCpfAsync(Cpf cpf, CancellationToken cancellationToken = default) =>
+        await context.Families
+            .Include(f => f.Beneficiaries)
+            .FirstOrDefaultAsync(f => f.Beneficiaries.Any(b => b.Cpf == cpf), cancellationToken);
+
     public async Task<bool> ExistsBeneficiaryWithCpfAsync(Cpf cpf, CancellationToken cancellationToken = default) =>
         await context.Beneficiaries.AnyAsync(b => b.Cpf == cpf, cancellationToken);
 

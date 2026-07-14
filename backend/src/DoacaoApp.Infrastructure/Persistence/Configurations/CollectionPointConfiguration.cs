@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,29 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
 
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
         builder.Property(p => p.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
+        builder.Property(p => p.Description).HasColumnName("description").HasMaxLength(CollectionPoint.MaxDescriptionLength);
+        builder.Property(p => p.OpeningHours).HasColumnName("opening_hours").HasMaxLength(CollectionPoint.MaxOpeningHoursLength);
+
+        var needsConverter = new ValueConverter<IReadOnlyList<string>, string>(
+            needs => JsonSerializer.Serialize(needs, (JsonSerializerOptions?)null),
+            value => string.IsNullOrWhiteSpace(value)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(value, (JsonSerializerOptions?)null) ?? new List<string>());
+
+        var needsComparer = new ValueComparer<IReadOnlyList<string>>(
+            (a, b) => a!.SequenceEqual(b!),
+            needs => needs.Aggregate(0, (hash, n) => HashCode.Combine(hash, n.GetHashCode())),
+            needs => needs.ToList());
+
+        builder.Property(p => p.Needs)
+            .HasColumnName("needs")
+            .HasConversion(needsConverter, needsComparer)
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasDefaultValueSql("'[]'::jsonb");
+        builder.Metadata
+            .FindProperty(nameof(CollectionPoint.Needs))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
             items => string.Join(',', items.Select(static i => i.ToString())),
@@ -56,6 +80,8 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
             address.Property(x => x.City).HasColumnName("address_city").IsRequired().HasMaxLength(120);
             address.Property(x => x.State).HasColumnName("address_state").IsRequired().HasMaxLength(2);
             address.Property(x => x.ZipCode).HasColumnName("address_zipcode").IsRequired().HasMaxLength(8);
+            address.Property(x => x.Latitude).HasColumnName("address_latitude");
+            address.Property(x => x.Longitude).HasColumnName("address_longitude");
         });
         builder.Navigation(p => p.Address).IsRequired();
 

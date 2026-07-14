@@ -16,8 +16,9 @@ import {
 } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, Card, SectionTitle } from '@/views/components/ui'
+import { familyService } from '@/models/services'
 
-const lookupSchema = z.object({ familyId: z.string() })
+const lookupSchema = z.object({ cpf: z.string().min(11, 'Informe o CPF (11 dígitos).') })
 
 export function RegisterWithdrawalPage() {
   const { points } = useCollectionPoints()
@@ -27,7 +28,19 @@ export function RegisterWithdrawalPage() {
   const family = useFamily(loadedFamilyId)
 
   const [lookupOpen, setLookupOpen] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
   const [withdrawalOpen, setWithdrawalOpen] = useState(false)
+
+  async function loadByCpf(cpf: string) {
+    setLookupError(null)
+    try {
+      const found = await familyService.findByCpf(cpf)
+      setLoadedFamilyId(found.id)
+      setLookupOpen(false)
+    } catch {
+      setLookupError('Nenhuma família encontrada com esse CPF. Verifique o número.')
+    }
+  }
 
   const beneficiaries = family.family?.beneficiaries ?? []
   const remaining = family.history?.remainingInCurrentCycle
@@ -107,22 +120,28 @@ export function RegisterWithdrawalPage() {
             <Button
               variant="secondary"
               leftIcon={<Search className="size-4" />}
-              onClick={() => setLookupOpen(true)}
+              onClick={() => {
+                setLookupError(null)
+                setLookupOpen(true)
+              }}
             >
-              Carregar família
+              Buscar por CPF
             </Button>
           </div>
         ) : family.isFetching ? (
           <p className="text-sm text-stone-500">Carregando família…</p>
         ) : family.notFound ? (
           <div className="flex flex-col items-start gap-3">
-            <Alert tone="warning">Família não encontrada para o ID informado.</Alert>
+            <Alert tone="warning">Família não encontrada.</Alert>
             <Button
               variant="secondary"
               leftIcon={<Search className="size-4" />}
-              onClick={() => setLookupOpen(true)}
+              onClick={() => {
+                setLookupError(null)
+                setLookupOpen(true)
+              }}
             >
-              Tentar outro ID
+              Buscar por CPF
             </Button>
           </div>
         ) : family.family ? (
@@ -142,7 +161,10 @@ export function RegisterWithdrawalPage() {
                 <Button
                   variant="ghost"
                   leftIcon={<UserCog className="size-4" />}
-                  onClick={() => setLookupOpen(true)}
+                  onClick={() => {
+                    setLookupError(null)
+                    setLookupOpen(true)
+                  }}
                 >
                   Trocar família
                 </Button>
@@ -168,27 +190,29 @@ export function RegisterWithdrawalPage() {
       <ModalComponent
         open={lookupOpen}
         onOpenChange={setLookupOpen}
-        title="Carregar família"
-        description="Informe o GUID da família para registrar a retirada."
+        title="Buscar família por CPF"
+        description="Informe o CPF de um beneficiário para carregar a família e o saldo do ciclo."
         size="md"
       >
+        {lookupError && (
+          <div className="mb-3">
+            <Alert tone="warning">{lookupError}</Alert>
+          </div>
+        )}
         <FormComponent
           schema={lookupSchema}
-          defaultValues={{ familyId: loadedFamilyId ?? '' }}
+          defaultValues={{ cpf: '' }}
           fields={[
             {
-              name: 'familyId',
+              name: 'cpf',
               type: 'text',
-              label: 'ID da família (GUID)',
-              placeholder: '00000000-0000-0000-0000-000000000000',
+              label: 'CPF do beneficiário',
+              placeholder: '000.000.000-00',
               required: true,
             },
           ]}
-          onSubmit={(values) => {
-            setLoadedFamilyId(values.familyId.trim() || null)
-            setLookupOpen(false)
-          }}
-          submitLabel="Carregar"
+          onSubmit={(values) => loadByCpf(values.cpf)}
+          submitLabel="Buscar família"
           submitIcon={<Search className="size-4" />}
           submitFullWidth
         />

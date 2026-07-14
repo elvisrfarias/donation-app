@@ -18,6 +18,25 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<CollectionPointId, int>> GetFamiliesServedAsync(
+        IReadOnlyCollection<CollectionPointId> pointIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (pointIds.Count == 0)
+        {
+            return new Dictionary<CollectionPointId, int>();
+        }
+
+        var stats = await context.Withdrawals
+            .AsNoTracking()
+            .Where(w => pointIds.Contains(w.PointId))
+            .GroupBy(w => w.PointId)
+            .Select(g => new { PointId = g.Key, FamiliesServed = g.Select(w => w.FamilyId).Distinct().Count() })
+            .ToListAsync(cancellationToken);
+
+        return stats.ToDictionary(s => s.PointId, s => s.FamiliesServed);
+    }
+
     public async Task<int> CountFamilyWithdrawalsAsync(
         FamilyId familyId,
         DateTime startInclusiveUtc,

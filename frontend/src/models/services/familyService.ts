@@ -24,6 +24,13 @@ export const familyService = {
     return data
   },
 
+  /** Busca rápida da família pelo CPF de um beneficiário (usada no registro de retirada). */
+  async findByCpf(cpf: string): Promise<Family> {
+    const digits = cpf.replace(/\D/g, '')
+    const { data } = await http.get<Family>(`/families/by-beneficiary-cpf/${digits}`)
+    return data
+  },
+
   async registerBeneficiary(
     familyId: string,
     input: RegisterBeneficiaryInput,

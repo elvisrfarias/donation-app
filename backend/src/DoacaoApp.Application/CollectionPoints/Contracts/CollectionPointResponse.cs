@@ -2,17 +2,23 @@ using DoacaoApp.Domain.CollectionPoints;
 
 namespace DoacaoApp.Application.CollectionPoints.Contracts;
 
-/// <summary>Representação pública de um ponto de coleta (endereço + contato).</summary>
+/// <summary>Representação pública de um ponto de coleta (endereço + contato + avaliações).</summary>
 public sealed record CollectionPointResponse(
     Guid Id,
     string Name,
     string Type,
+    string? Description,
+    string? OpeningHours,
+    IReadOnlyList<string> Needs,
     AddressResponse Address,
     ContactResponse Contact,
     IReadOnlyList<string> AcceptedItems,
     bool IsActive,
     DateTime CreatedAtUtc,
-    string? ImageUrl);
+    string? ImageUrl,
+    double AverageRating,
+    int ReviewCount,
+    int FamiliesServed);
 
 public sealed record AddressResponse(
     string Street,
@@ -21,17 +27,27 @@ public sealed record AddressResponse(
     string District,
     string City,
     string State,
-    string ZipCode);
+    string ZipCode,
+    double? Latitude,
+    double? Longitude);
 
 public sealed record ContactResponse(string ResponsibleName, string Email, string Phone);
 
 public static class CollectionPointMappings
 {
-    public static CollectionPointResponse ToResponse(this CollectionPoint point, string? imageUrl = null) =>
+    public static CollectionPointResponse ToResponse(
+        this CollectionPoint point,
+        string? imageUrl = null,
+        double averageRating = 0,
+        int reviewCount = 0,
+        int familiesServed = 0) =>
         new(
             point.Id.Value,
             point.Name,
             point.Type.ToString(),
+            point.Description,
+            point.OpeningHours,
+            [.. point.Needs],
             new AddressResponse(
                 point.Address.Street,
                 point.Address.Number,
@@ -39,7 +55,9 @@ public static class CollectionPointMappings
                 point.Address.District,
                 point.Address.City,
                 point.Address.State,
-                point.Address.FormattedZipCode),
+                point.Address.FormattedZipCode,
+                point.Address.Latitude,
+                point.Address.Longitude),
             new ContactResponse(
                 point.Contact.ResponsibleName,
                 point.Contact.Email.Value,
@@ -47,5 +65,8 @@ public static class CollectionPointMappings
             [.. point.AcceptedItems.Select(static i => i.ToString())],
             point.IsActive,
             point.CreatedAtUtc,
-            imageUrl);
+            imageUrl,
+            averageRating,
+            reviewCount,
+            familiesServed);
 }

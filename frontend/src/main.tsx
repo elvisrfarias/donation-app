@@ -15,3 +15,11 @@ createRoot(rootElement).render(
     </AppProviders>
   </StrictMode>,
 )
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // PWA é um aprimoramento progressivo; falha no registro não quebra o app.
+    })
+  })
+}

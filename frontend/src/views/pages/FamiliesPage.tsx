@@ -1,7 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { CalendarClock, Pencil, Plus, Search, Trash2, UserPlus, Users } from 'lucide-react'
+import { CalendarClock, Download, Pencil, Plus, Search, Trash2, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
+import { downloadCsv } from '@/lib/csv'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { cycleTypeLabels, type Beneficiary, type Withdrawal } from '@/models/types'
 import {
@@ -345,7 +346,7 @@ export function FamiliesPage() {
                       fields={beneficiaryFields}
                       onSubmit={async (values) => {
                         await registerBeneficiary.register({
-                          familyId: family.family.id,
+                          familyId: family.family!.id,
                           name: values.name,
                           cpf: values.cpf,
                           birthDate: values.birthDate || null,
@@ -362,9 +363,34 @@ export function FamiliesPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
-                  <CalendarClock className="size-5 text-brand-600" /> Histórico de retiradas
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-stone-900">
+                    <CalendarClock className="size-5 text-brand-600" /> Histórico de retiradas
+                  </h3>
+                  {(family.history?.withdrawals.length ?? 0) > 0 && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<Download className="size-4" />}
+                      onClick={() => {
+                        const beneficiaryName = (id: string) =>
+                          family.family?.beneficiaries.find((b) => b.id === id)?.name ?? id
+                        downloadCsv(
+                          `retiradas-${family.family?.name ?? 'familia'}`,
+                          ['Data/hora', 'Beneficiário', 'Ponto (ID)', 'Observações'],
+                          (family.history?.withdrawals ?? []).map((w) => [
+                            formatDateTime(w.occurredAtUtc),
+                            beneficiaryName(w.beneficiaryId),
+                            w.pointId,
+                            w.notes ?? '',
+                          ]),
+                        )
+                      }}
+                    >
+                      Exportar CSV
+                    </Button>
+                  )}
+                </div>
                 <DataTable
                   columns={historyColumns}
                   data={family.history?.withdrawals ?? []}

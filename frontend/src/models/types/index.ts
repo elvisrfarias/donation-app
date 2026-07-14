@@ -1,5 +1,6 @@
 export * from './auth'
 export * from './collectionPoint'
+export * from './review'
 export * from './family'
 export * from './withdrawal'
 export * from './geo'

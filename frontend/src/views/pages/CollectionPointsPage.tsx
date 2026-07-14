@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Building2, Church, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Building2, Church, Download, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { downloadCsv } from '@/lib/csv'
 import {
   collectionPointTypeLabels,
   itemCategoryLabels,
@@ -136,6 +137,29 @@ const itemCategoryOptions: SelectOption[] = itemCategoryValues.map((value) => ({
 const collectionPointFields: FormFieldConfig[] = [
   { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 'full' },
   { name: 'type', type: 'select', label: 'Tipo', options: typeOptions, required: true },
+  {
+    name: 'description',
+    type: 'textarea',
+    label: 'Sobre o projeto',
+    hint: 'Apresente a iniciativa: missão, o que faz e quem é atendido.',
+    rows: 3,
+    colSpan: 'full',
+  },
+  {
+    name: 'openingHours',
+    type: 'text',
+    label: 'Horário de funcionamento',
+    placeholder: 'Seg a Sex, 8h–17h',
+    colSpan: 'full',
+  },
+  {
+    name: 'needs',
+    type: 'textarea',
+    label: 'Necessidades agora',
+    hint: 'Uma por linha (ex.: Fraldas P, Leite em pó). Aparecem em destaque para os doadores.',
+    rows: 3,
+    colSpan: 'full',
+  },
   { name: 'zipCode', type: 'text', label: 'CEP', placeholder: '00000000', required: true },
   { name: 'street', type: 'text', label: 'Rua', required: true },
   { name: 'number', type: 'text', label: 'Número', required: true },
@@ -174,6 +198,9 @@ const collectionPointFields: FormFieldConfig[] = [
 const collectionPointDefaults: CreateCollectionPointForm = {
   name: '',
   type: 'Association',
+  description: '',
+  openingHours: '',
+  needs: '',
   street: '',
   number: '',
   complement: '',
@@ -210,6 +237,9 @@ export function CollectionPointsPage() {
   const editDefaults: UpdateCollectionPointForm | null = editingPoint && {
     name: editingPoint.name,
     type: editingPoint.type,
+    description: editingPoint.description ?? '',
+    openingHours: editingPoint.openingHours ?? '',
+    needs: editingPoint.needs.join('\n'),
     street: editingPoint.address.street,
     number: editingPoint.address.number,
     complement: editingPoint.address.complement ?? '',
@@ -270,15 +300,40 @@ export function CollectionPointsPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-stone-900">Pontos cadastrados</h2>
-          {isAdmin ? (
-            <Button variant="brand" leftIcon={<Plus className="size-4" />} onClick={openCreate}>
-              Cadastrar ponto
-            </Button>
-          ) : (
-            <span className="text-sm text-stone-500">
-              Apenas administradores podem cadastrar pontos.
-            </span>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {points.length > 0 && (
+              <Button
+                variant="secondary"
+                leftIcon={<Download className="size-4" />}
+                onClick={() =>
+                  downloadCsv(
+                    'pontos-de-coleta',
+                    ['Nome', 'Tipo', 'Cidade/UF', 'Avaliação', 'Nº avaliações', 'Famílias atendidas', 'Itens'],
+                    points.map((p) => [
+                      p.name,
+                      collectionPointTypeLabels[p.type],
+                      `${p.address.city}/${p.address.state}`,
+                      p.averageRating.toFixed(1),
+                      p.reviewCount,
+                      p.familiesServed,
+                      p.acceptedItems.map((i) => itemCategoryLabels[i]).join(', '),
+                    ]),
+                  )
+                }
+              >
+                Exportar CSV
+              </Button>
+            )}
+            {isAdmin ? (
+              <Button variant="brand" leftIcon={<Plus className="size-4" />} onClick={openCreate}>
+                Cadastrar ponto
+              </Button>
+            ) : (
+              <span className="text-sm text-stone-500">
+                Apenas administradores podem cadastrar pontos.
+              </span>
+            )}
+          </div>
         </div>
         {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
         <DataTable

@@ -2,6 +2,24 @@
 @import 'tw-animate-css';
 @import 'leaflet/dist/leaflet.css';
 
+/* Acessibilidade: foco de teclado sempre visível e respeito a "reduzir movimento". */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 :root {
   --brand: #6c2bd9;
 

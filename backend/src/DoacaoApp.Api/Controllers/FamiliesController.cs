@@ -53,6 +53,18 @@ public sealed class FamiliesController(ISender sender) : ApiController(sender)
         return Respond(result, Ok);
     }
 
+    /// <summary>Busca rápida da família pelo CPF de um beneficiário (preenche a retirada).</summary>
+    [HttpGet("by-beneficiary-cpf/{cpf}")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
+    [ProducesResponseType(typeof(FamilyResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> FindByCpf(string cpf, CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new FindFamilyByCpfQuery(cpf), cancellationToken);
+        return Respond(result, Ok);
+    }
+
     /// <summary>Obtém uma família e seus beneficiários.</summary>
     [HttpGet("{familyId:guid}")]
     [ProducesResponseType(typeof(FamilyResponse), StatusCodes.Status200OK)]

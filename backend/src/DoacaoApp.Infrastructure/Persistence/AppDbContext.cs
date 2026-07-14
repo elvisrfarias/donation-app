@@ -1,6 +1,7 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Identity;
 using DoacaoApp.Infrastructure.Persistence.Converters;
@@ -22,6 +23,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<Family> Families => Set<Family>();
     public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
+    public DbSet<Review> Reviews => Set<Review>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
@@ -32,6 +34,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         configurationBuilder.Properties<FamilyId>().HaveConversion<FamilyIdConverter>();
         configurationBuilder.Properties<BeneficiaryId>().HaveConversion<BeneficiaryIdConverter>();
         configurationBuilder.Properties<StoredFileId>().HaveConversion<StoredFileIdConverter>();
+        configurationBuilder.Properties<ReviewId>().HaveConversion<ReviewIdConverter>();
     }
 
     protected override void OnModelCreating(ModelBuilder builder)

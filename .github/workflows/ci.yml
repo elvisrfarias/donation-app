@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (build + testes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore DoacaoApp.sln
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build DoacaoApp.sln -c Release --no-restore
+
+      - name: Testes de dominio
+        working-directory: backend
+        run: dotnet test tests/DoacaoApp.Domain.Tests -c Release --no-build
+
+      - name: Testes de aplicacao
+        working-directory: backend
+        run: dotnet test tests/DoacaoApp.Application.Tests -c Release --no-build
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: frontend
+        run: pnpm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: pnpm run build

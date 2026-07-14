@@ -16,6 +16,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 {
     private readonly List<Withdrawal> _withdrawals = [];
     private readonly List<ItemCategory> _acceptedItems = [];
+    private List<string> _needs = [];
 
     private CollectionPoint()
     {
@@ -32,6 +33,9 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         ContactInfo contact,
         IEnumerable<ItemCategory> acceptedItems,
         StoredFileId? imageFileId,
+        string? description,
+        string? openingHours,
+        IEnumerable<string>? needs,
         DateTime createdAtUtc) : base(id)
     {
         Name = name;
@@ -40,14 +44,38 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         Contact = contact;
         _acceptedItems = Normalize(acceptedItems);
         ImageFileId = imageFileId;
+        Description = NormalizeDescription(description);
+        OpeningHours = NormalizeOpeningHours(openingHours);
+        _needs = NormalizeNeeds(needs);
         CreatedAtUtc = createdAtUtc;
         IsActive = true;
     }
+
+    /// <summary>Tamanho máximo da descrição livre da iniciativa/projeto.</summary>
+    public const int MaxDescriptionLength = 2000;
+
+    /// <summary>Tamanho máximo do texto livre de horário de funcionamento.</summary>
+    public const int MaxOpeningHoursLength = 200;
+
+    /// <summary>Nº máximo de itens na lista de necessidades atuais.</summary>
+    public const int MaxNeeds = 20;
+
+    /// <summary>Tamanho máximo de cada necessidade da lista.</summary>
+    public const int MaxNeedLength = 80;
 
     public string Name { get; private set; }
     public CollectionPointType Type { get; private set; }
     public Address Address { get; private set; }
     public ContactInfo Contact { get; private set; }
+
+    /// <summary>Texto livre que apresenta a iniciativa/projeto para a divulgação pública.</summary>
+    public string? Description { get; private set; }
+
+    /// <summary>Horário de funcionamento em texto livre (ex.: "Seg a Sex, 8h–17h").</summary>
+    public string? OpeningHours { get; private set; }
+
+    /// <summary>Itens que o ponto precisa com urgência agora (direciona as doações).</summary>
+    public IReadOnlyList<string> Needs => _needs.AsReadOnly();
 
     /// <summary>
     /// Imagem (foto) do ponto de coleta no storage. Obrigatória para pontos cadastrados pela
@@ -70,7 +98,10 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         ContactInfo contact,
         DateTime createdAtUtc,
         IEnumerable<ItemCategory>? acceptedItems = null,
-        StoredFileId? imageFileId = null)
+        StoredFileId? imageFileId = null,
+        string? description = null,
+        string? openingHours = null,
+        IEnumerable<string>? needs = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -79,7 +110,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
         var point = new CollectionPoint(
             CollectionPointId.New(), name.Trim(), type, address, contact,
-            acceptedItems ?? [], imageFileId, createdAtUtc);
+            acceptedItems ?? [], imageFileId, description, openingHours, needs, createdAtUtc);
         point.RaiseDomainEvent(new CollectionPointCreated(point.Id, point.Name, point.Type));
 
         return point;
@@ -104,6 +135,31 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         _acceptedItems.Clear();
         _acceptedItems.AddRange(Normalize(acceptedItems));
     }
+
+    /// <summary>Atualiza o texto de apresentação da iniciativa/projeto (nulo quando vazio).</summary>
+    public void UpdateDescription(string? description) => Description = NormalizeDescription(description);
+
+    /// <summary>Atualiza o horário de funcionamento (texto livre, nulo quando vazio).</summary>
+    public void UpdateOpeningHours(string? openingHours) => OpeningHours = NormalizeOpeningHours(openingHours);
+
+    /// <summary>Redefine a lista de necessidades atuais do ponto (substitui a lista).</summary>
+    public void UpdateNeeds(IEnumerable<string>? needs) => _needs = NormalizeNeeds(needs);
+
+    private static string? NormalizeDescription(string? description) =>
+        string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+    private static string? NormalizeOpeningHours(string? openingHours) =>
+        string.IsNullOrWhiteSpace(openingHours) ? null : openingHours.Trim();
+
+    private static List<string> NormalizeNeeds(IEnumerable<string>? needs) =>
+        needs is null
+            ? []
+            : [.. needs
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => n.Trim())
+                .Select(n => n.Length > MaxNeedLength ? n[..MaxNeedLength] : n)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxNeeds)];
 
     private static List<ItemCategory> Normalize(IEnumerable<ItemCategory> items) =>
         [.. items.Distinct().OrderBy(static i => (int)i)];

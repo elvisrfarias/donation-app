@@ -33,6 +33,7 @@ public static class DomainErrors
         public static Error Incomplete => Error.Validation("Address.Incomplete", "Endereço incompleto: logradouro, cidade, estado e CEP são obrigatórios.");
         public static Error InvalidZipCode => Error.Validation("Address.InvalidZipCode", "O CEP deve conter 8 dígitos.");
         public static Error InvalidState => Error.Validation("Address.InvalidState", "A UF deve ter 2 letras.");
+        public static Error InvalidCoordinates => Error.Validation("Address.InvalidCoordinates", "As coordenadas informadas estão fora dos limites válidos (latitude -90..90, longitude -180..180).");
     }
 
     public static class WithdrawalCycle
@@ -76,6 +77,19 @@ public static class DomainErrors
             Error.Validation("StoredFile.TooLarge", $"O arquivo excede o tamanho máximo de {maxMegabytes} MB.");
 
         public static Error UploadFailed => Error.Failure("StoredFile.UploadFailed", "Falha ao enviar o arquivo para o armazenamento.");
+    }
+
+    public static class Review
+    {
+        public static Error AuthorRequired => Error.Validation("Review.AuthorRequired", "Informe seu nome para avaliar o ponto de coleta.");
+
+        public static Error InvalidRating(int min, int max) =>
+            Error.Validation("Review.InvalidRating", $"A nota deve ser um número entre {min} e {max}.");
+
+        public static Error CommentTooLong(int max) =>
+            Error.Validation("Review.CommentTooLong", $"O comentário excede o limite de {max} caracteres.");
+
+        public static Error NotFound => Error.NotFound("Review.NotFound", "Avaliação não encontrada.");
     }
 
     public static class Withdrawal

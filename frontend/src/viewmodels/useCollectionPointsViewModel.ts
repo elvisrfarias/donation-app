@@ -7,6 +7,14 @@ import type { CreateCollectionPointForm, UpdateCollectionPointForm } from '@/vie
 
 type AddressWithCoordinates = Address & { latitude?: number | null; longitude?: number | null }
 
+/** Converte o textarea de necessidades (uma por linha) na lista enviada à API. */
+function parseNeeds(needs: string | undefined): string[] {
+  return (needs ?? '')
+    .split('\n')
+    .map((n) => n.trim())
+    .filter(Boolean)
+}
+
 /**
  * Garante as coordenadas exatas do ponto antes de salvar (fluxo bloqueante):
  * 1) usa o local escolhido no mapa, quando houver; senão
@@ -54,10 +62,16 @@ export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
 
   const mutation = useMutation<CollectionPoint, ApiError, CreateCollectionPointForm>({
-    mutationFn: async ({ image, ...fields }) => {
+    mutationFn: async ({ image, needs, ...fields }) => {
       const { lat, lng } = await ensureCoordinates(fields)
       const uploaded = await collectionPointService.uploadImage(image)
-      return collectionPointService.create({ ...fields, imageFileId: uploaded.id })
+      return collectionPointService.create({
+        ...fields,
+        needs: parseNeeds(needs),
+        imageFileId: uploaded.id,
+        latitude: lat,
+        longitude: lng,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
@@ -82,10 +96,16 @@ export function useUpdateCollectionPoint() {
     ApiError,
     { id: string; values: UpdateCollectionPointForm }
   >({
-    mutationFn: async ({ id, values: { image, ...fields } }) => {
+    mutationFn: async ({ id, values: { image, needs, ...fields } }) => {
       const { lat, lng } = await ensureCoordinates(fields)
       const imageFileId = image ? (await collectionPointService.uploadImage(image)).id : undefined
-      return collectionPointService.update(id, { ...fields, imageFileId })
+      return collectionPointService.update(id, {
+        ...fields,
+        needs: parseNeeds(needs),
+        imageFileId,
+        latitude: lat,
+        longitude: lng,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
