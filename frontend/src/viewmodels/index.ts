@@ -6,6 +6,7 @@ export {
   useCollectionPoints,
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
+  useUpdateStock,
 } from './useCollectionPointsViewModel'
 export {
   useCreateFamily,

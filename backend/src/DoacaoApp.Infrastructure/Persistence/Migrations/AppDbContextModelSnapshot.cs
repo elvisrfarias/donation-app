@@ -69,6 +69,13 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("opening_hours");
 
+                    b.Property<string>("Stock")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("stock")
+                        .HasDefaultValueSql("'{}'::jsonb");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(40)

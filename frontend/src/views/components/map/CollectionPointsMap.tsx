@@ -6,6 +6,7 @@ import { env } from '@/lib/env'
 import {
   collectionPointTypeLabels,
   formatAddress,
+  itemCategoryLabels,
   type CollectionPoint,
   type Geocoded,
   type LatLng,
@@ -170,6 +171,23 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
                         className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200"
                       >
                         {need}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {item.stock.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                    Disponível agora
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.stock.map((s) => (
+                      <span
+                        key={s.category}
+                        className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                      >
+                        {itemCategoryLabels[s.category]}: {s.quantity}
                       </span>
                     ))}
                   </div>

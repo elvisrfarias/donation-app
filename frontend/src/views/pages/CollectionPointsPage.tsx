@@ -1,7 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Building2, Church, Download, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Boxes, Building2, Church, Download, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { downloadCsv } from '@/lib/csv'
+import { StockEditorModal } from '@/views/components/collection-points/StockEditorModal'
 import {
   collectionPointTypeLabels,
   itemCategoryLabels,
@@ -216,13 +217,14 @@ const collectionPointDefaults: CreateCollectionPointForm = {
 }
 
 export function CollectionPointsPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isManager } = useAuth()
   const { points, isLoading, isError, error } = useCollectionPoints()
   const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
   const { update, error: updateError, reset: resetUpdate } = useUpdateCollectionPoint()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editingPoint, setEditingPoint] = useState<CollectionPoint | null>(null)
+  const [stockPoint, setStockPoint] = useState<CollectionPoint | null>(null)
 
   function openCreate() {
     reset()
@@ -272,6 +274,12 @@ export function CollectionPointsPage() {
       label: 'Editar',
       icon: <Pencil className="size-4" />,
       onClick: openEdit,
+      hidden: () => !isAdmin,
+    },
+    {
+      label: 'Estoque',
+      icon: <Boxes className="size-4" />,
+      onClick: (point) => setStockPoint(point),
     },
     {
       label: 'Remover',
@@ -280,6 +288,7 @@ export function CollectionPointsPage() {
       onClick: (point) => {
         window.alert(`Remover "${point.name}" — em breve.`)
       },
+      hidden: () => !isAdmin,
     },
   ]
 
@@ -340,7 +349,7 @@ export function CollectionPointsPage() {
           columns={collectionPointColumns}
           data={points}
           isLoading={isLoading}
-          actions={isAdmin ? pointActions : undefined}
+          actions={isManager ? pointActions : undefined}
           searchPlaceholder="Buscar por nome, cidade, responsável…"
           emptyMessage="Nenhum ponto cadastrado ainda."
         />
@@ -397,6 +406,10 @@ export function CollectionPointsPage() {
             submitFullWidth
           />
         </ModalComponent>
+      )}
+
+      {isManager && (
+        <StockEditorModal point={stockPoint} onClose={() => setStockPoint(null)} />
       )}
     </div>
   )

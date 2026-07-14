@@ -2,11 +2,14 @@
 @import 'tw-animate-css';
 @import 'leaflet/dist/leaflet.css';
 
-/* Acessibilidade: foco de teclado sempre visível e respeito a "reduzir movimento". */
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* Acessibilidade: fallback de foco de teclado APENAS para elementos sem estilo de
+   foco próprio. Fica em @layer base para que os anéis desenhados dos componentes
+   (focus-visible:ring / focus:outline-none) sempre prevaleçam. */
+@layer base {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

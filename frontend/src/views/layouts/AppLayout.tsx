@@ -1,4 +1,5 @@
 import {
+  Boxes,
   LayoutDashboard,
   LogOut,
   Map,
@@ -16,6 +17,7 @@ import { AppLogo } from '@/views/components/common/AppLogo'
 const navItems = [
   { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/app/collection-points', label: 'Pontos de Coleta', icon: MapPin, end: false },
+  { to: '/app/stock', label: 'Estoque', icon: Boxes, end: false },
   { to: '/app/families', label: 'Famílias', icon: Users, end: false },
   { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false },
   { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },

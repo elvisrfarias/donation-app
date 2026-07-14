@@ -10,6 +10,7 @@ public sealed record CollectionPointResponse(
     string? Description,
     string? OpeningHours,
     IReadOnlyList<string> Needs,
+    IReadOnlyList<StockItemResponse> Stock,
     AddressResponse Address,
     ContactResponse Contact,
     IReadOnlyList<string> AcceptedItems,
@@ -19,6 +20,8 @@ public sealed record CollectionPointResponse(
     double AverageRating,
     int ReviewCount,
     int FamiliesServed);
+
+public sealed record StockItemResponse(string Category, int Quantity);
 
 public sealed record AddressResponse(
     string Street,
@@ -48,6 +51,7 @@ public static class CollectionPointMappings
             point.Description,
             point.OpeningHours,
             [.. point.Needs],
+            [.. point.Stock.OrderBy(kv => (int)kv.Key).Select(kv => new StockItemResponse(kv.Key.ToString(), kv.Value))],
             new AddressResponse(
                 point.Address.Street,
                 point.Address.Number,

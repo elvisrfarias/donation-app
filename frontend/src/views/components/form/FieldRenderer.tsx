@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AnyFieldApi } from '@tanstack/react-form'
-import { CheckIcon, ChevronsUpDownIcon, ImagePlus, X } from 'lucide-react'
+import { CheckIcon, ChevronsUpDownIcon, ImagePlus, PlusIcon, X } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -182,13 +181,39 @@ function AutoCompleteControl({
   config,
 }: ControlProps<Extract<BoundFieldConfig, { type: 'autocomplete' }>>) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [creating, setCreating] = useState(false)
   const error = fieldError(field)
   const value = field.state.value as string | undefined
   const selected = config.options.find((option) => option.value === value)
 
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredOptions = normalizedQuery
+    ? config.options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+    : config.options
+  const hasExactMatch = config.options.some((option) => option.label.toLowerCase() === normalizedQuery)
+  const showCreate = !!config.onCreate && normalizedQuery.length > 0 && !hasExactMatch
+
+  function changeOpen(next: boolean) {
+    setOpen(next)
+    if (!next) setQuery('')
+  }
+
+  async function handleCreate() {
+    if (!config.onCreate) return
+    setCreating(true)
+    try {
+      const created = await config.onCreate(query.trim())
+      if (created) field.handleChange(created)
+    } finally {
+      setCreating(false)
+      changeOpen(false)
+    }
+  }
+
   return (
     <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={changeOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -211,18 +236,26 @@ function AutoCompleteControl({
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
-          <Command>
-            <CommandInput placeholder={config.searchPlaceholder ?? 'Buscar…'} />
+          <Command shouldFilter={false}>
+            <CommandInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder={config.searchPlaceholder ?? 'Buscar…'}
+            />
             <CommandList>
-              <CommandEmpty>{config.emptyText ?? 'Nada encontrado.'}</CommandEmpty>
+              {filteredOptions.length === 0 && !showCreate && (
+                <div className="py-6 text-center text-sm text-stone-500">
+                  {config.emptyText ?? 'Nada encontrado.'}
+                </div>
+              )}
               <CommandGroup>
-                {config.options.map((option) => (
+                {filteredOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
+                    value={option.value}
                     onSelect={() => {
                       field.handleChange(option.value)
-                      setOpen(false)
+                      changeOpen(false)
                     }}
                   >
                     <CheckIcon
@@ -231,6 +264,18 @@ function AutoCompleteControl({
                     {option.label}
                   </CommandItem>
                 ))}
+                {showCreate && (
+                  <CommandItem
+                    key="__create__"
+                    value="__create__"
+                    disabled={creating}
+                    onSelect={handleCreate}
+                    className="text-brand-700"
+                  >
+                    <PlusIcon className="text-brand-600" />
+                    {config.createLabel?.(query.trim()) ?? `Criar “${query.trim()}”`}
+                  </CommandItem>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>

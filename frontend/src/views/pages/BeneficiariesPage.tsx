@@ -7,6 +7,7 @@ import {
   updateBeneficiarySchema,
   useAuth,
   useCollectionPoints,
+  useCreateFamily,
   useFamilies,
   useRegisterBeneficiary,
   useUpdateBeneficiary,
@@ -64,13 +65,7 @@ const beneficiaryColumns: ColumnDef<BeneficiaryRow>[] = [
   },
 ]
 
-const beneficiaryDefaults: RegisterBeneficiaryWithFamilyForm = {
-  familyId: '',
-  name: '',
-  cpf: '',
-  birthDate: '',
-  registeredByPointId: '',
-}
+const LAST_POINT_KEY = 'doacao.lastRegistrationPointId'
 
 export function BeneficiariesPage() {
   const { isManager } = useAuth()
@@ -78,16 +73,56 @@ export function BeneficiariesPage() {
   const { families, isLoading, isError, error } = useFamilies()
   const registerBeneficiary = useRegisterBeneficiary()
   const updateBeneficiary = useUpdateBeneficiary()
+  const createFamily = useCreateFamily()
 
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
   const [editingBeneficiary, setEditingBeneficiary] = useState<BeneficiaryRow | null>(null)
+  const [createdFamilies, setCreatedFamilies] = useState<{ id: string; name: string }[]>([])
 
   const rows: BeneficiaryRow[] = families.flatMap((family) =>
     family.beneficiaries.map((beneficiary) => ({ ...beneficiary, familyName: family.name })),
   )
 
+  const familyOptions = [
+    ...families.map((f) => ({ value: f.id, label: f.name })),
+    ...createdFamilies
+      .filter((cf) => !families.some((f) => f.id === cf.id))
+      .map((cf) => ({ value: cf.id, label: cf.name })),
+  ]
+
+  async function createFamilyInline(name: string): Promise<string | undefined> {
+    try {
+      const family = await createFamily.create({
+        name,
+        cycleType: 'Monthly',
+        maxWithdrawalsPerCycle: 1,
+      })
+      setCreatedFamilies((prev) => [...prev, { id: family.id, name: family.name }])
+      return family.id
+    } catch {
+      return undefined
+    }
+  }
+
+  const lastPointId = typeof localStorage !== 'undefined' ? localStorage.getItem(LAST_POINT_KEY) : null
+  const defaultPointId =
+    points.length === 1
+      ? points[0].id
+      : points.some((p) => p.id === lastPointId)
+        ? (lastPointId as string)
+        : ''
+
+  const beneficiaryDefaults: RegisterBeneficiaryWithFamilyForm = {
+    familyId: '',
+    name: '',
+    cpf: '',
+    birthDate: '',
+    registeredByPointId: defaultPointId,
+  }
+
   function openBeneficiary() {
     registerBeneficiary.reset()
+    createFamily.reset()
     setBeneficiaryOpen(true)
   }
 
@@ -101,10 +136,13 @@ export function BeneficiariesPage() {
       name: 'familyId',
       type: 'autocomplete',
       label: 'Família',
-      options: families.map((f) => ({ value: f.id, label: f.name })),
-      placeholder: 'Selecione…',
-      searchPlaceholder: 'Buscar família…',
-      emptyText: 'Nenhuma família encontrada.',
+      options: familyOptions,
+      placeholder: 'Selecione ou crie…',
+      searchPlaceholder: 'Buscar ou digitar nova família…',
+      emptyText: 'Digite o nome para criar uma família.',
+      hint: 'Selecione a família ou digite um nome novo para criá-la na hora.',
+      onCreate: createFamilyInline,
+      createLabel: (name) => `Criar família “${name}”`,
       required: true,
       colSpan: 'full',
     },
@@ -145,7 +183,7 @@ export function BeneficiariesPage() {
       <SectionTitle
         icon={<UserPlus className="size-5" />}
         title="Beneficiários"
-        description="Cadastre beneficiários vinculados a uma família."
+        description="Cadastre pessoas e agrupe em famílias — crie a família na hora, sem sair da tela."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -177,12 +215,16 @@ export function BeneficiariesPage() {
           open={beneficiaryOpen}
           onOpenChange={setBeneficiaryOpen}
           title="Adicionar beneficiário"
-          description="Vincule um beneficiário a uma família existente."
+          description="Vincule a uma família existente ou digite um nome novo para criar a família na hora."
         >
           {registerBeneficiary.error && (
             <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
           )}
+          {createFamily.error && (
+            <Alert tone="error">{createFamily.error.displayMessage}</Alert>
+          )}
           <FormComponent
+            key={beneficiaryOpen ? 'add-beneficiary' : 'closed'}
             columns={2}
             schema={registerBeneficiaryWithFamilySchema}
             defaultValues={beneficiaryDefaults}
@@ -195,6 +237,9 @@ export function BeneficiariesPage() {
                 birthDate: values.birthDate || null,
                 registeredByPointId: values.registeredByPointId,
               })
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(LAST_POINT_KEY, values.registeredByPointId)
+              }
               setBeneficiaryOpen(false)
             }}
             submitLabel="Adicionar"

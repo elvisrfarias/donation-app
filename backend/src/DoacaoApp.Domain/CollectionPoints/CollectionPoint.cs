@@ -17,6 +17,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     private readonly List<Withdrawal> _withdrawals = [];
     private readonly List<ItemCategory> _acceptedItems = [];
     private List<string> _needs = [];
+    private Dictionary<ItemCategory, int> _stock = [];
 
     private CollectionPoint()
     {
@@ -76,6 +77,12 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     /// <summary>Itens que o ponto precisa com urgência agora (direciona as doações).</summary>
     public IReadOnlyList<string> Needs => _needs.AsReadOnly();
+
+    /// <summary>
+    /// Quantidade disponível por categoria de item (estoque). Categorias ausentes ou zeradas
+    /// significam "sem disponibilidade". Ajuda as famílias a saber o que há antes de irem ao ponto.
+    /// </summary>
+    public IReadOnlyDictionary<ItemCategory, int> Stock => _stock;
 
     /// <summary>
     /// Imagem (foto) do ponto de coleta no storage. Obrigatória para pontos cadastrados pela
@@ -144,6 +151,18 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     /// <summary>Redefine a lista de necessidades atuais do ponto (substitui a lista).</summary>
     public void UpdateNeeds(IEnumerable<string>? needs) => _needs = NormalizeNeeds(needs);
+
+    /// <summary>
+    /// Redefine o estoque do ponto (substitui o mapa atual). Quantidades ≤ 0 são descartadas;
+    /// quando há entradas repetidas da mesma categoria, prevalece a última.
+    /// </summary>
+    public void ReplaceStock(IEnumerable<KeyValuePair<ItemCategory, int>>? stock) =>
+        _stock = stock is null
+            ? []
+            : stock
+                .Where(kv => kv.Value > 0)
+                .GroupBy(kv => kv.Key)
+                .ToDictionary(g => g.Key, g => g.Last().Value);
 
     private static string? NormalizeDescription(string? description) =>
         string.IsNullOrWhiteSpace(description) ? null : description.Trim();

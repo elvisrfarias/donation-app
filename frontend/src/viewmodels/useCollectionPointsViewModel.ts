@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryClient'
 import { ApiError } from '@/models/api/problemDetails'
 import { cepService, collectionPointService, geocodingService } from '@/models/services'
-import { formatAddress, type Address, type CollectionPoint, type LatLng } from '@/models/types'
+import {
+  formatAddress,
+  type Address,
+  type CollectionPoint,
+  type LatLng,
+  type StockItem,
+} from '@/models/types'
 import type { CreateCollectionPointForm, UpdateCollectionPointForm } from '@/viewmodels/schemas'
 
 type AddressWithCoordinates = Address & { latitude?: number | null; longitude?: number | null }
@@ -117,6 +123,25 @@ export function useUpdateCollectionPoint() {
     isPending: mutation.isPending,
     error: mutation.error,
     updatedPoint: mutation.data,
+    reset: mutation.reset,
+  }
+}
+
+/** Mutação de atualização do estoque de um ponto (Admin ou PointManager). */
+export function useUpdateStock() {
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation<CollectionPoint, ApiError, { id: string; items: StockItem[] }>({
+    mutationFn: ({ id, items }) => collectionPointService.updateStock(id, items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
+    },
+  })
+
+  return {
+    updateStock: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
     reset: mutation.reset,
   }
 }

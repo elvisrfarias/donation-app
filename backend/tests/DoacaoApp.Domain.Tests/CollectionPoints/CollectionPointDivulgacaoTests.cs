@@ -38,4 +38,21 @@ public class CollectionPointDivulgacaoTests
 
         point.Needs.Should().BeEquivalentTo("Feijão", "Óleo");
     }
+
+    [Fact]
+    public void ReplaceStock_DescartaQuantidadesNaoPositivas()
+    {
+        var point = TestData.Point();
+
+        point.ReplaceStock(new Dictionary<ItemCategory, int>
+        {
+            [ItemCategory.Food] = 30,
+            [ItemCategory.Clothing] = 0,
+            [ItemCategory.Hygiene] = -5,
+        });
+
+        point.Stock.Should().ContainKey(ItemCategory.Food).WhoseValue.Should().Be(30);
+        point.Stock.Should().NotContainKey(ItemCategory.Clothing);
+        point.Stock.Should().NotContainKey(ItemCategory.Hygiene);
+    }
 }

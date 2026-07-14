@@ -65,6 +65,13 @@ type AutoCompleteField = BaseField & {
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
+  /**
+   * Habilita criar uma nova opção digitando um nome inexistente. Recebe o texto digitado,
+   * cria o registro e devolve o `value` a ser selecionado (ou `undefined` para cancelar).
+   */
+  onCreate?: (label: string) => Promise<string | undefined> | string | undefined
+  /** Rótulo do item de criação (recebe o texto digitado). Padrão: `Criar "<texto>"`. */
+  createLabel?: (label: string) => string
 }
 
 type CheckboxField = BaseField & { type: 'checkbox' }

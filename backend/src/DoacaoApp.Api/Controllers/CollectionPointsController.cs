@@ -55,4 +55,22 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
         var result = await Sender.Send(command with { Id = id }, cancellationToken);
         return Respond(result, Ok);
     }
+
+    /// <summary>Atualiza o estoque (itens disponíveis) do ponto.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>.</remarks>
+    /// <response code="200">Estoque atualizado.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    [HttpPut("{id:guid}/stock")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateStock(
+        Guid id,
+        [FromBody] UpdateCollectionPointStockCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(command with { PointId = id }, cancellationToken);
+        return Respond(result, Ok);
+    }
 }

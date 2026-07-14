@@ -2,6 +2,7 @@ import { http } from '@/models/api/httpClient'
 import type {
   CollectionPoint,
   CreateCollectionPointInput,
+  StockItem,
   UpdateCollectionPointInput,
   UploadedImage,
 } from '@/models/types'
@@ -40,6 +41,12 @@ export const collectionPointService = {
   /** Atualiza um ponto de coleta existente (requer role Admin). */
   async update(id: string, input: UpdateCollectionPointInput): Promise<CollectionPoint> {
     const { data } = await http.put<CollectionPoint>(`/collection-points/${id}`, input)
+    return data
+  },
+
+  /** Redefine o estoque (itens disponíveis) do ponto (requer role Admin ou PointManager). */
+  async updateStock(id: string, items: StockItem[]): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(`/collection-points/${id}/stock`, { items })
     return data
   },
 }

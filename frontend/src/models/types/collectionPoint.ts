@@ -61,6 +61,12 @@ export interface Contact {
   phone: string
 }
 
+/** Uma linha do estoque de um ponto: categoria e quantidade disponível. */
+export interface StockItem {
+  category: ItemCategory
+  quantity: number
+}
+
 /** CollectionPointResponse do backend. */
 export interface CollectionPoint {
   id: string
@@ -72,6 +78,8 @@ export interface CollectionPoint {
   openingHours?: string | null
   /** Itens que o ponto precisa com urgência agora. */
   needs: string[]
+  /** Itens disponíveis no ponto agora (categoria → quantidade). */
+  stock: StockItem[]
   address: Address
   contact: Contact
   isActive: boolean

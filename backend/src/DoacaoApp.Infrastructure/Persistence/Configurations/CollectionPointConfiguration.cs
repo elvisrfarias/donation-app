@@ -43,6 +43,30 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
             .FindProperty(nameof(CollectionPoint.Needs))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var stockConverter = new ValueConverter<IReadOnlyDictionary<ItemCategory, int>, string>(
+            stock => JsonSerializer.Serialize(
+                stock.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), (JsonSerializerOptions?)null),
+            value => string.IsNullOrWhiteSpace(value)
+                ? new Dictionary<ItemCategory, int>()
+                : (JsonSerializer.Deserialize<Dictionary<string, int>>(value, (JsonSerializerOptions?)null)
+                        ?? new Dictionary<string, int>())
+                    .ToDictionary(kv => Enum.Parse<ItemCategory>(kv.Key), kv => kv.Value));
+
+        var stockComparer = new ValueComparer<IReadOnlyDictionary<ItemCategory, int>>(
+            (a, b) => a!.Count == b!.Count && !a.Except(b!).Any(),
+            stock => stock.Aggregate(0, (hash, kv) => HashCode.Combine(hash, (int)kv.Key, kv.Value)),
+            stock => (IReadOnlyDictionary<ItemCategory, int>)stock.ToDictionary(kv => kv.Key, kv => kv.Value));
+
+        builder.Property(p => p.Stock)
+            .HasColumnName("stock")
+            .HasConversion(stockConverter, stockComparer)
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasDefaultValueSql("'{}'::jsonb");
+        builder.Metadata
+            .FindProperty(nameof(CollectionPoint.Stock))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
         var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
             items => string.Join(',', items.Select(static i => i.ToString())),
             value => value.Length == 0

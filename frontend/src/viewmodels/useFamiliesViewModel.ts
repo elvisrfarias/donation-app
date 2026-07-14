@@ -12,8 +12,13 @@ import type {
 } from '@/models/types'
 
 export function useCreateFamily() {
+  const queryClient = useQueryClient()
+
   const mutation = useMutation<Family, ApiError, CreateFamilyInput>({
     mutationFn: (input) => familyService.create(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.all })
+    },
   })
 
   return {
