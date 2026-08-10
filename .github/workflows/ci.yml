@@ -33,6 +33,10 @@ jobs:
         working-directory: backend
         run: dotnet test tests/DoacaoApp.Application.Tests -c Release --no-build
 
+      - name: Testes de integracao (Testcontainers sobe o proprio Postgres via Docker)
+        working-directory: backend
+        run: dotnet test tests/DoacaoApp.IntegrationTests -c Release --no-build
+
   frontend:
     name: Frontend (build)
     runs-on: ubuntu-latest
@@ -54,6 +58,10 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: pnpm run lint
+
+      - name: Testes
+        working-directory: frontend
+        run: pnpm run test
 
       - name: Build
         working-directory: frontend

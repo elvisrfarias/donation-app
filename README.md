@@ -43,6 +43,7 @@ frontend fica em `http://localhost:3000`, a API em `http://localhost:8080`.
 - [Observabilidade](#observabilidade)
 - [Object Storage (MinIO/S3)](#object-storage-minios3)
 - [Variáveis de ambiente](#variáveis-de-ambiente-resumo)
+- [Débito técnico conhecido](#débito-técnico-conhecido)
 
 ---
 
@@ -369,3 +370,35 @@ Veja `.env.example`. Principais:
 | `Storage__ServiceUrl` / `Storage__PublicUrl` | Endpoint interno (API→storage) / público (navegador→URLs pré-assinadas) |
 | `Storage__Bucket` / `Storage__Region` | Bucket e região do object storage |
 | `Storage__PresignExpiryMinutes` | Validade das URLs pré-assinadas de download |
+
+---
+
+## Débito técnico conhecido
+
+Auditoria de 2026-08-10 corrigiu os achados de alta severidade (lockout de login, rate limit
+contornável, upload sem checagem de magic bytes, segredo padrão em produção, backup/restore
+inexistente, containers como root). O que ficou como débito **aberto**, de propósito, por exigir
+mais que uma correção pontual:
+
+- **Token de auth no `localStorage`** (`frontend/src/models/api/tokenStorage.ts`) — access e
+  refresh token ficam em `localStorage`, expostos a roubo via XSS. Migrar para cookie `HttpOnly` +
+  `SameSite` é a mitigação padrão, mas exige mudança coordenada: backend emitindo `Set-Cookie` e
+  CORS com credentials, frontend removendo a leitura direta do token e passando `withCredentials`
+  no Axios, e uma estratégia de CSRF. Não é uma correção isolada — é uma mudança de arquitetura de
+  autenticação.
+- **Cobertura de teste incompleta na Application layer**: sem teste ainda para
+  `CreateCollectionPoint`/`UpdateCollectionPoint`, `CreateFamily`/`FindFamilyByCpf`/
+  `GetFamilyById`/`ListFamilies`, todo o módulo `Reviews` (`CreateReview`, `ModerateReview`,
+  `ListReviewsForPoint`) e a maior parte de `Storage` (`GetStoredFile`, `ListFilesByOwner`,
+  `DeleteFile`). `UploadImage`/`StoredFile.Create`/`MarkDeleted` e todo o módulo `Authentication`
+  ganharam teste nesta auditoria.
+- **`DoacaoApp.IntegrationTests` cobre um único fluxo** (`WithdrawalFlowTests`) — faltam upload de
+  arquivo, moderação/denúncia de review e atualização de estoque ponta a ponta. O `FakeFileStorage`
+  já existe no projeto de testes mas não é exercitado por nenhum `[Fact]` ainda.
+- **`IdentityService` (Infrastructure) não tem projeto de teste unitário próprio** — a lógica de
+  lockout adicionada nesta auditoria (`IsLockedOutAsync`/`AccessFailedAsync`) só é exercitada pelos
+  testes de integração, que dependem de Docker. Se a lógica de identidade crescer, vale um
+  `DoacaoApp.Infrastructure.Tests` com `UserManager` mockado (seus métodos são `virtual`).
+- **Tag do MinIO fixada manualmente** (`RELEASE.2025-04-22T22-12-26Z` em `docker-compose.yml`) —
+  escolhida para sair do `latest` flutuante, mas não conferida contra o changelog oficial do MinIO
+  no momento da troca. Revalide antes de ir para produção.
