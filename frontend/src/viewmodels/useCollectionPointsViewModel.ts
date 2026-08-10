@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
+import { useApiList, useApiMutation } from '@/lib/apiHooks'
 import { queryKeys } from '@/lib/queryClient'
 import { ApiError } from '@/models/api/problemDetails'
 import { cepService, collectionPointService, geocodingService } from '@/models/services'
@@ -49,25 +50,19 @@ async function ensureCoordinates(fields: AddressWithCoordinates): Promise<LatLng
 
 /** Lista de pontos de coleta (reaproveita o endpoint público). */
 export function useCollectionPoints() {
-  const query = useQuery<CollectionPoint[], ApiError>({
+  const { items, ...rest } = useApiList<CollectionPoint>({
     queryKey: queryKeys.collectionPoints.public,
     queryFn: ({ signal }) => collectionPointService.listPublic(signal),
   })
 
-  return {
-    points: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    refetch: query.refetch,
-  }
+  return { points: items, ...rest }
 }
 
 /** Mutação de criação de ponto de coleta (Admin). */
 export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<CollectionPoint, ApiError, CreateCollectionPointForm>({
+  const { mutate, data, ...rest } = useApiMutation<CollectionPoint, CreateCollectionPointForm>({
     mutationFn: async ({ image, needs, ...fields }) => {
       const { lat, lng } = await ensureCoordinates(fields)
       const uploaded = await collectionPointService.uploadImage(image)
@@ -84,22 +79,15 @@ export function useCreateCollectionPoint() {
     },
   })
 
-  return {
-    create: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    createdPoint: mutation.data,
-    reset: mutation.reset,
-  }
+  return { create: mutate, createdPoint: data, ...rest }
 }
 
 /** Mutação de atualização de ponto de coleta (Admin). */
 export function useUpdateCollectionPoint() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<
+  const { mutate, data, ...rest } = useApiMutation<
     CollectionPoint,
-    ApiError,
     { id: string; values: UpdateCollectionPointForm }
   >({
     mutationFn: async ({ id, values: { image, needs, ...fields } }) => {
@@ -118,30 +106,19 @@ export function useUpdateCollectionPoint() {
     },
   })
 
-  return {
-    update: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    updatedPoint: mutation.data,
-    reset: mutation.reset,
-  }
+  return { update: mutate, updatedPoint: data, ...rest }
 }
 
 /** Mutação de atualização do estoque de um ponto (Admin ou PointManager). */
 export function useUpdateStock() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<CollectionPoint, ApiError, { id: string; items: StockItem[] }>({
+  const { mutate, ...rest } = useApiMutation<CollectionPoint, { id: string; items: StockItem[] }>({
     mutationFn: ({ id, items }) => collectionPointService.updateStock(id, items),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
     },
   })
 
-  return {
-    updateStock: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    reset: mutation.reset,
-  }
+  return { updateStock: mutate, ...rest }
 }

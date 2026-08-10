@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useApiList, useApiMutation } from '@/lib/apiHooks'
 import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
 import { familyService } from '@/models/services'
@@ -14,35 +15,24 @@ import type {
 export function useCreateFamily() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<Family, ApiError, CreateFamilyInput>({
+  const { mutate, data, ...rest } = useApiMutation<Family, CreateFamilyInput>({
     mutationFn: (input) => familyService.create(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.families.all })
     },
   })
 
-  return {
-    create: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    createdFamily: mutation.data,
-    reset: mutation.reset,
-  }
+  return { create: mutate, createdFamily: data, ...rest }
 }
 
 /** Lista todas as famílias com seus beneficiários. */
 export function useFamilies() {
-  const query = useQuery<Family[], ApiError>({
+  const { items, ...rest } = useApiList<Family>({
     queryKey: queryKeys.families.all,
     queryFn: ({ signal }) => familyService.list(signal),
   })
 
-  return {
-    families: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-  }
+  return { families: items, ...rest }
 }
 
 /** Carrega uma família e seu histórico de retiradas (saldo do ciclo vigente). */
@@ -75,9 +65,8 @@ export function useFamily(familyId: string | null) {
 export function useRegisterBeneficiary() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<
+  const { mutate, ...rest } = useApiMutation<
     Beneficiary,
-    ApiError,
     { familyId: string } & RegisterBeneficiaryInput
   >({
     mutationFn: ({ familyId, ...input }) => familyService.registerBeneficiary(familyId, input),
@@ -87,20 +76,14 @@ export function useRegisterBeneficiary() {
     },
   })
 
-  return {
-    register: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    reset: mutation.reset,
-  }
+  return { register: mutate, ...rest }
 }
 
 export function useUpdateBeneficiary() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation<
+  const { mutate, ...rest } = useApiMutation<
     Beneficiary,
-    ApiError,
     { familyId: string; beneficiaryId: string; input: UpdateBeneficiaryInput }
   >({
     mutationFn: ({ familyId, beneficiaryId, input }) =>
@@ -111,10 +94,5 @@ export function useUpdateBeneficiary() {
     },
   })
 
-  return {
-    update: mutation.mutateAsync,
-    isPending: mutation.isPending,
-    error: mutation.error,
-    reset: mutation.reset,
-  }
+  return { update: mutate, ...rest }
 }

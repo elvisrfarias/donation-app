@@ -15,7 +15,7 @@ import {
   type SelectOption,
 } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
-import { Alert, Badge, Button, Card, SectionTitle } from '@/views/components/ui'
+import { Alert, Badge, Button, Card, CenteredSpinner, SectionTitle } from '@/views/components/ui'
 import { familyService } from '@/models/services'
 
 const lookupSchema = z.object({ cpf: z.string().min(11, 'Informe o CPF (11 dígitos).') })
@@ -129,7 +129,7 @@ export function RegisterWithdrawalPage() {
             </Button>
           </div>
         ) : family.isFetching ? (
-          <p className="text-sm text-stone-500">Carregando família…</p>
+          <CenteredSpinner label="Carregando família…" />
         ) : family.notFound ? (
           <div className="flex flex-col items-start gap-3">
             <Alert tone="warning">Família não encontrada.</Alert>

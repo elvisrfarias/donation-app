@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { AppProviders } from '@/app/providers'
 import { router } from '@/app/router'
+import { ErrorBoundary } from '@/views/components/common/ErrorBoundary'
 import './index.css'
 
 const rootElement = document.getElementById('root')
@@ -10,9 +11,11 @@ if (!rootElement) throw new Error('Elemento #root não encontrado.')
 
 createRoot(rootElement).render(
   <StrictMode>
-    <AppProviders>
-      <RouterProvider router={router} />
-    </AppProviders>
+    <ErrorBoundary>
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>
+    </ErrorBoundary>
   </StrictMode>,
 )
 
