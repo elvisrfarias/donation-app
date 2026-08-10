@@ -19,19 +19,20 @@ RUN pnpm run build
 
 # ============================================================================
 #  Runtime — nginx servindo os estáticos + proxy reverso para a API.
+#  Imagem "unprivileged": todo o processo (master + workers) roda como usuário
+#  não-root desde o boot — por isso a porta é 8080, não 80 (privilegiada).
 # ============================================================================
-FROM nginx:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 
 # White-label em runtime: gera /theme.css a partir de BRAND_PRIMARY no boot.
 # A imagem do nginx executa /docker-entrypoint.d/*.sh antes de iniciar o servidor.
-COPY docker-theme-entrypoint.sh /docker-entrypoint.d/40-theme.sh
-RUN chmod +x /docker-entrypoint.d/40-theme.sh
+COPY --chmod=755 docker-theme-entrypoint.sh /docker-entrypoint.d/40-theme.sh
 
-EXPOSE 80
+EXPOSE 8080
 
 # 127.0.0.1 (não "localhost"): o nginx escuta em IPv4; localhost pode resolver para ::1.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || exit 1

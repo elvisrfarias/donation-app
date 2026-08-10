@@ -20,6 +20,8 @@ CONFIG     ?= Release
 INFRA      := src/DoacaoApp.Infrastructure
 API        := src/DoacaoApp.Api
 HOST_OWNER := $(shell stat -c '%u:%g' backend/DoacaoApp.sln 2>/dev/null || echo 1000:1000)
+BACKUP_DIR ?= backups
+STAMP      := $(shell date +%Y%m%d-%H%M%S)
 
 # Wrapper: roda o `dotnet` dentro do container do SDK, montando o código e o cache NuGet.
 DOTNET = docker run --rm -v "$(CURDIR)/backend":/src -v $(NUGET_VOL):/root/.nuget -w /src $(SDK_IMAGE) dotnet
@@ -30,7 +32,8 @@ EF_RUN = docker run --rm -v "$(CURDIR)/backend":/src -v $(NUGET_VOL):/root/.nuge
 .PHONY: help restore build rebuild test test-domain test-application test-integration test-filter \
         migration migration-remove db-update image env \
         dev dev-reset dev-logs prod prod-reset prod-logs \
-        down down-v logs ps clean
+        down down-v logs ps clean \
+        backup backup-db backup-storage restore-db restore-storage
 
 help: ## Mostra esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -115,7 +118,9 @@ prod: env ## Reinicia TODA a stack de produção (frontend nginx + API em Produc
 	@$(COMPOSE_PROD) ps
 	@printf '\n  Stack de PRODUÇÃO no ar (porta segue FRONTEND_PORT do .env; padrão 3000):\n    Frontend (nginx)  http://localhost:3000\n    API               http://localhost:8080\n  Logs: make prod-logs\n\n'
 
-prod-reset: env ## Igual ao prod, mas APAGA os volumes (banco + arquivos) e re-seeda do zero
+prod-reset: env ## Igual ao prod, mas APAGA os volumes (zera e re-seeda) — exige CONFIRM=yes; faz backup antes
+	@test "$(CONFIRM)" = "yes" || { echo "Isso apaga TODOS os dados de PRODUÇÃO (banco + arquivos). Rode: make prod-reset CONFIRM=yes"; exit 1; }
+	@$(MAKE) backup
 	$(COMPOSE_PROD) down -v --remove-orphans
 	$(COMPOSE_PROD) up -d --build
 	@$(COMPOSE_PROD) ps
@@ -126,7 +131,8 @@ prod-logs: ## Acompanha os logs de produção (API)
 down: ## Para a stack (mantém os dados)
 	docker compose down --remove-orphans
 
-down-v: ## Para a stack e remove os volumes (apaga banco + arquivos do MinIO)
+down-v: ## Para a stack e remove os volumes (apaga banco + arquivos do MinIO) — exige CONFIRM=yes
+	@test "$(CONFIRM)" = "yes" || { echo "Isso apaga TODOS os dados (banco + arquivos do MinIO). Rode: make down-v CONFIRM=yes"; exit 1; }
 	docker compose down -v --remove-orphans
 
 logs: ## Acompanha os logs da API
@@ -134,6 +140,37 @@ logs: ## Acompanha os logs da API
 
 ps: ## Status dos containers
 	docker compose ps
+
+# ---- Backup / restore (Postgres + MinIO) -----------------------------------
+# Os containers (doacao-postgres, doacao-minio) precisam estar rodando.
+# Nada aqui é automático/agendado — rode manualmente antes de qualquer operação
+# arriscada (deploy, migration em produção, `make prod-reset`).
+
+backup: backup-db backup-storage ## Backup completo: banco (pg_dump) + arquivos (tar do volume do MinIO)
+
+backup-db: ## Backup do Postgres -> backups/db-<timestamp>.dump
+	@mkdir -p $(BACKUP_DIR)
+	docker exec doacao-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc' > $(BACKUP_DIR)/db-$(STAMP).dump
+	@echo "Backup do banco salvo em $(BACKUP_DIR)/db-$(STAMP).dump"
+
+backup-storage: ## Backup dos arquivos do MinIO -> backups/storage-<timestamp>.tar.gz
+	@mkdir -p $(BACKUP_DIR)
+	docker run --rm --volumes-from doacao-minio -v "$(CURDIR)/$(BACKUP_DIR)":/backup alpine \
+	  tar czf /backup/storage-$(STAMP).tar.gz -C /data .
+	@echo "Backup dos arquivos salvo em $(BACKUP_DIR)/storage-$(STAMP).tar.gz"
+
+restore-db: ## Restaura o Postgres -> make restore-db file=backups/db-XXXX.dump
+	@test -n "$(file)" || { echo "Uso: make restore-db file=backups/db-XXXX.dump"; exit 1; }
+	@test -f "$(file)" || { echo "Arquivo não encontrado: $(file)"; exit 1; }
+	docker exec -i doacao-postgres sh -c 'pg_restore -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" --clean --if-exists' < $(file)
+	@echo "Banco restaurado a partir de $(file)."
+
+restore-storage: ## Restaura os arquivos do MinIO -> make restore-storage file=backups/storage-XXXX.tar.gz
+	@test -n "$(file)" || { echo "Uso: make restore-storage file=backups/storage-XXXX.tar.gz"; exit 1; }
+	@test -f "$(file)" || { echo "Arquivo não encontrado: $(file)"; exit 1; }
+	docker run --rm --volumes-from doacao-minio -v "$(CURDIR)/$(file)":/backup/restore.tar.gz alpine \
+	  sh -c "rm -rf /data/* && tar xzf /backup/restore.tar.gz -C /data"
+	@echo "Arquivos restaurados a partir de $(file)."
 
 # ---- Frontend (Node/Vite no host) ------------------------------------------
 .PHONY: front-install front-dev front-build front-lint front-image

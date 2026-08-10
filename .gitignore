@@ -23,6 +23,9 @@ logs/
 *.env
 !.env.example
 
+# Backups locais (make backup) — contêm dados reais, nunca versionar
+/backups/
+
 # Configuração local do Claude Code (guardrails pessoais: ask p/ remoção e escrita no banco)
 .claude/settings.local.json
 .claude/hooks/guard-db-and-rm.sh
