@@ -6,13 +6,18 @@ SPA do Doação App: mapa público de pontos de coleta (OpenStreetMap) + área d
 ## Stack
 
 - **React 19** + **Vite 8** + **TypeScript** (strict)
-- **Tailwind CSS v4** (configuração via CSS, `@theme`)
+- **Tailwind CSS v4** (configuração via CSS, `@theme`) + **shadcn/ui** sobre **Radix UI**
+  (checkbox, dialog, label, popover, select) e **cmdk**
 - **React Router 7** (rotas com code-splitting por `lazy`)
 - **TanStack Query 5** (estado de servidor) + **Zustand 5** (autenticação)
-- **React Hook Form** + **Zod 4** (formulários e validação)
+- **TanStack Form** + **Zod 4** (formulários e validação) via o `FormComponent` único,
+  config-driven — não usamos `react-hook-form`
+- **TanStack Table** (`DataTable` reutilizável — sort/filtro por coluna/paginação)
+- **Recharts** (gráficos do dashboard)
 - **Axios** (cliente HTTP com refresh transparente de JWT)
 - **react-leaflet 5** + **Leaflet** sobre tiles do **OpenStreetMap**
-- Geocodificação via **Nominatim** (OSM), com cache em `localStorage`
+- Geocodificação via **Nominatim** (OSM) e busca de endereço por CEP via **BrasilAPI**,
+  ambos com cache em `localStorage`
 
 ## Arquitetura — MVVM
 
@@ -21,19 +26,29 @@ A separação é estrita: a **View** nunca chama serviços diretamente; ela cons
 
 ```
 src/
-├── models/            # MODEL — sem React
-│   ├── types/         # tipos de domínio (espelham os contratos da API)
-│   ├── api/           # cliente axios, interceptors, ProblemDetails, tokenStorage
-│   └── services/      # auth, collectionPoint, family, withdrawal, geocoding
-├── viewmodels/        # VIEWMODEL — hooks (estado + comandos), schemas Zod
-├── views/             # VIEW — componentes/páginas (sem regra de negócio)
-│   ├── components/ui  # primitivas (Button, Input, Card, Alert…)
-│   ├── components/map # mapa OpenStreetMap (react-leaflet)
-│   ├── layouts/       # AppLayout (área autenticada)
-│   └── pages/         # Map, Login, Dashboard, CollectionPoints, Families, Withdrawal
-├── stores/            # Zustand (sessão de autenticação)
-├── lib/               # env (validado por Zod), queryClient, utils
-└── app/               # router, providers, ProtectedRoute, main
+├── components/ui/       # primitivas shadcn/ui geradas pela CLI (chart, table, dialog, select…)
+│                        # — não editar à mão, regenerar via `pnpm dlx shadcn@latest add <componente>`
+├── models/              # MODEL — sem React
+│   ├── types/           # tipos de domínio (auth, collectionPoint, family, withdrawal, review, geo)
+│   ├── api/             # httpClient (axios + refresh de JWT), problemDetails, tokenStorage
+│   └── services/        # auth, collectionPoint, family, withdrawal, review, geocoding, cep
+├── viewmodels/          # VIEWMODEL — hooks (estado + comandos) + schemas.ts (Zod)
+│                        # useAuth, useLogin, useCollectionPoints(Map), useFamilies,
+│                        # useRegisterWithdrawal, useReviews
+├── views/               # VIEW — componentes/páginas (sem regra de negócio)
+│   ├── components/ui/       # wrappers de View sobre os primitivos shadcn (Button, Card, feedback…)
+│   ├── components/form/     # FormComponent único, config-driven (TanStack Form)
+│   ├── components/data-table/  # DataTable reutilizável (TanStack Table)
+│   ├── components/modal/    # ModalComponent
+│   ├── components/map/      # mapa OpenStreetMap (react-leaflet) + picker de localização
+│   ├── components/reviews/  # StarRating, PointReviewsModal
+│   ├── components/collection-points/  # StockEditorModal
+│   ├── layouts/          # AppLayout (área autenticada)
+│   └── pages/             # Map, Login, Dashboard, CollectionPoints, Stock, Families,
+│                          # Beneficiaries, RegisterWithdrawal, NotFound
+├── stores/               # Zustand (sessão de autenticação)
+├── lib/                  # env (validado por Zod), queryClient, logger, csv, utils
+└── app/                  # router, providers, ProtectedRoute, lazyWithReload
 ```
 
 ## Desenvolvimento
@@ -67,14 +82,19 @@ Copie `.env.example` para `.env`. Principais:
 | `VITE_API_URL` | Base da API no navegador (dev: `/api`). |
 | `VITE_API_PROXY_TARGET` | Alvo do proxy de dev do Vite. |
 | `VITE_NOMINATIM_URL` | Endpoint do geocoder OSM. |
+| `VITE_BRASILAPI_URL` | Endpoint da BrasilAPI (autopreenchimento por CEP). |
 | `VITE_MAP_DEFAULT_LAT/LNG/ZOOM` | Centro/zoom inicial do mapa. |
 
-## Sobre o mapa e a geocodificação
+## Sobre o mapa, CEP e a geocodificação
 
 O backend guarda **endereço textual**, não coordenadas. O frontend geocodifica cada
 endereço via **Nominatim (OpenStreetMap)**, respeitando o limite de 1 req/s e cacheando
 o resultado em `localStorage`. Para produção em escala, o ideal é persistir lat/long no
 backend (evita depender do Nominatim e acelera o carregamento do mapa).
+
+No formulário de cadastro de ponto/família, o CEP é resolvido via **BrasilAPI**
+(`cepService`), preenchendo rua/bairro/cidade/UF e uma posição aproximada — separado da
+geocodificação do Nominatim, que é o passo final para o pino exato no mapa.
 
 ## Build de produção (Docker)
 

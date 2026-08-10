@@ -18,7 +18,7 @@ arquitetura **MVVM**, **Tailwind CSS** e mapa em **OpenStreetMap** (react-leafle
 .
 ├── backend/             # API .NET 9 (Clean Architecture + DDD + CQRS)
 ├── frontend/            # SPA React 19 + Vite 8 (MVVM, Tailwind, OpenStreetMap)
-├── docker-compose.yml   # orquestra postgres + api + frontend (+ pgadmin)
+├── docker-compose.yml   # orquestra postgres + minio + api + frontend (+ pgadmin)
 ├── Makefile             # atalhos de dev (rode `make help`)
 └── .env / .env.example  # variáveis lidas pelo compose
 ```
@@ -41,6 +41,8 @@ frontend fica em `http://localhost:3000`, a API em `http://localhost:8080`.
 - [Endpoints](#endpoints)
 - [Autenticação, roles e o porquê do BCrypt](#autenticação-roles-e-o-porquê-do-bcrypt)
 - [Observabilidade](#observabilidade)
+- [Object Storage (MinIO/S3)](#object-storage-minios3)
+- [Variáveis de ambiente](#variáveis-de-ambiente-resumo)
 
 ---
 
@@ -88,6 +90,7 @@ API  ─►  Infrastructure  ─►  Application  ─►  Domain
 - **MediatR** (CQRS), **FluentValidation**, **ErrorOr** (Result Pattern)
 - **Serilog** (Console + File), **HealthChecks**, **AspNetCoreRateLimit**, Correlation ID
 - **Scalar** (documentação interativa da API)
+- **AWSSDK.S3** contra **MinIO** (local) / **Amazon S3** (prod) — armazenamento de imagens
 - **xUnit** + **FluentAssertions** + **Moq**; **Testcontainers** (PostgreSQL real)
 
 ---
@@ -100,29 +103,37 @@ doacao-app/
 ├── Directory.Build.props          # props comuns (net9.0, nullable, langversion)
 ├── Directory.Packages.props       # Central Package Management (versões)
 ├── Dockerfile                     # multi-stage (sdk build -> aspnet alpine)
-├── docker-compose.yml             # api + postgres + pgadmin
+├── docker-compose.yml             # api + postgres + minio + frontend + pgadmin
 ├── docker-compose.override.yml    # ajustes de dev
 ├── .env.example                   # variáveis (copiar para .env)
 ├── src/
 │   ├── DoacaoApp.Domain/
 │   │   ├── Common/                # Entity, AggregateRoot, IDomainEvent, IUnitOfWork
 │   │   ├── ValueObjects/          # Cpf, Email, PhoneNumber, Address, ContactInfo, WithdrawalCycle
-│   │   ├── CollectionPoints/      # CollectionPoint (root), Withdrawal, eventos, repo
+│   │   ├── CollectionPoints/      # CollectionPoint (root, com Stock), Withdrawal, eventos, repo
 │   │   ├── Families/              # Family (root), Beneficiary, eventos, repo
+│   │   ├── Reviews/               # Review (root) — avaliação pública de um ponto
+│   │   ├── Storage/                # StoredFile (root) — metadado de arquivo em object storage
 │   │   └── Errors/                # DomainErrors (catálogo de erros)
 │   ├── DoacaoApp.Application/
 │   │   ├── Common/                # Behaviors (ValidationBehavior), Abstractions
 │   │   ├── Authentication/        # Commands (Register/Login/Refresh), Roles, AuthErrors
-│   │   ├── CollectionPoints/      # Commands, Queries, Contracts, EventHandlers
-│   │   └── Families/              # Commands, Queries, Contracts, EventHandlers
+│   │   ├── CollectionPoints/      # Commands, Queries, Contracts, EventHandlers (inclui estoque)
+│   │   ├── Families/              # Commands, Queries, Contracts, EventHandlers
+│   │   ├── Reviews/               # CreateReview, ModerateReview, ListReviewsForPoint
+│   │   └── Storage/                # UploadImage, DeleteFile, GetStoredFile, ListFilesByOwner
 │   ├── DoacaoApp.Infrastructure/
 │   │   ├── Persistence/           # AppDbContext, Configurations, Repositories,
 │   │   │                          # Interceptors, Converters, Seed, Migrations
 │   │   ├── Identity/              # ApplicationUser, BCryptPasswordHasher, IdentityService
-│   │   └── Authentication/        # JwtOptions, JwtTokenGenerator
+│   │   ├── Authentication/        # JwtOptions, JwtTokenGenerator
+│   │   └── Storage/                # S3FileStorage, StorageBucketInitializer, StorageOptions
 │   └── DoacaoApp.Api/
-│       ├── Controllers/           # CollectionPoints, Families, Withdrawals
+│       ├── Controllers/           # CollectionPoints, Families, Withdrawals, Reviews, Files
 │       ├── Endpoints/             # Auth, PublicCollectionPoints (Minimal APIs)
+│       ├── Common/                # ApiController, HttpErrorMapping, MinimalApiResults
+│       ├── OpenApi/               # BearerSecuritySchemeTransformer
+│       ├── Services/              # CurrentUser
 │       ├── Middleware/            # CorrelationId, GlobalExceptionHandler
 │       ├── Extensions/            # ServiceCollection + WebApplication
 │       └── Program.cs
@@ -136,11 +147,17 @@ doacao-app/
 
 ## Modelo de domínio
 
-- **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s.
+- **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s
+  e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
 - **Family** (Aggregate Root) — entidade central de rastreabilidade. Define o `WithdrawalCycle`
   (tipo + máximo de retiradas por ciclo) e contém `Beneficiary`s.
 - **Beneficiary** (Entity) — vive dentro de `Family`. CPF único no município.
 - **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia família/beneficiário por Id.
+- **Review** (Aggregate Root) — avaliação pública de um `CollectionPoint` (nota 1–5 + comentário
+  opcional), com moderação (`Hide`/`Restore`) e contagem de denúncias (`Report`).
+- **StoredFile** (Aggregate Root) — metadado de um arquivo (tipicamente foto de ponto de coleta) em
+  object storage S3-compatível; vínculo com o dono via `OwnerType`/`OwnerId` (sem FK) e exclusão como
+  soft-delete (`MarkDeleted`). Ver [Object Storage](#object-storage-minios3).
 
 ### A regra de equidade
 
@@ -167,15 +184,18 @@ compartilhamento municipal do histórico.
 
 ```bash
 cp .env.example .env          # ajuste as senhas/segredos
-docker compose up --build     # sobe postgres (healthcheck) -> api -> pgadmin
+docker compose up --build     # sobe postgres + minio (healthcheck) -> api -> pgadmin + frontend
 ```
 
+- Frontend: http://localhost:3000
 - API: http://localhost:8080  (docs: http://localhost:8080/scalar/v1)
 - Health: http://localhost:8080/health
 - PGAdmin: http://localhost:5050
+- Console do MinIO: http://localhost:9001 (credenciais em `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`)
 - Admin de seed: `admin@doacao.local` / `Admin@123456` (configurável no `.env`)
 
-> No startup (dev), a API aplica as **migrations** automaticamente e cria as **roles** + o **admin**.
+> No startup (dev), a API aplica as **migrations** automaticamente, cria as **roles** + o **admin**
+> e garante o bucket do MinIO (`StorageBucketInitializer`).
 
 ### Rodar localmente (com SDK .NET 9 instalado)
 
@@ -244,7 +264,10 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 ### Público (anônimo)
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/public/collection-points` | Lista pontos de coleta ativos (endereço + contato) |
+| GET | `/api/public/collection-points` | Lista pontos de coleta ativos (endereço + contato + estoque) |
+| GET | `/api/public/collection-points/{pointId}/reviews` | Avaliações visíveis de um ponto |
+| POST | `/api/public/collection-points/{pointId}/reviews` | Cria uma avaliação (nota + comentário) |
+| POST | `/api/public/reviews/{reviewId}/report` | Denuncia uma avaliação |
 | GET | `/health`, `/health/ready` | Health checks |
 
 ### Autenticação (Minimal API, com rate limit)
@@ -259,11 +282,21 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | Método | Rota | Acesso |
 |---|---|---|
 | POST | `/api/collection-points` | Admin |
+| PUT | `/api/collection-points/{id}` | Admin |
+| PUT | `/api/collection-points/{id}/stock` | Admin, PointManager |
 | POST | `/api/families` | Admin, PointManager |
 | GET | `/api/families/{id}` | autenticado |
+| GET | `/api/families/by-beneficiary-cpf/{cpf}` | Admin, PointManager |
 | POST | `/api/families/{id}/beneficiaries` | Admin, PointManager |
+| PUT | `/api/families/{id}/beneficiaries/{beneficiaryId}` | Admin, PointManager |
 | GET | `/api/families/{id}/withdrawals` | autenticado (histórico + saldo do ciclo) |
 | POST | `/api/withdrawals` | Admin, PointManager |
+| POST | `/api/files` | Admin, PointManager (upload multipart, máx. 20MB) |
+| GET | `/api/files/{id}` | autenticado (metadado + URL pré-assinada) |
+| GET | `/api/files?ownerType=&ownerId=` | autenticado (arquivos de um dono) |
+| DELETE | `/api/files/{id}` | Admin (soft-delete) |
+| POST | `/api/reviews/{id}/hide` | Admin (moderação) |
+| POST | `/api/reviews/{id}/restore` | Admin (moderação) |
 
 Erros seguem **ProblemDetails** (RFC 9110); validações retornam **ValidationProblemDetails** (400).
 
@@ -307,6 +340,19 @@ prevaleça sobre o padrão.
 
 ---
 
+## Object Storage (MinIO/S3)
+
+Imagens (ex.: fotos de ponto de coleta) são enviadas via `POST /api/files` e guardadas num bucket
+S3-compatível — **MinIO** em dev/self-hosted, **Amazon S3** em produção — através do `AWSSDK.S3`
+(`Infrastructure/Storage/S3FileStorage.cs`). Só o metadado (`StoredFile`) fica no Postgres; o binário
+vive no bucket. No boot, `StorageBucketInitializer` garante que o bucket configurado existe.
+
+Para migrar de MinIO para Amazon S3: troque `Storage__Provider=AmazonS3`, limpe `Storage__ServiceUrl`/
+`Storage__PublicUrl` e use as credenciais AWS reais em `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` (os
+mesmos nomes de variável, lidos pelo `IAmazonS3` configurado — ver `.env.example`).
+
+---
+
 ## Variáveis de ambiente (resumo)
 
 Veja `.env.example`. Principais:
@@ -318,4 +364,8 @@ Veja `.env.example`. Principais:
 | `Security__BCryptWorkFactor` | Custo do BCrypt (padrão 12) |
 | `RunMigrationsOnStartup` | Aplicar migrations no boot (dev) |
 | `SeedData__Enabled` / `SeedData__Admin*` | Seed do usuário admin |
-```
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO (ou access/secret key da AWS em prod) |
+| `Storage__Provider` | `MinIO` ou `AmazonS3` |
+| `Storage__ServiceUrl` / `Storage__PublicUrl` | Endpoint interno (API→storage) / público (navegador→URLs pré-assinadas) |
+| `Storage__Bucket` / `Storage__Region` | Bucket e região do object storage |
+| `Storage__PresignExpiryMinutes` | Validade das URLs pré-assinadas de download |
