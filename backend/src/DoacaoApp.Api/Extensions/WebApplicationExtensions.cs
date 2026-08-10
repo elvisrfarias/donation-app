@@ -17,6 +17,7 @@ public static class WebApplicationExtensions
 {
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
+        app.UseForwardedHeaders();
         app.UseSerilogRequestLogging();
 
         app.UseMiddleware<CorrelationIdMiddleware>();
@@ -45,6 +46,47 @@ public static class WebApplicationExtensions
         });
 
         return app;
+    }
+
+    /// <summary>
+    /// Recusa subir em produção com um segredo que ainda é o valor placeholder versionado no
+    /// `.env.example` — sem isso, o fluxo documentado (`cp .env.example .env`) permite ir pra
+    /// produção com Jwt/admin/MinIO conhecidos publicamente por qualquer clone do repositório.
+    /// </summary>
+    public static void EnsureNoDefaultSecretsInProduction(this WebApplication app)
+    {
+        if (!app.Environment.IsProduction())
+        {
+            return;
+        }
+
+        var configuration = app.Configuration;
+        var knownPlaceholders = new (string Key, string Placeholder)[]
+        {
+            ("Jwt:Secret", "CHAVE-SUPER-SECRETA-COM-NO-MINIMO-32-CARACTERES-troque"),
+            ("Jwt:Secret", "CHAVE-DE-DESENVOLVIMENTO-COM-NO-MINIMO-32-CARACTERES"),
+            ("SeedData:AdminPassword", "Admin@123456"),
+            ("Storage:SecretKey", "troque-esta-senha-minio"),
+        };
+
+        var offendingKeys = knownPlaceholders
+            .Where(p => string.Equals(configuration[p.Key], p.Placeholder, StringComparison.Ordinal))
+            .Select(p => p.Key)
+            .Distinct()
+            .ToList();
+
+        if ((configuration.GetConnectionString("Database") ?? string.Empty)
+            .Contains("troque-esta-senha-em-producao", StringComparison.Ordinal))
+        {
+            offendingKeys.Add("ConnectionStrings:Database");
+        }
+
+        if (offendingKeys.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"ASPNETCORE_ENVIRONMENT=Production com valor padrão do .env.example em: " +
+                $"{string.Join(", ", offendingKeys)}. Troque esses segredos antes de subir em produção.");
+        }
     }
 
     public static async Task ApplyMigrationsAndSeedAsync(this WebApplication app)

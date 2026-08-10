@@ -63,10 +63,18 @@ public sealed class IdentityService(
             return AuthErrors.InvalidCredentials;
         }
 
+        if (await userManager.IsLockedOutAsync(user))
+        {
+            return AuthErrors.AccountLockedOut;
+        }
+
         if (!await userManager.CheckPasswordAsync(user, password))
         {
+            await userManager.AccessFailedAsync(user);
             return AuthErrors.InvalidCredentials;
         }
+
+        await userManager.ResetAccessFailedCountAsync(user);
 
         return await IssueTokensAsync(user, cancellationToken);
     }

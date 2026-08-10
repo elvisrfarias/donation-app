@@ -8,6 +8,9 @@ public static class AuthErrors
     public static Error InvalidCredentials =>
         Error.Unauthorized("Auth.InvalidCredentials", "E-mail ou senha inválidos.");
 
+    public static Error AccountLockedOut =>
+        Error.Unauthorized("Auth.AccountLockedOut", "Conta temporariamente bloqueada por excesso de tentativas. Tente novamente mais tarde.");
+
     public static Error InvalidRefreshToken =>
         Error.Unauthorized("Auth.InvalidRefreshToken", "Refresh token inválido, expirado ou revogado.");
 

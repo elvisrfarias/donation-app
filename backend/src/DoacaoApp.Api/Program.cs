@@ -20,6 +20,9 @@ builder.Services.AddApiServices(builder.Configuration);
 
 var app = builder.Build();
 
+// Falha rápido se subir em produção com segredo ainda igual ao placeholder do .env.example.
+app.EnsureNoDefaultSecretsInProduction();
+
 // Migrations (quando habilitado) + seed de roles/admin.
 await app.ApplyMigrationsAndSeedAsync();
 

@@ -33,6 +33,12 @@ public sealed class UploadImageValidator : AbstractValidator<UploadImageCommand>
             .GreaterThan(0).WithMessage("O arquivo está vazio.")
             .LessThanOrEqualTo(SupportedImage.MaxFileSizeBytes)
             .WithMessage($"O arquivo excede o limite de {SupportedImage.MaxFileSizeMegabytes} MB.");
+
+        RuleFor(x => x.Content)
+            .MustAsync((command, _, ct) => SupportedImage.MatchesFileSignatureAsync(command.Content, command.ContentType, ct))
+            .WithMessage("O conteúdo do arquivo não corresponde ao tipo declarado.")
+            .WithName(nameof(UploadImageCommand.Content))
+            .When(x => SupportedImage.IsAllowed(x.ContentType), ApplyConditionTo.CurrentValidator);
     }
 }
 

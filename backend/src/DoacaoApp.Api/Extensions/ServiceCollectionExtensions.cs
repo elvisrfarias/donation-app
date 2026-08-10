@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -9,6 +10,7 @@ using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DoacaoApp.Api.Extensions;
@@ -30,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddExceptionHandler<GlobalExceptionHandler>();
 
         services.AddJwtAuthentication(configuration);
+        services.AddTrustedForwardedHeaders(configuration);
         services.AddRateLimiting(configuration);
         services.AddObservability(configuration);
         services.AddApiDocumentation();
@@ -41,6 +44,12 @@ public static class ServiceCollectionExtensions
     {
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
             ?? throw new InvalidOperationException("Seção 'Jwt' não configurada.");
+
+        if (jwt.Secret.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "Jwt:Secret precisa ter pelo menos 32 caracteres (256 bits) para assinar com HS256.");
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -63,6 +72,31 @@ public static class ServiceCollectionExtensions
         services.AddAuthorizationBuilder()
             .AddPolicy("AdminOnly", p => p.RequireRole(Roles.Admin))
             .AddPolicy("ManagerOrAdmin", p => p.RequireRole(Roles.Admin, Roles.PointManager));
+    }
+
+    /// <summary>
+    /// Só confia em X-Forwarded-For/-Proto quando o hop imediato vier da rede interna do compose
+    /// (o nginx do frontend) — sem isso, um cliente batendo direto na API (porta publicada) podia
+    /// forjar o header e contornar o rate limit por IP.
+    /// </summary>
+    private static void AddTrustedForwardedHeaders(this IServiceCollection services, IConfiguration configuration)
+    {
+        var cidr = configuration["ForwardedHeaders:KnownNetworkCidr"];
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+
+            if (string.IsNullOrWhiteSpace(cidr))
+            {
+                return;
+            }
+
+            var parts = cidr.Split('/');
+            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+        });
     }
 
     private static void AddRateLimiting(this IServiceCollection services, IConfiguration configuration)
