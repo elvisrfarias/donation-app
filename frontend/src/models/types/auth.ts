@@ -6,6 +6,7 @@ export interface AuthResult {
   email: string
   fullName: string
   roles: Role[]
+  collectionPointId: string | null
   accessToken: string
   refreshToken: string
   accessTokenExpiresAtUtc: string
@@ -18,6 +19,7 @@ export interface AuthUser {
   email: string
   fullName: string
   roles: Role[]
+  collectionPointId: string | null
 }
 
 export interface LoginInput {

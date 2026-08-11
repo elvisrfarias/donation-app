@@ -1,4 +1,5 @@
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.Families.Contracts;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
@@ -20,7 +21,10 @@ public sealed record RegisterBeneficiaryCommand(
     string Name,
     string Cpf,
     DateOnly? BirthDate,
-    Guid RegisteredByPointId) : IRequest<ErrorOr<BeneficiaryResponse>>;
+    Guid RegisteredByPointId) : IRequest<ErrorOr<BeneficiaryResponse>>, IScopedToCollectionPoint
+{
+    Guid IScopedToCollectionPoint.CollectionPointId => RegisteredByPointId;
+}
 
 public sealed class RegisterBeneficiaryValidator : AbstractValidator<RegisterBeneficiaryCommand>
 {

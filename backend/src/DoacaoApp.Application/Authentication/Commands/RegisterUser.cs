@@ -21,6 +21,16 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
         RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128);
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Role).NotEmpty().Must(Roles.IsValid).WithMessage("Role inválida.");
+
+        RuleFor(x => x.CollectionPointId)
+            .Null()
+            .When(x => x.Role == Roles.Admin)
+            .WithMessage("Um Admin não deve estar vinculado a um ponto de coleta.");
+
+        RuleFor(x => x.CollectionPointId)
+            .NotNull()
+            .When(x => x.Role is Roles.PointManager or Roles.Viewer)
+            .WithMessage("Informe o ponto de coleta ao qual este usuário pertence.");
     }
 }
 

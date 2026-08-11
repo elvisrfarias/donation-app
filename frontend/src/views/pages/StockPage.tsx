@@ -10,13 +10,14 @@ import { useAuth, useCollectionPoints, useUpdateStock } from '@/viewmodels'
 import { Alert, Button, Card, SectionTitle, Select } from '@/views/components/ui'
 
 export function StockPage() {
-  const { isManager } = useAuth()
+  const { user, isManager } = useAuth()
   const { points, isLoading, isError, error } = useCollectionPoints()
   const [selectedId, setSelectedId] = useState('')
 
+  const ownPointId = user?.collectionPointId ?? null
   const selectedPoint = useMemo(
-    () => points.find((point) => point.id === selectedId) ?? null,
-    [points, selectedId],
+    () => points.find((point) => point.id === (ownPointId ?? selectedId)) ?? null,
+    [points, ownPointId, selectedId],
   )
 
   return (
@@ -29,26 +30,30 @@ export function StockPage() {
 
       {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
 
-      <Card className="space-y-2 p-5">
-        <label htmlFor="stock-point" className="text-sm font-medium text-stone-700">
-          Ponto de coleta
-        </label>
-        <Select
-          id="stock-point"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
-          disabled={isLoading || points.length === 0}
-        >
-          <option value="">
-            {isLoading ? 'Carregando pontos…' : 'Selecione um ponto…'}
-          </option>
-          {points.map((point) => (
-            <option key={point.id} value={point.id}>
-              {point.name} — {point.address.city}/{point.address.state}
+      {ownPointId ? (
+        isLoading && <p className="text-sm text-stone-500">Carregando seu ponto…</p>
+      ) : (
+        <Card className="space-y-2 p-5">
+          <label htmlFor="stock-point" className="text-sm font-medium text-stone-700">
+            Ponto de coleta
+          </label>
+          <Select
+            id="stock-point"
+            value={selectedId}
+            onChange={(event) => setSelectedId(event.target.value)}
+            disabled={isLoading || points.length === 0}
+          >
+            <option value="">
+              {isLoading ? 'Carregando pontos…' : 'Selecione um ponto…'}
             </option>
-          ))}
-        </Select>
-      </Card>
+            {points.map((point) => (
+              <option key={point.id} value={point.id}>
+                {point.name} — {point.address.city}/{point.address.state}
+              </option>
+            ))}
+          </Select>
+        </Card>
+      )}
 
       {selectedPoint && (
         <StockEditor key={selectedPoint.id} point={selectedPoint} canEdit={isManager} />

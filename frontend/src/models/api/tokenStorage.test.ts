@@ -7,6 +7,7 @@ const authResult: AuthResult = {
   email: 'admin@doacao.local',
   fullName: 'Admin',
   roles: ['Admin'],
+  collectionPointId: null,
   accessToken: 'access-token',
   refreshToken: 'refresh-token',
   accessTokenExpiresAtUtc: '2026-01-01T00:00:00Z',
@@ -33,6 +34,7 @@ describe('tokenStorage', () => {
       email: authResult.email,
       fullName: authResult.fullName,
       roles: authResult.roles,
+      collectionPointId: authResult.collectionPointId,
     })
     expect(tokenStorage.get()).toEqual(session)
     expect(tokenStorage.getAccessToken()).toBe('access-token')

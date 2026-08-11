@@ -1,4 +1,5 @@
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Errors;
@@ -15,7 +16,8 @@ public sealed record GetFamilyWithdrawalHistoryQuery(Guid FamilyId)
 public sealed class GetFamilyWithdrawalHistoryHandler(
     IFamilyRepository familyRepository,
     ICollectionPointRepository pointRepository,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICurrentUser currentUser)
     : IRequestHandler<GetFamilyWithdrawalHistoryQuery, ErrorOr<FamilyWithdrawalHistoryResponse>>
 {
     public async Task<ErrorOr<FamilyWithdrawalHistoryResponse>> Handle(
@@ -23,7 +25,7 @@ public sealed class GetFamilyWithdrawalHistoryHandler(
         CancellationToken cancellationToken)
     {
         var family = await familyRepository.GetByIdAsync(FamilyId.From(query.FamilyId), cancellationToken);
-        if (family is null)
+        if (family is null || !currentUser.CanAccess(family))
         {
             return DomainErrors.Family.NotFound;
         }

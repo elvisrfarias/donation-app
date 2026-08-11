@@ -118,6 +118,61 @@ public sealed class IdentityService(
         return Result.Success;
     }
 
+    public async Task<ErrorOr<IReadOnlyList<UserResponse>>> ListUsersAsync(CancellationToken cancellationToken = default)
+    {
+        var users = await userManager.Users.OrderBy(u => u.FullName).ToListAsync(cancellationToken);
+
+        var responses = new List<UserResponse>(users.Count);
+        foreach (var user in users)
+        {
+            responses.Add(await ToUserResponseAsync(user));
+        }
+
+        return ErrorOrFactory.From<IReadOnlyList<UserResponse>>(responses);
+    }
+
+    public async Task<ErrorOr<UserResponse>> UpdateUserAsync(UpdateUserRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId.ToString());
+        if (user is null)
+        {
+            return AuthErrors.UserNotFound;
+        }
+
+        user.FullName = request.FullName;
+        user.CollectionPointId = request.CollectionPointId;
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        await userManager.RemoveFromRolesAsync(user, currentRoles);
+        await userManager.AddToRoleAsync(user, request.Role);
+
+        await userManager.UpdateAsync(user);
+
+        return await ToUserResponseAsync(user);
+    }
+
+    public async Task<ErrorOr<Success>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return AuthErrors.UserNotFound;
+        }
+
+        await userManager.SetLockoutEnabledAsync(user, true);
+        await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+
+        return Result.Success;
+    }
+
+    private async Task<UserResponse> ToUserResponseAsync(ApplicationUser user)
+    {
+        var roles = await userManager.GetRolesAsync(user);
+        var isActive = !await userManager.IsLockedOutAsync(user);
+
+        return new UserResponse(user.Id, user.Email!, user.FullName, roles.ToList(), user.CollectionPointId, isActive);
+    }
+
     private async Task<AuthResult> IssueTokensAsync(
         ApplicationUser user,
         CancellationToken cancellationToken,
@@ -151,6 +206,7 @@ public sealed class IdentityService(
             user.Email!,
             user.FullName,
             roles.ToList(),
+            user.CollectionPointId,
             accessToken,
             refreshValue,
             accessExpires,

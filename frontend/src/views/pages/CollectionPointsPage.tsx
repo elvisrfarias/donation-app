@@ -14,7 +14,7 @@ import {
   createCollectionPointSchema,
   updateCollectionPointSchema,
   useAuth,
-  useCollectionPoints,
+  useCollectionPointsForManagement,
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
   type CreateCollectionPointForm,
@@ -218,7 +218,7 @@ const collectionPointDefaults: CreateCollectionPointForm = {
 
 export function CollectionPointsPage() {
   const { isAdmin, isManager } = useAuth()
-  const { points, isLoading, isError, error } = useCollectionPoints()
+  const { points, isLoading, isError, error } = useCollectionPointsForManagement()
   const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
   const { update, error: updateError, reset: resetUpdate } = useUpdateCollectionPoint()
 

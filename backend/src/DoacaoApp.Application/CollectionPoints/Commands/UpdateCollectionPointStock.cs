@@ -1,4 +1,5 @@
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
@@ -15,7 +16,10 @@ public sealed record StockEntry(ItemCategory Category, int Quantity);
 /// <summary>Redefine o estoque (itens disponíveis) de um ponto de coleta. Requer Admin ou PointManager.</summary>
 public sealed record UpdateCollectionPointStockCommand(
     Guid PointId,
-    IReadOnlyList<StockEntry> Items) : IRequest<ErrorOr<CollectionPointResponse>>;
+    IReadOnlyList<StockEntry> Items) : IRequest<ErrorOr<CollectionPointResponse>>, IScopedToCollectionPoint
+{
+    Guid IScopedToCollectionPoint.CollectionPointId => PointId;
+}
 
 public sealed class UpdateCollectionPointStockValidator : AbstractValidator<UpdateCollectionPointStockCommand>
 {

@@ -34,6 +34,9 @@ const RegisterWithdrawalPage = lazyWithReload(() =>
     default: m.RegisterWithdrawalPage,
   })),
 )
+const UsersPage = lazyWithReload(() =>
+  import('@/views/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
+)
 const NotFoundPage = lazyWithReload(() =>
   import('@/views/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -63,11 +66,18 @@ export const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
-      { path: 'collection-points', element: withSuspense(<CollectionPointsPage />) },
+      {
+        path: 'collection-points',
+        element: <ProtectedRoute roles={['Admin']}>{withSuspense(<CollectionPointsPage />)}</ProtectedRoute>,
+      },
       { path: 'stock', element: withSuspense(<StockPage />) },
       { path: 'families', element: withSuspense(<FamiliesPage />) },
       { path: 'beneficiaries', element: withSuspense(<BeneficiariesPage />) },
       { path: 'withdrawals/new', element: withSuspense(<RegisterWithdrawalPage />) },
+      {
+        path: 'users',
+        element: <ProtectedRoute roles={['Admin']}>{withSuspense(<UsersPage />)}</ProtectedRoute>,
+      },
     ],
   },
   { path: '*', element: withSuspense(<NotFoundPage />), errorElement: <RouteError /> },

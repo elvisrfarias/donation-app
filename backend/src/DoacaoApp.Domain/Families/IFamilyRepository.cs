@@ -1,3 +1,4 @@
+using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.ValueObjects;
 
 namespace DoacaoApp.Domain.Families;
@@ -12,6 +13,10 @@ public interface IFamilyRepository
 
     /// <summary>Lista todas as famílias com seus beneficiários.</summary>
     Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Lista famílias com ao menos um beneficiário cadastrado pelo ponto informado.</summary>
+    Task<IReadOnlyList<Family>> ListByCollectionPointAsync(
+        CollectionPointId pointId, CancellationToken cancellationToken = default);
 
     /// <summary>Carrega a família com seus beneficiários.</summary>
     Task<Family?> GetByIdAsync(FamilyId id, CancellationToken cancellationToken = default);

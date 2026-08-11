@@ -1,4 +1,5 @@
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
@@ -20,7 +21,10 @@ public sealed record RegisterWithdrawalCommand(
     Guid FamilyId,
     Guid BeneficiaryId,
     DateTime? OccurredAtUtc,
-    string? Notes) : IRequest<ErrorOr<WithdrawalResponse>>;
+    string? Notes) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
+{
+    Guid IScopedToCollectionPoint.CollectionPointId => PointId;
+}
 
 public sealed class RegisterWithdrawalValidator : AbstractValidator<RegisterWithdrawalCommand>
 {

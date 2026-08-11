@@ -1,5 +1,6 @@
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Authentication.Commands;
+using DoacaoApp.Application.Authentication.Queries;
 using DoacaoApp.Application.Common.Abstractions;
 using ErrorOr;
 using FluentAssertions;
@@ -18,6 +19,7 @@ public class AuthenticationHandlersTests
         "admin@doacao.local",
         "Admin",
         ["Admin"],
+        null,
         "access-token",
         "refresh-token",
         Now.AddMinutes(15),
@@ -103,5 +105,50 @@ public class AuthenticationHandlersTests
 
         result.IsError.Should().BeFalse();
         _identityService.Verify(s => s.RevokeAsync("token-a-revogar", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ListUsersHandler_DevolveOsUsuariosDoIdentityService()
+    {
+        var users = new List<UserResponse> { new(Guid.NewGuid(), "a@x.com", "Fulano", ["Admin"], null, true) };
+        _identityService.Setup(s => s.ListUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(users);
+
+        var handler = new ListUsersHandler(_identityService.Object);
+        var result = await handler.Handle(new ListUsersQuery(), CancellationToken.None);
+
+        result.Value.Should().BeEquivalentTo(users);
+    }
+
+    [Fact]
+    public async Task UpdateUserHandler_MapeiaTodosOsCamposParaOUpdateUserRequest()
+    {
+        var userId = Guid.NewGuid();
+        var pointId = Guid.NewGuid();
+        _identityService
+            .Setup(s => s.UpdateUserAsync(It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["PointManager"], pointId, true));
+
+        var handler = new UpdateUserHandler(_identityService.Object);
+        var command = new UpdateUserCommand(userId, "Fulano", "PointManager", pointId);
+
+        await handler.Handle(command, CancellationToken.None);
+
+        _identityService.Verify(s => s.UpdateUserAsync(
+            It.Is<UpdateUserRequest>(r =>
+                r.UserId == userId && r.FullName == "Fulano" && r.Role == "PointManager" && r.CollectionPointId == pointId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeactivateUserHandler_RepassaOUserIdERetornaSucesso()
+    {
+        var userId = Guid.NewGuid();
+        _identityService.Setup(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success);
+
+        var handler = new DeactivateUserHandler(_identityService.Object);
+        var result = await handler.Handle(new DeactivateUserCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _identityService.Verify(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

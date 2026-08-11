@@ -4,6 +4,7 @@ export { useCollectionPointsMapViewModel } from './useCollectionPointsMapViewMod
 export type { MapFilters } from './useCollectionPointsMapViewModel'
 export {
   useCollectionPoints,
+  useCollectionPointsForManagement,
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
   useUpdateStock,
@@ -17,5 +18,6 @@ export {
   useUpdateBeneficiary,
 } from './useFamiliesViewModel'
 export { useRegisterWithdrawal } from './useRegisterWithdrawalViewModel'
+export { useCreateUser, useDeactivateUser, useUpdateUser, useUsers } from './useUsersViewModel'
 export { useReviewsViewModel } from './useReviewsViewModel'
 export * from './schemas'

@@ -1,6 +1,6 @@
 namespace DoacaoApp.Application.Common.Abstractions;
 
-/// <summary>Dados do usuário autenticado no request corrente (para auditoria/log).</summary>
+/// <summary>Dados do usuário autenticado no request corrente (para auditoria/log e escopo de acesso).</summary>
 public interface ICurrentUser
 {
     Guid? UserId { get; }
@@ -8,4 +8,10 @@ public interface ICurrentUser
     string? Email { get; }
 
     bool IsAuthenticated { get; }
+
+    IReadOnlyList<string> Roles { get; }
+
+    Guid? CollectionPointId { get; }
+
+    bool IsAdmin { get; }
 }

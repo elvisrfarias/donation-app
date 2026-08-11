@@ -20,6 +20,9 @@ public static class AuthErrors
     public static Error InvalidRole =>
         Error.Validation("Auth.InvalidRole", "Role inválida. Use: Admin, PointManager ou Viewer.");
 
+    public static Error UserNotFound =>
+        Error.NotFound("Auth.UserNotFound", "Usuário não encontrado.");
+
     public static Error RegistrationFailed(string detail) =>
         Error.Validation("Auth.RegistrationFailed", detail);
 }

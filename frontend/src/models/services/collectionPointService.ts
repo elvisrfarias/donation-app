@@ -32,6 +32,12 @@ export const collectionPointService = {
     return data
   },
 
+  /** Lista administrativa (autenticada) de todos os pontos, ativos e inativos (requer role Admin). */
+  async listForManagement(signal?: AbortSignal): Promise<CollectionPoint[]> {
+    const { data } = await http.get<CollectionPoint[]>('/collection-points', { signal })
+    return data
+  },
+
   /** Cadastra um novo ponto de coleta (requer role Admin). */
   async create(input: CreateCollectionPointInput): Promise<CollectionPoint> {
     const { data } = await http.post<CollectionPoint>('/collection-points', input)

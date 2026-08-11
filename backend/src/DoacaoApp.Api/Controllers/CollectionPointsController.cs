@@ -2,6 +2,7 @@ using DoacaoApp.Api.Common;
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.CollectionPoints.Commands;
 using DoacaoApp.Application.CollectionPoints.Contracts;
+using DoacaoApp.Application.CollectionPoints.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,22 @@ namespace DoacaoApp.Api.Controllers;
 [Produces("application/json")]
 public sealed class CollectionPointsController(ISender sender) : ApiController(sender)
 {
+    /// <summary>Lista todos os pontos de coleta (ativos e inativos) para a grid administrativa.</summary>
+    /// <remarks>Requer a role <c>Admin</c>.</remarks>
+    /// <response code="200">Lista de pontos.</response>
+    /// <response code="401">Não autenticado.</response>
+    /// <response code="403">Sem permissão.</response>
+    [HttpGet]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(IReadOnlyList<CollectionPointResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> List(CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new ListCollectionPointsForManagementQuery(), cancellationToken);
+        return Respond(result, Ok);
+    }
+
     /// <summary>Cadastra um novo ponto de coleta.</summary>
     /// <remarks>Requer a role <c>Admin</c>.</remarks>
     /// <response code="201">Ponto criado.</response>

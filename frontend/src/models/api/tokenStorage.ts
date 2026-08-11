@@ -12,7 +12,13 @@ export interface AuthSession {
 
 function fromAuthResult(r: AuthResult): AuthSession {
   return {
-    user: { userId: r.userId, email: r.email, fullName: r.fullName, roles: r.roles },
+    user: {
+      userId: r.userId,
+      email: r.email,
+      fullName: r.fullName,
+      roles: r.roles,
+      collectionPointId: r.collectionPointId,
+    },
     accessToken: r.accessToken,
     refreshToken: r.refreshToken,
     accessTokenExpiresAtUtc: r.accessTokenExpiresAtUtc,

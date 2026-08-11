@@ -1,11 +1,15 @@
 using DoacaoApp.Api.Common;
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Authentication.Commands;
+using DoacaoApp.Application.Authentication.Queries;
 using DoacaoApp.Application.Common.Abstractions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 
 namespace DoacaoApp.Api.Endpoints;
+
+/// <summary>Corpo de uma requisição de atualização de usuário (o Id vem na rota).</summary>
+public sealed record UpdateUserRequestBody(string FullName, string Role, Guid? CollectionPointId);
 
 /// <summary>Endpoints de autenticação (Minimal API). Protegidos por rate limiting.</summary>
 public static class AuthEndpoints
@@ -40,6 +44,26 @@ public static class AuthEndpoints
             .AllowAnonymous()
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Revoga um refresh token (logout).");
+
+        group.MapGet("/users", async (ISender sender, CancellationToken ct) =>
+                (await sender.Send(new ListUsersQuery(), ct)).Match(value => Results.Ok(value)))
+            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .Produces<IReadOnlyList<UserResponse>>()
+            .WithSummary("Lista todos os usuários gerenciais (somente Admin).");
+
+        group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequestBody body, ISender sender, CancellationToken ct) =>
+                (await sender.Send(new UpdateUserCommand(id, body.FullName, body.Role, body.CollectionPointId), ct))
+                    .Match(value => Results.Ok(value)))
+            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .Produces<UserResponse>()
+            .ProducesValidationProblem()
+            .WithSummary("Atualiza nome, papel e ponto de coleta de um usuário (somente Admin).");
+
+        group.MapPost("/users/{id:guid}/deactivate", async (Guid id, ISender sender, CancellationToken ct) =>
+                (await sender.Send(new DeactivateUserCommand(id), ct)).Match(_ => Results.NoContent()))
+            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Desativa um usuário, bloqueando novos logins (somente Admin).");
 
         return app;
     }

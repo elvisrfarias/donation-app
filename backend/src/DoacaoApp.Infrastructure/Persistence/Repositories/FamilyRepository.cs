@@ -1,3 +1,4 @@
+using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Families;
 using DoacaoApp.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,14 @@ public sealed class FamilyRepository(AppDbContext context) : IFamilyRepository
     public async Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default) =>
         await context.Families
             .Include(f => f.Beneficiaries)
+            .OrderBy(f => f.Name)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Family>> ListByCollectionPointAsync(
+        CollectionPointId pointId, CancellationToken cancellationToken = default) =>
+        await context.Families
+            .Include(f => f.Beneficiaries)
+            .Where(f => f.Beneficiaries.Any(b => b.RegisteredByPointId == pointId))
             .OrderBy(f => f.Name)
             .ToListAsync(cancellationToken);
 

@@ -14,6 +14,11 @@ import type { CreateCollectionPointForm, UpdateCollectionPointForm } from '@/vie
 
 type AddressWithCoordinates = Address & { latitude?: number | null; longitude?: number | null }
 
+function invalidateCollectionPointLists(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
+  queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.management })
+}
+
 /** Converte o textarea de necessidades (uma por linha) na lista enviada à API. */
 function parseNeeds(needs: string | undefined): string[] {
   return (needs ?? '')
@@ -58,6 +63,16 @@ export function useCollectionPoints() {
   return { points: items, ...rest }
 }
 
+/** Lista administrativa (todos os pontos, ativos e inativos) — só para telas Admin-only. */
+export function useCollectionPointsForManagement() {
+  const { items, ...rest } = useApiList<CollectionPoint>({
+    queryKey: queryKeys.collectionPoints.management,
+    queryFn: ({ signal }) => collectionPointService.listForManagement(signal),
+  })
+
+  return { points: items, ...rest }
+}
+
 /** Mutação de criação de ponto de coleta (Admin). */
 export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
@@ -74,9 +89,7 @@ export function useCreateCollectionPoint() {
         longitude: lng,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
-    },
+    onSuccess: () => invalidateCollectionPointLists(queryClient),
   })
 
   return { create: mutate, createdPoint: data, ...rest }
@@ -101,9 +114,7 @@ export function useUpdateCollectionPoint() {
         longitude: lng,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
-    },
+    onSuccess: () => invalidateCollectionPointLists(queryClient),
   })
 
   return { update: mutate, updatedPoint: data, ...rest }
@@ -115,9 +126,7 @@ export function useUpdateStock() {
 
   const { mutate, ...rest } = useApiMutation<CollectionPoint, { id: string; items: StockItem[] }>({
     mutationFn: ({ id, items }) => collectionPointService.updateStock(id, items),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.public })
-    },
+    onSuccess: () => invalidateCollectionPointLists(queryClient),
   })
 
   return { updateStock: mutate, ...rest }

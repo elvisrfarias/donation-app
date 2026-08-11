@@ -5,6 +5,7 @@ import {
   Map,
   MapPin,
   PackageCheck,
+  ShieldUser,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -15,17 +16,19 @@ import { useAuth } from '@/viewmodels'
 import { AppLogo } from '@/views/components/common/AppLogo'
 
 const navItems = [
-  { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true },
-  { to: '/app/collection-points', label: 'Pontos de Coleta', icon: MapPin, end: false },
-  { to: '/app/stock', label: 'Estoque', icon: Boxes, end: false },
-  { to: '/app/families', label: 'Famílias', icon: Users, end: false },
-  { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false },
-  { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },
+  { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true, adminOnly: false },
+  { to: '/app/collection-points', label: 'Pontos de Coleta', icon: MapPin, end: false, adminOnly: true },
+  { to: '/app/stock', label: 'Estoque', icon: Boxes, end: false, adminOnly: false },
+  { to: '/app/families', label: 'Famílias', icon: Users, end: false, adminOnly: false },
+  { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false, adminOnly: false },
+  { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false, adminOnly: false },
+  { to: '/app/users', label: 'Usuários', icon: ShieldUser, end: false, adminOnly: true },
 ]
 
 export function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin)
 
   const handleLogout = async () => {
     await logout()
@@ -38,7 +41,7 @@ export function AppLayout() {
         <AppLogo className="px-1" inverted />
 
         <nav className="mt-9 flex flex-1 flex-col gap-1.5">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -117,7 +120,7 @@ export function AppLayout() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-stone-200 bg-white/90 backdrop-blur-md lg:hidden">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

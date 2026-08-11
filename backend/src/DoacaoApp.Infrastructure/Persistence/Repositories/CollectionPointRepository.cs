@@ -18,6 +18,12 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CollectionPoint>> ListAllAsync(CancellationToken cancellationToken = default) =>
+        await context.CollectionPoints
+            .AsNoTracking()
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyDictionary<CollectionPointId, int>> GetFamiliesServedAsync(
         IReadOnlyCollection<CollectionPointId> pointIds,
         CancellationToken cancellationToken = default)

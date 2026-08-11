@@ -18,12 +18,16 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   collectionPoints: {
     public: ['collection-points', 'public'] as const,
+    management: ['collection-points', 'management'] as const,
     reviews: (pointId: string) => ['collection-points', pointId, 'reviews'] as const,
   },
   families: {
     all: ['families', 'all'] as const,
     byId: (id: string) => ['families', id] as const,
     withdrawals: (id: string) => ['families', id, 'withdrawals'] as const,
+  },
+  users: {
+    all: ['users', 'all'] as const,
   },
   geocode: (query: string) => ['geocode', query] as const,
 }

@@ -83,6 +83,13 @@ public sealed class Family : AggregateRoot<FamilyId>
         _beneficiaries.SingleOrDefault(b => b.Id == beneficiaryId);
 
     /// <summary>
+    /// Verdadeiro se algum beneficiário desta família foi cadastrado pelo ponto informado —
+    /// usado para restringir a visibilidade da família a quem gerencia um ponto específico.
+    /// </summary>
+    public bool HasBeneficiaryRegisteredBy(CollectionPointId pointId) =>
+        _beneficiaries.Any(b => b.RegisteredByPointId == pointId);
+
+    /// <summary>
     /// Atualiza os dados de um beneficiário já vinculado a esta família. Garante CPF
     /// único dentro da família (exceto para o próprio beneficiário).
     /// </summary>

@@ -8,6 +8,7 @@ public sealed record AuthResult(
     string Email,
     string FullName,
     IReadOnlyList<string> Roles,
+    Guid? CollectionPointId,
     string AccessToken,
     string RefreshToken,
     DateTime AccessTokenExpiresAtUtc,
@@ -17,6 +18,22 @@ public sealed record AuthResult(
 public sealed record RegisterRequest(
     string Email,
     string Password,
+    string FullName,
+    string Role,
+    Guid? CollectionPointId);
+
+/// <summary>Um usuário gerencial, para a grid administrativa de usuários.</summary>
+public sealed record UserResponse(
+    Guid Id,
+    string Email,
+    string FullName,
+    IReadOnlyList<string> Roles,
+    Guid? CollectionPointId,
+    bool IsActive);
+
+/// <summary>Dados para atualizar papel, nome e ponto de coleta de um usuário existente.</summary>
+public sealed record UpdateUserRequest(
+    Guid UserId,
     string FullName,
     string Role,
     Guid? CollectionPointId);
@@ -34,4 +51,10 @@ public interface IIdentityService
     Task<ErrorOr<AuthResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
 
     Task<ErrorOr<Success>> RevokeAsync(string refreshToken, CancellationToken cancellationToken = default);
+
+    Task<ErrorOr<IReadOnlyList<UserResponse>>> ListUsersAsync(CancellationToken cancellationToken = default);
+
+    Task<ErrorOr<UserResponse>> UpdateUserAsync(UpdateUserRequest request, CancellationToken cancellationToken = default);
+
+    Task<ErrorOr<Success>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
 }

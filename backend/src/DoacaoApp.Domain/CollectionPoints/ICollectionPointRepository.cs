@@ -12,6 +12,9 @@ public interface ICollectionPointRepository
     /// <summary>Pontos ativos para a listagem pública (com endereço e contato).</summary>
     Task<IReadOnlyList<CollectionPoint>> ListActiveAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Todos os pontos (ativos e inativos), para a listagem administrativa.</summary>
+    Task<IReadOnlyList<CollectionPoint>> ListAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Total de famílias distintas já atendidas em cada ponto informado (indicador de impacto
     /// para a divulgação/ranking). Pontos sem atendimentos não aparecem no resultado.

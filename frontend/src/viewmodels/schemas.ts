@@ -124,6 +124,38 @@ export const createReviewSchema = z.object({
 })
 export type CreateReviewForm = z.infer<typeof createReviewSchema>
 
+const userRoleSchema = z.enum(['Admin', 'PointManager', 'Viewer'])
+
+function requiresCollectionPoint(role: z.infer<typeof userRoleSchema>): boolean {
+  return role === 'PointManager' || role === 'Viewer'
+}
+
+export const createUserSchema = z
+  .object({
+    email: z.email('Informe um e-mail válido.'),
+    password: z.string().min(8, 'Mínimo de 8 caracteres.').max(128),
+    fullName: z.string().min(1, 'Nome é obrigatório.').max(160),
+    role: userRoleSchema,
+    collectionPointId: z.string().optional(),
+  })
+  .refine((v) => !requiresCollectionPoint(v.role) || !!v.collectionPointId, {
+    message: 'Selecione o ponto de coleta deste usuário.',
+    path: ['collectionPointId'],
+  })
+export type CreateUserForm = z.infer<typeof createUserSchema>
+
+export const updateUserSchema = z
+  .object({
+    fullName: z.string().min(1, 'Nome é obrigatório.').max(160),
+    role: userRoleSchema,
+    collectionPointId: z.string().optional(),
+  })
+  .refine((v) => !requiresCollectionPoint(v.role) || !!v.collectionPointId, {
+    message: 'Selecione o ponto de coleta deste usuário.',
+    path: ['collectionPointId'],
+  })
+export type UpdateUserForm = z.infer<typeof updateUserSchema>
+
 export const registerWithdrawalSchema = z.object({
   pointId: z.string().min(1, 'Selecione o ponto de coleta.'),
   familyId: z.string().min(1, 'Informe o ID da família.'),
