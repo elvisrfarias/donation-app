@@ -128,7 +128,7 @@ public sealed class IdentityService(
 
         var now = clock.UtcNow;
         var refreshValue = tokenGenerator.GenerateRefreshToken();
-        var refreshExpires = now.AddDays(_jwtOptions.RefreshTokenDays);
+        var refreshExpires = now.AddHours(_jwtOptions.RefreshTokenHours);
 
         dbContext.RefreshTokens.Add(new RefreshToken
         {

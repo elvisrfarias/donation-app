@@ -19,7 +19,7 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options, IDateTimePro
         IEnumerable<string> roles)
     {
         var now = clock.UtcNow;
-        var expires = now.AddMinutes(_options.AccessTokenMinutes);
+        var expires = now.AddHours(_options.AccessTokenHours);
 
         var claims = new List<Claim>
         {

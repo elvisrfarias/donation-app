@@ -10,6 +10,8 @@ namespace DoacaoApp.Domain.Families;
 /// </summary>
 public sealed class Beneficiary : Entity<BeneficiaryId>
 {
+    private readonly List<BeneficiaryKinship> _kinships = [];
+
     private Beneficiary()
     {
         Name = string.Empty;
@@ -45,6 +47,9 @@ public sealed class Beneficiary : Entity<BeneficiaryId>
     public bool IsActive { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
+    /// <summary>Vínculos de parentesco declarados por este beneficiário com outros.</summary>
+    public IReadOnlyList<BeneficiaryKinship> Kinships => _kinships.AsReadOnly();
+
     /// <summary>Criação controlada pelo agregado <see cref="Family"/>.</summary>
     internal static Beneficiary Create(
         FamilyId familyId,
@@ -56,6 +61,18 @@ public sealed class Beneficiary : Entity<BeneficiaryId>
         new(BeneficiaryId.New(), familyId, name.Trim(), cpf, birthDate, registeredByPointId, createdAtUtc);
 
     public void Deactivate() => IsActive = false;
+
+    /// <summary>Controlado pelo agregado <see cref="Family"/> dono deste beneficiário.</summary>
+    internal void ReassignFamily(FamilyId familyId) => FamilyId = familyId;
+
+    /// <summary>Registra um vínculo de parentesco. Controlado por <see cref="Family.AddKinship"/>.</summary>
+    internal void AddKinship(
+        BeneficiaryId relatedBeneficiaryId,
+        string relatedBeneficiaryName,
+        Cpf relatedBeneficiaryCpf,
+        KinshipType type,
+        DateTime createdAtUtc) =>
+        _kinships.Add(new BeneficiaryKinship(relatedBeneficiaryId, relatedBeneficiaryName, relatedBeneficiaryCpf, type, createdAtUtc));
 
     /// <summary>Atualização controlada pelo agregado <see cref="Family"/>.</summary>
     internal void UpdateDetails(

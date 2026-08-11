@@ -9,6 +9,7 @@ export {
   useUpdateStock,
 } from './useCollectionPointsViewModel'
 export {
+  useAddBeneficiaryKinship,
   useCreateFamily,
   useFamilies,
   useFamily,

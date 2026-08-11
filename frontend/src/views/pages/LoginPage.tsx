@@ -19,7 +19,7 @@ export function LoginPage() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, error } = useLoginViewModel()
+  const { login, error, sessionExpiredMessage } = useLoginViewModel()
 
   if (isAuthenticated) return <Navigate to="/app" replace />
 
@@ -66,6 +66,11 @@ export function LoginPage() {
           <h1 className="text-3xl font-bold text-stone-900">Acesse sua conta</h1>
           <p className="mt-2 text-sm text-stone-500">Área de gestão dos pontos de coleta.</p>
 
+          {!error && sessionExpiredMessage && (
+            <Alert tone="warning" className="mt-8">
+              {sessionExpiredMessage}
+            </Alert>
+          )}
           {error && <Alert tone="error" className="mt-8">{error.displayMessage}</Alert>}
 
           <FormComponent

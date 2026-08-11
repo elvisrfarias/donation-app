@@ -60,6 +60,15 @@ public static class DomainErrors
         public static Error NameRequired => Error.Validation("Beneficiary.NameRequired", "O nome do beneficiário é obrigatório.");
         public static Error NotFound => Error.NotFound("Beneficiary.NotFound", "Beneficiário não encontrado.");
         public static Error CpfAlreadyRegistered => Error.Conflict("Beneficiary.CpfAlreadyRegistered", "Este CPF já está cadastrado no município.");
+
+        public static Error RelatedBeneficiaryNotFound =>
+            Error.NotFound("Beneficiary.RelatedBeneficiaryNotFound", "Não foi encontrado nenhum beneficiário com o CPF informado.");
+
+        public static Error SelfKinshipNotAllowed =>
+            Error.Validation("Beneficiary.SelfKinshipNotAllowed", "Um beneficiário não pode ter um vínculo de parentesco consigo mesmo.");
+
+        public static Error KinshipAlreadyExists =>
+            Error.Conflict("Beneficiary.KinshipAlreadyExists", "Já existe um vínculo de parentesco registrado entre esses dois beneficiários.");
     }
 
     public static class StoredFile

@@ -5,6 +5,7 @@ using DoacaoApp.Application.CollectionPoints.Queries;
 using DoacaoApp.Application.Families.Commands;
 using DoacaoApp.Application.Families.Contracts;
 using DoacaoApp.Application.Families.Queries;
+using DoacaoApp.Domain.Families;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,9 @@ public sealed record UpdateBeneficiaryRequest(
     string Cpf,
     DateOnly? BirthDate,
     Guid RegisteredByPointId);
+
+/// <summary>Corpo de uma requisição de vínculo de parentesco.</summary>
+public sealed record AddBeneficiaryKinshipRequest(string RelatedBeneficiaryCpf, KinshipType Type);
 
 /// <summary>Gestão de famílias e beneficiários (área privada).</summary>
 [Route("api/families")]
@@ -110,6 +114,30 @@ public sealed class FamiliesController(ISender sender) : ApiController(sender)
         var command = new UpdateBeneficiaryCommand(
             familyId, beneficiaryId, request.Name, request.Cpf, request.BirthDate, request.RegisteredByPointId);
 
+        var result = await Sender.Send(command, cancellationToken);
+        return Respond(result, Ok);
+    }
+
+    /// <summary>
+    /// Registra um vínculo de parentesco do beneficiário com outro (localizado pelo CPF). Só
+    /// Cônjuge entre beneficiários de famílias diferentes forma uma família nova — os demais
+    /// tipos são só informativos. A família da rota não é usada para localizar o beneficiário
+    /// (ele pode ter mudado de família por uma fusão anterior); fica só para manter a URL
+    /// consistente com os outros endpoints de beneficiário.
+    /// </summary>
+    [HttpPost("{familyId:guid}/beneficiaries/{beneficiaryId:guid}/kinships")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
+    [ProducesResponseType(typeof(BeneficiaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddBeneficiaryKinship(
+        Guid familyId,
+        Guid beneficiaryId,
+        [FromBody] AddBeneficiaryKinshipRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new AddBeneficiaryKinshipCommand(beneficiaryId, request.RelatedBeneficiaryCpf, request.Type);
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, Ok);
     }

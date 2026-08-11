@@ -17,6 +17,7 @@ import {
   type RegisterBeneficiaryForm,
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
+import { BeneficiaryKinshipsEditor } from '@/views/components/families/BeneficiaryKinshipsEditor'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, Card, CenteredSpinner, SectionTitle } from '@/views/components/ui'
@@ -78,6 +79,7 @@ export function FamiliesPage() {
   const [newFamilyOpen, setNewFamilyOpen] = useState(false)
   const [lookupOpen, setLookupOpen] = useState(false)
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
+  const [kinshipsBeneficiaryId, setKinshipsBeneficiaryId] = useState<string | null>(null)
 
   function openNewFamily() {
     createFamily.reset()
@@ -134,11 +136,9 @@ export function FamiliesPage() {
 
   const beneficiaryActions: RowAction<Beneficiary>[] = [
     {
-      label: 'Editar',
+      label: 'Vínculos de parentesco',
       icon: <Pencil className="size-4" />,
-      onClick: (beneficiary) => {
-        window.alert(`Editar "${beneficiary.name}" — em breve.`)
-      },
+      onClick: (beneficiary) => setKinshipsBeneficiaryId(beneficiary.id),
     },
     {
       label: 'Remover',
@@ -358,6 +358,24 @@ export function FamiliesPage() {
                       submitIcon={<UserPlus className="size-4" />}
                       submitFullWidth
                     />
+                  </ModalComponent>
+                )}
+                {isManager && (
+                  <ModalComponent
+                    open={!!kinshipsBeneficiaryId}
+                    onOpenChange={(open) => !open && setKinshipsBeneficiaryId(null)}
+                    title="Vínculos de parentesco"
+                    description="Adicione o CPF de outro beneficiário e o tipo de parentesco entre eles."
+                    size="md"
+                  >
+                    {(() => {
+                      const kinshipsBeneficiary = family.family?.beneficiaries.find(
+                        (b) => b.id === kinshipsBeneficiaryId,
+                      )
+                      return kinshipsBeneficiary ? (
+                        <BeneficiaryKinshipsEditor beneficiary={kinshipsBeneficiary} />
+                      ) : null
+                    })()}
                   </ModalComponent>
                 )}
               </div>

@@ -152,7 +152,14 @@ doacao-app/
   e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
 - **Family** (Aggregate Root) — entidade central de rastreabilidade. Define o `WithdrawalCycle`
   (tipo + máximo de retiradas por ciclo) e contém `Beneficiary`s.
-- **Beneficiary** (Entity) — vive dentro de `Family`. CPF único no município.
+- **Beneficiary** (Entity) — vive dentro de `Family`. CPF único no município. Mantém uma lista de
+  **vínculos de parentesco** (`BeneficiaryKinship`: beneficiário relacionado + tipo — cônjuge, pai,
+  filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro) com
+  beneficiários de **qualquer** família, não só a própria. Todo vínculo é espelhado automaticamente
+  no outro lado com o tipo inverso. Só o tipo **Cônjuge** entre beneficiários de famílias diferentes
+  move os dois para uma família nova (a cota de retirada da nova família é a do beneficiário mais
+  antigo dos dois; as famílias de origem seguem existindo para quem ficou, e são removidas se
+  ficarem vazias) — os demais tipos são puramente informativos.
 - **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia família/beneficiário por Id.
 - **Review** (Aggregate Root) — avaliação pública de um `CollectionPoint` (nota 1–5 + comentário
   opcional), com moderação (`Hide`/`Restore`) e contagem de denúncias (`Report`).
@@ -290,6 +297,7 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | GET | `/api/families/by-beneficiary-cpf/{cpf}` | Admin, PointManager |
 | POST | `/api/families/{id}/beneficiaries` | Admin, PointManager |
 | PUT | `/api/families/{id}/beneficiaries/{beneficiaryId}` | Admin, PointManager |
+| POST | `/api/families/{id}/beneficiaries/{beneficiaryId}/kinships` | Admin, PointManager (vínculo de parentesco; `familyId` da rota é só nominal — o beneficiário é localizado por Id) |
 | GET | `/api/families/{id}/withdrawals` | autenticado (histórico + saldo do ciclo) |
 | POST | `/api/withdrawals` | Admin, PointManager |
 | POST | `/api/files` | Admin, PointManager (upload multipart, máx. 20MB) |

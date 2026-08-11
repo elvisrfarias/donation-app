@@ -59,8 +59,8 @@ services:
       Jwt__Issuer: ${Jwt__Issuer}
       Jwt__Audience: ${Jwt__Audience}
       Jwt__Secret: ${Jwt__Secret}
-      Jwt__AccessTokenMinutes: ${Jwt__AccessTokenMinutes:-15}
-      Jwt__RefreshTokenDays: ${Jwt__RefreshTokenDays:-7}
+      Jwt__AccessTokenHours: ${Jwt__AccessTokenHours:-4}
+      Jwt__RefreshTokenHours: ${Jwt__RefreshTokenHours:-8}
       Security__BCryptWorkFactor: ${Security__BCryptWorkFactor:-12}
       SeedData__Enabled: ${SeedData__Enabled:-true}
       SeedData__AdminEmail: ${SeedData__AdminEmail}

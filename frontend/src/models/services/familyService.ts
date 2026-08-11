@@ -1,5 +1,6 @@
 import { http } from '@/models/api/httpClient'
 import type {
+  AddBeneficiaryKinshipInput,
   Beneficiary,
   CreateFamilyInput,
   Family,
@@ -46,6 +47,18 @@ export const familyService = {
   ): Promise<Beneficiary> {
     const { data } = await http.put<Beneficiary>(
       `/families/${familyId}/beneficiaries/${beneficiaryId}`,
+      input,
+    )
+    return data
+  },
+
+  async addBeneficiaryKinship(
+    familyId: string,
+    beneficiaryId: string,
+    input: AddBeneficiaryKinshipInput,
+  ): Promise<Beneficiary> {
+    const { data } = await http.post<Beneficiary>(
+      `/families/${familyId}/beneficiaries/${beneficiaryId}/kinships`,
       input,
     )
     return data

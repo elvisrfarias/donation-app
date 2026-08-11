@@ -23,18 +23,38 @@ export function setForcedLogoutHandler(cb: () => void): void {
   onForcedLogout = cb
 }
 
-let refreshing: Promise<string | null> | null = null
+export function forceLogout(): void {
+  tokenStorage.clear()
+  onForcedLogout?.()
+}
 
-async function refreshAccessToken(): Promise<string | null> {
+export type RefreshOutcome =
+  | { ok: true; accessToken: string }
+  /** "invalid": o refresh token foi rejeitado (expirado/revogado) — sessão deve encerrar.
+   *  "transient": falha de rede ou erro de servidor — a sessão continua válida, tenta de novo depois. */
+  | { ok: false; reason: 'invalid' | 'transient' }
+
+let refreshing: Promise<RefreshOutcome> | null = null
+
+async function refreshAccessToken(): Promise<RefreshOutcome> {
   const refreshToken = tokenStorage.getRefreshToken()
-  if (!refreshToken) return null
+  if (!refreshToken) return { ok: false, reason: 'invalid' }
   try {
     const { data } = await axios.post<AuthResult>(`${env.apiUrl}/auth/refresh`, { refreshToken })
     tokenStorage.save(data)
-    return data.accessToken
-  } catch {
-    return null
+    return { ok: true, accessToken: data.accessToken }
+  } catch (error) {
+    const status = toApiError(error).status
+    return { ok: false, reason: status === 0 || status >= 500 ? 'transient' : 'invalid' }
   }
+}
+
+/** Dispara (ou reaproveita, se já em andamento) uma renovação do access token. */
+export function requestTokenRefresh(): Promise<RefreshOutcome> {
+  refreshing ??= refreshAccessToken().finally(() => {
+    refreshing = null
+  })
+  return refreshing
 }
 
 http.interceptors.response.use(
@@ -45,16 +65,14 @@ http.interceptors.response.use(
 
     if (status === 401 && config && !config._retry && tokenStorage.getRefreshToken()) {
       config._retry = true
-      refreshing ??= refreshAccessToken().finally(() => {
-        refreshing = null
-      })
-      const newToken = await refreshing
-      if (newToken) {
-        config.headers.Authorization = `Bearer ${newToken}`
+      const result = await requestTokenRefresh()
+      if (result.ok) {
+        config.headers.Authorization = `Bearer ${result.accessToken}`
         return http(config)
       }
-      tokenStorage.clear()
-      onForcedLogout?.()
+      if (result.reason === 'invalid') {
+        forceLogout()
+      }
     }
 
     return Promise.reject(toApiError(error))

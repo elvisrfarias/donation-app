@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
 import { familyService } from '@/models/services'
 import type {
+  AddBeneficiaryKinshipInput,
   Beneficiary,
   CreateFamilyInput,
   Family,
@@ -95,4 +96,28 @@ export function useUpdateBeneficiary() {
   })
 
   return { update: mutate, ...rest }
+}
+
+/**
+ * Registra um vínculo de parentesco de um beneficiário com outro (por CPF). Um vínculo
+ * "Cônjuge" entre famílias diferentes pode mover o beneficiário para uma família nova —
+ * por isso invalida a lista inteira de famílias, não só a de origem.
+ */
+export function useAddBeneficiaryKinship() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    Beneficiary,
+    { familyId: string; beneficiaryId: string; input: AddBeneficiaryKinshipInput }
+  >({
+    mutationFn: ({ familyId, beneficiaryId, input }) =>
+      familyService.addBeneficiaryKinship(familyId, beneficiaryId, input),
+    onSuccess: (updatedBeneficiary, { familyId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(familyId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(updatedBeneficiary.familyId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.families.all })
+    },
+  })
+
+  return { addKinship: mutate, ...rest }
 }

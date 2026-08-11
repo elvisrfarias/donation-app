@@ -15,6 +15,7 @@ import {
   type UpdateBeneficiaryForm,
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
+import { BeneficiaryKinshipsEditor } from '@/views/components/families/BeneficiaryKinshipsEditor'
 import { FormComponent, type FormFieldConfig } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
@@ -132,6 +133,19 @@ export function BeneficiariesPage() {
   }
 
   const beneficiaryFields: FormFieldConfig[] = [
+    { name: 'name', type: 'text', label: 'Nome', required: true },
+    { name: 'cpf', type: 'text', label: 'CPF', placeholder: '000.000.000-00', required: true },
+    { name: 'birthDate', type: 'date', label: 'Nascimento' },
+    {
+      name: 'registeredByPointId',
+      type: 'autocomplete',
+      label: 'Ponto de cadastro',
+      options: points.map((p) => ({ value: p.id, label: p.name })),
+      placeholder: 'Selecione…',
+      searchPlaceholder: 'Buscar ponto…',
+      emptyText: 'Nenhum ponto encontrado.',
+      required: true,
+    },
     {
       name: 'familyId',
       type: 'autocomplete',
@@ -146,22 +160,13 @@ export function BeneficiariesPage() {
       required: true,
       colSpan: 'full',
     },
-    { name: 'name', type: 'text', label: 'Nome', required: true },
-    { name: 'cpf', type: 'text', label: 'CPF', placeholder: '000.000.000-00', required: true },
-    { name: 'birthDate', type: 'date', label: 'Nascimento' },
-    {
-      name: 'registeredByPointId',
-      type: 'autocomplete',
-      label: 'Ponto de cadastro',
-      options: points.map((p) => ({ value: p.id, label: p.name })),
-      placeholder: 'Selecione…',
-      searchPlaceholder: 'Buscar ponto…',
-      emptyText: 'Nenhum ponto encontrado.',
-      required: true,
-    },
   ]
 
   const editFields = beneficiaryFields.filter((field) => !('name' in field) || field.name !== 'familyId')
+
+  const liveEditingBeneficiary = editingBeneficiary
+    ? (rows.find((row) => row.id === editingBeneficiary.id) ?? editingBeneficiary)
+    : null
 
   const editDefaults: UpdateBeneficiaryForm | null = editingBeneficiary && {
     name: editingBeneficiary.name,
@@ -282,6 +287,11 @@ export function BeneficiariesPage() {
             submitIcon={<Pencil className="size-4" />}
             submitFullWidth
           />
+          {liveEditingBeneficiary && (
+            <div className="mt-4">
+              <BeneficiaryKinshipsEditor beneficiary={liveEditingBeneficiary} />
+            </div>
+          )}
         </ModalComponent>
       )}
     </div>

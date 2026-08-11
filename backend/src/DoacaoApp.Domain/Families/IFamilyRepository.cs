@@ -7,6 +7,9 @@ public interface IFamilyRepository
 {
     void Add(Family family);
 
+    /// <summary>Remove a família (usado quando ela fica sem beneficiários após um Cônjuge formar uma família nova).</summary>
+    void Remove(Family family);
+
     /// <summary>Lista todas as famílias com seus beneficiários.</summary>
     Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default);
 

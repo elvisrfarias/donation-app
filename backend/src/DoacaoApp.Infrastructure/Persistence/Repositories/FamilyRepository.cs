@@ -8,6 +8,8 @@ public sealed class FamilyRepository(AppDbContext context) : IFamilyRepository
 {
     public void Add(Family family) => context.Families.Add(family);
 
+    public void Remove(Family family) => context.Families.Remove(family);
+
     public async Task<IReadOnlyList<Family>> ListAllAsync(CancellationToken cancellationToken = default) =>
         await context.Families
             .Include(f => f.Beneficiaries)

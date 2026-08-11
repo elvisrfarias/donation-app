@@ -1,17 +1,22 @@
 import { create } from 'zustand'
 import { setForcedLogoutHandler } from '@/models/api/httpClient'
+import { scheduleProactiveRefresh, stopProactiveRefresh } from '@/models/api/tokenRefreshScheduler'
 import { tokenStorage } from '@/models/api/tokenStorage'
 import { authService } from '@/models/services'
 import type { AuthResult, AuthUser, Role } from '@/models/types/auth'
 
 type AuthStatus = 'authenticated' | 'unauthenticated'
 
+const SESSION_EXPIRED_MESSAGE = 'Sua sessão expirou. Faça login novamente.'
+
 interface AuthState {
   user: AuthUser | null
   status: AuthStatus
+  sessionExpiredMessage: string | null
   setSession: (result: AuthResult) => void
   logout: () => Promise<void>
   hasRole: (...roles: Role[]) => boolean
+  clearSessionExpiredMessage: () => void
 }
 
 /**
@@ -20,14 +25,17 @@ interface AuthState {
  */
 export const useAuthStore = create<AuthState>((set, get) => {
   const existing = tokenStorage.get()
+  if (existing) scheduleProactiveRefresh()
 
   return {
     user: existing?.user ?? null,
     status: existing ? 'authenticated' : 'unauthenticated',
+    sessionExpiredMessage: null,
 
     setSession: (result) => {
       const session = tokenStorage.save(result)
-      set({ user: session.user, status: 'authenticated' })
+      scheduleProactiveRefresh()
+      set({ user: session.user, status: 'authenticated', sessionExpiredMessage: null })
     },
 
     logout: async () => {
@@ -37,6 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           await authService.revoke(refreshToken)
         } catch {}
       }
+      stopProactiveRefresh()
       tokenStorage.clear()
       set({ user: null, status: 'unauthenticated' })
     },
@@ -45,10 +54,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const user = get().user
       return !!user && roles.some((r) => user.roles.includes(r))
     },
+
+    clearSessionExpiredMessage: () => set({ sessionExpiredMessage: null }),
   }
 })
 
 setForcedLogoutHandler(() => {
+  stopProactiveRefresh()
   tokenStorage.clear()
-  useAuthStore.setState({ user: null, status: 'unauthenticated' })
+  useAuthStore.setState({ user: null, status: 'unauthenticated', sessionExpiredMessage: SESSION_EXPIRED_MESSAGE })
 })

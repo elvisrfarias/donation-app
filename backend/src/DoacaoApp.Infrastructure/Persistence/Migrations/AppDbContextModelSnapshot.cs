@@ -701,6 +701,47 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasForeignKey("FamilyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("DoacaoApp.Domain.Families.BeneficiaryKinship", "Kinships", b1 =>
+                        {
+                            b1.Property<Guid>("beneficiary_id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("RelatedBeneficiaryId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("related_beneficiary_id");
+
+                            b1.Property<DateTime>("CreatedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("created_at_utc");
+
+                            b1.Property<string>("RelatedBeneficiaryCpf")
+                                .IsRequired()
+                                .HasMaxLength(11)
+                                .HasColumnType("character varying(11)")
+                                .HasColumnName("related_beneficiary_cpf");
+
+                            b1.Property<string>("RelatedBeneficiaryName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("related_beneficiary_name");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("type");
+
+                            b1.HasKey("beneficiary_id", "RelatedBeneficiaryId");
+
+                            b1.ToTable("beneficiary_kinships", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("beneficiary_id");
+                        });
+
+                    b.Navigation("Kinships");
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.Families.Family", b =>

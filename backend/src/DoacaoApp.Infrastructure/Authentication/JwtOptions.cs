@@ -8,6 +8,6 @@ public sealed class JwtOptions
     public string Issuer { get; init; } = string.Empty;
     public string Audience { get; init; } = string.Empty;
     public string Secret { get; init; } = string.Empty;
-    public int AccessTokenMinutes { get; init; } = 15;
-    public int RefreshTokenDays { get; init; } = 7;
+    public int AccessTokenHours { get; init; } = 4;
+    public int RefreshTokenHours { get; init; } = 8;
 }

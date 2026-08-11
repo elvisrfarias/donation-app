@@ -93,6 +93,26 @@ export const registerBeneficiaryWithFamilySchema = registerBeneficiarySchema.ext
 })
 export type RegisterBeneficiaryWithFamilyForm = z.infer<typeof registerBeneficiaryWithFamilySchema>
 
+export const addBeneficiaryKinshipSchema = z.object({
+  relatedBeneficiaryCpf: z.string().min(11, 'CPF inválido (mín. 11 dígitos).').max(14),
+  type: z.enum([
+    'Conjuge',
+    'Pai',
+    'Filho',
+    'Irmao',
+    'Avo',
+    'Neto',
+    'Tio',
+    'Sobrinho',
+    'Primo',
+    'Sogro',
+    'GenroOuNora',
+    'Agregado',
+    'Outro',
+  ]),
+})
+export type AddBeneficiaryKinshipForm = z.infer<typeof addBeneficiaryKinshipSchema>
+
 export const createReviewSchema = z.object({
   authorName: z.string().min(1, 'Informe seu nome.').max(120),
   rating: z
