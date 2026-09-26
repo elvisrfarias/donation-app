@@ -16,6 +16,8 @@ namespace DoacaoApp.Api.Controllers;
 public sealed record RegisterBeneficiaryRequest(
     string Name,
     string Cpf,
+    string Email,
+    IReadOnlyList<string>? Phones,
     DateOnly? BirthDate,
     Guid RegisteredByPointId);
 
@@ -23,6 +25,8 @@ public sealed record RegisterBeneficiaryRequest(
 public sealed record UpdateBeneficiaryRequest(
     string Name,
     string Cpf,
+    string Email,
+    IReadOnlyList<string>? Phones,
     DateOnly? BirthDate);
 
 /// <summary>Corpo de uma requisição de vínculo do beneficiário a um ponto de coleta.</summary>
@@ -82,6 +86,8 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
         var command = new RegisterBeneficiaryCommand(
             request.Name,
             request.Cpf,
+            request.Email,
+            request.Phones,
             request.BirthDate,
             request.RegisteredByPointId);
 
@@ -105,6 +111,8 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
             beneficiaryId,
             request.Name,
             request.Cpf,
+            request.Email,
+            request.Phones,
             request.BirthDate);
 
         var result = await Sender.Send(command, cancellationToken);

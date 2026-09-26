@@ -1,4 +1,5 @@
 export { Button } from './Button'
+export { RequiredMark } from './RequiredMark'
 export { Input, Textarea, FormField } from './inputs'
 export { DatePicker } from './DatePicker'
 export { Select } from './Select'

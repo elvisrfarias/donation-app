@@ -19,6 +19,8 @@ namespace DoacaoApp.Application.Beneficiaries.Commands;
 public sealed record RegisterBeneficiaryCommand(
     string Name,
     string Cpf,
+    string Email,
+    IReadOnlyList<string>? Phones,
     DateOnly? BirthDate,
     Guid RegisteredByPointId) : IRequest<ErrorOr<BeneficiaryResponse>>, IScopedToCollectionPoint
 {
@@ -31,6 +33,7 @@ public sealed class RegisterBeneficiaryValidator : AbstractValidator<RegisterBen
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Cpf).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty();
         RuleFor(x => x.RegisteredByPointId).NotEmpty();
     }
 }
@@ -52,6 +55,12 @@ public sealed class RegisterBeneficiaryHandler(
             return cpf.Errors;
         }
 
+        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones);
+        if (contact.IsError)
+        {
+            return contact.Errors;
+        }
+
         var point = await pointRepository.GetByIdAsync(
             CollectionPointId.From(command.RegisteredByPointId), cancellationToken);
         if (point is null)
@@ -65,7 +74,7 @@ public sealed class RegisterBeneficiaryHandler(
         }
 
         var beneficiary = Beneficiary.Create(
-            command.Name, cpf.Value, command.BirthDate, point.Id, clock.UtcNow);
+            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, command.BirthDate, point.Id, clock.UtcNow);
 
         if (beneficiary.IsError)
         {

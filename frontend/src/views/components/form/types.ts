@@ -26,8 +26,12 @@ interface BaseField {
   colSpan?: 1 | 2 | 'full'
 }
 
+/** Máscara aplicada enquanto o usuário digita. */
+export type InputMask = 'cpf' | 'phone'
+
 type TextLikeField = BaseField & {
   type: 'text' | 'email' | 'password'
+  mask?: InputMask
   placeholder?: string
   autoComplete?: string
   maxLength?: number

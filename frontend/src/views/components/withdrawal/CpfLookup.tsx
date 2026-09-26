@@ -29,6 +29,7 @@ export function CpfLookup({
     <form onSubmit={submit} className="space-y-3">
       <FormField
         label="CPF do beneficiário"
+        required
         htmlFor="withdrawal-cpf"
         hint={disabled ? disabledHint : 'Digite os 11 números e pressione Enter.'}
       >

@@ -31,13 +31,55 @@ public class UpdateBeneficiaryHandlerTests
     {
         var beneficiary = GivenBeneficiary(CollectionPointId.New());
 
-        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.Name.Should().Be("João Silva");
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AtualizaEmailETelefones()
+    {
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
+
+        var command = new UpdateBeneficiaryCommand(
+            beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "Novo@Example.com", ["11987654321"], null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        beneficiary.Email!.Value.Should().Be("novo@example.com");
+        beneficiary.Phones.Select(p => p.Value).Should().Equal("11987654321");
+    }
+
+    [Fact]
+    public async Task Handle_SemTelefone_DeveBloquearSemSalvar()
+    {
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
+
+        var command = new UpdateBeneficiaryCommand(
+            beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "novo@example.com", [], null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Beneficiary.PhoneRequired");
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_EmailAusente_DeveBloquearSemSalvar()
+    {
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
+
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "", ["11987654321"], null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Email.Empty");
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -48,7 +90,7 @@ public class UpdateBeneficiaryHandlerTests
             .Setup(r => r.ExistsWithCpfAsync(It.IsAny<Cpf>(), beneficiary.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -60,7 +102,7 @@ public class UpdateBeneficiaryHandlerTests
     [Fact]
     public async Task Handle_CpfInvalido_DeveRetornarErroDeValidacao()
     {
-        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", "123", null);
+        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", "123", "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -74,7 +116,7 @@ public class UpdateBeneficiaryHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Beneficiary?)null);
 
-        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", TestData.ValidCpfA, null);
+        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", TestData.ValidCpfA, "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -90,7 +132,7 @@ public class UpdateBeneficiaryHandlerTests
         _currentUser.Setup(u => u.IsAdmin).Returns(false);
         _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId.Value);
 
-        var command = new UpdateBeneficiaryCommand(beneficiaryOfOtherPoint.Id.Value, "João", TestData.ValidCpfA, null);
+        var command = new UpdateBeneficiaryCommand(beneficiaryOfOtherPoint.Id.Value, "João", TestData.ValidCpfA, "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -107,7 +149,7 @@ public class UpdateBeneficiaryHandlerTests
         _currentUser.Setup(u => u.IsAdmin).Returns(false);
         _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId.Value);
 
-        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, "novo@example.com", ["11987654321"], null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 

@@ -54,6 +54,10 @@ export interface Beneficiary {
   name: string
   cpf: string
   birthDate?: string | null
+  /** Obrigatório no cadastro; nulo só em cadastros antigos. */
+  email?: string | null
+  /** Até 2 telefones de contato (formatados). */
+  phones: string[]
   /** Pontos que atendem a pessoa — só eles a enxergam e editam. */
   linkedPointIds: string[]
   isActive: boolean
@@ -63,6 +67,8 @@ export interface Beneficiary {
 export interface RegisterBeneficiaryInput {
   name: string
   cpf: string
+  email: string
+  phones: string[]
   birthDate?: string | null
   registeredByPointId: string
 }

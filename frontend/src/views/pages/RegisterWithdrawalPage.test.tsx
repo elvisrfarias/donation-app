@@ -23,6 +23,8 @@ const maria: Beneficiary = {
   id: 'ben-1',
   name: 'Maria Souza',
   cpf: '111.444.777-35',
+  email: 'maria@example.com',
+  phones: [],
   linkedPointIds: ['point-1'],
   isActive: true,
   kinships: [],

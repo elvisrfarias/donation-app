@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
+import { maskPhone } from '@/lib/phoneInput'
 import {
   Boxes,
   Building2,
@@ -188,7 +189,14 @@ const collectionPointFields: FormFieldConfig[] = [
   },
   { name: 'responsibleName', type: 'text', label: 'Responsável', required: true },
   { name: 'email', type: 'email', label: 'E-mail de contato', required: true },
-  { name: 'phone', type: 'text', label: 'Telefone', placeholder: '11987654321', required: true },
+  {
+    name: 'phone',
+    type: 'text',
+    mask: 'phone',
+    label: 'Telefone',
+    placeholder: '(11) 98765-4321',
+    required: true,
+  },
   {
     name: 'acceptedItems',
     type: 'multiselect',
@@ -265,7 +273,7 @@ export function CollectionPointsPage() {
     longitude: editingPoint.address.longitude ?? undefined,
     responsibleName: editingPoint.contact.responsibleName,
     email: editingPoint.contact.email,
-    phone: editingPoint.contact.phone,
+    phone: maskPhone(editingPoint.contact.phone),
     acceptedItems: editingPoint.acceptedItems,
     image: undefined,
   }

@@ -28,7 +28,7 @@ public class RegisterBeneficiaryHandlerTests
         _beneficiaryRepo.Setup(r => r.Add(It.IsAny<Beneficiary>())).Callback<Beneficiary>(b => added = b);
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, null, point.Id.Value);
+        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, "joao@example.com", ["11987654321"], null, point.Id.Value);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -40,12 +40,92 @@ public class RegisterBeneficiaryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ComEmailETelefones_GuardaOsContatosNormalizados()
+    {
+        var point = GivenPoint();
+        Beneficiary? added = null;
+        _beneficiaryRepo.Setup(r => r.Add(It.IsAny<Beneficiary>())).Callback<Beneficiary>(b => added = b);
+        _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var command = new RegisterBeneficiaryCommand(
+            "João", TestData.ValidCpfA, " Joao@Example.com ", ["(11) 98765-4321", "1134567890"], null, point.Id.Value);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        added!.Email!.Value.Should().Be("joao@example.com");
+        added.Phones.Select(p => p.Value).Should().Equal("11987654321", "1134567890");
+        result.Value.Email.Should().Be("joao@example.com");
+        result.Value.Phones.Should().Equal("(11) 98765-4321", "(11) 3456-7890");
+    }
+
+    [Theory]
+    [InlineData("", "Email.Empty")]
+    [InlineData("nao-e-email", "Email.InvalidFormat")]
+    public async Task Handle_EmailAusenteOuInvalido_DeveBloquear(string email, string expectedCode)
+    {
+        var point = GivenPoint();
+
+        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, email, ["11987654321"], null, point.Id.Value);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(expectedCode);
+        _beneficiaryRepo.Verify(r => r.Add(It.IsAny<Beneficiary>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_TelefoneInvalido_DeveBloquear()
+    {
+        var point = GivenPoint();
+
+        var command = new RegisterBeneficiaryCommand(
+            "João", TestData.ValidCpfA, "joao@example.com", ["123"], null, point.Id.Value);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("PhoneNumber.InvalidFormat");
+    }
+
+    [Fact]
+    public async Task Handle_SemTelefone_DeveBloquearPoisOContatoPrincipalEObrigatorio()
+    {
+        var point = GivenPoint();
+
+        var command = new RegisterBeneficiaryCommand(
+            "João", TestData.ValidCpfA, "joao@example.com", [], null, point.Id.Value);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Beneficiary.PhoneRequired");
+        _beneficiaryRepo.Verify(r => r.Add(It.IsAny<Beneficiary>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_MaisDeDoisTelefones_DeveBloquear()
+    {
+        var point = GivenPoint();
+
+        var command = new RegisterBeneficiaryCommand(
+            "João",
+            TestData.ValidCpfA,
+            "joao@example.com",
+            ["11987654321", "1134567890", "21987654321"],
+            null,
+            point.Id.Value);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Beneficiary.TooManyPhones");
+    }
+
+    [Fact]
     public async Task Handle_CpfJaCadastradoNoMunicipio_DeveBloquear()
     {
         var point = GivenPoint();
         _beneficiaryRepo.Setup(r => r.ExistsWithCpfAsync(It.IsAny<Cpf>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, null, point.Id.Value);
+        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, "joao@example.com", ["11987654321"], null, point.Id.Value);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -58,7 +138,7 @@ public class RegisterBeneficiaryHandlerTests
     [Fact]
     public async Task Handle_CpfInvalido_DeveRetornarErroDeValidacao()
     {
-        var command = new RegisterBeneficiaryCommand("João", "123", null, Guid.NewGuid());
+        var command = new RegisterBeneficiaryCommand("João", "123", "joao@example.com", ["11987654321"], null, Guid.NewGuid());
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -73,7 +153,7 @@ public class RegisterBeneficiaryHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<CollectionPointId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CollectionPoint?)null);
 
-        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, null, Guid.NewGuid());
+        var command = new RegisterBeneficiaryCommand("João", TestData.ValidCpfA, "joao@example.com", ["11987654321"], null, Guid.NewGuid());
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 

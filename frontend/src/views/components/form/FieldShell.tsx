@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { RequiredMark } from '@/views/components/ui/RequiredMark'
 
 interface FieldShellProps {
   id: string
@@ -19,7 +20,7 @@ export function FieldShell({ id, label, hint, error, required, className, childr
       {label && (
         <Label htmlFor={id}>
           {label}
-          {required && <span className="text-brand-600">*</span>}
+          {required && <RequiredMark />}
         </Label>
       )}
       {children}

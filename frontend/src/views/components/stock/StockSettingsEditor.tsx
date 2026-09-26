@@ -218,7 +218,7 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Ciclo" htmlFor="withdrawal-cycle-type">
+          <FormField label="Ciclo" htmlFor="withdrawal-cycle-type" required>
             <Select
               id="withdrawal-cycle-type"
               value={ruleDraft.cycleType}
@@ -234,6 +234,7 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
           </FormField>
           <FormField
             label="Máximo por família em cada ciclo"
+            required
             htmlFor="withdrawal-cycle-max"
             error={currentRuleError ?? undefined}
           >

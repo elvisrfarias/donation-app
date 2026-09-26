@@ -1,6 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Save, UserPlus } from 'lucide-react'
 import { useState } from 'react'
+import { isoToBrazilian } from '@/lib/dateInput'
+import { maskPhone } from '@/lib/phoneInput'
 import { ApiError } from '@/models/api/problemDetails'
 import { beneficiaryService } from '@/models/services'
 import { type AddBeneficiaryKinshipInput, type Beneficiary } from '@/models/types'
@@ -20,6 +22,7 @@ import {
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { BeneficiaryKinshipsEditor } from '@/views/components/beneficiaries/BeneficiaryKinshipsEditor'
 import { ExistingBeneficiaryNotice } from '@/views/components/beneficiaries/ExistingBeneficiaryNotice'
+import { WhatsAppLink } from '@/views/components/beneficiaries/WhatsAppLink'
 import { PendingKinshipsEditor } from '@/views/components/beneficiaries/PendingKinshipsEditor'
 import { FormComponent, type FormFieldConfig } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
@@ -40,6 +43,41 @@ const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
     accessorKey: 'cpf',
     header: 'CPF',
     meta: { label: 'CPF', filterPlaceholder: 'Filtrar CPF…' },
+    cell: ({ getValue }) => (
+      <span className="whitespace-nowrap tabular-nums">{getValue<string>()}</span>
+    ),
+  },
+  {
+    accessorKey: 'email',
+    header: 'E-mail',
+    meta: { label: 'E-mail', filterPlaceholder: 'Filtrar e-mail…' },
+    cell: ({ getValue }) => {
+      const value = getValue<string | null | undefined>()
+      return value ? (
+        <span className="text-stone-600">{value}</span>
+      ) : (
+        <Badge tone="amber">Sem e-mail</Badge>
+      )
+    },
+  },
+  {
+    id: 'phones',
+    header: 'Contatos',
+    accessorFn: (beneficiary) => beneficiary.phones.join(' · '),
+    meta: { label: 'Contatos', filterPlaceholder: 'Filtrar telefone…' },
+    cell: ({ row }) =>
+      row.original.phones.length > 0 ? (
+        <ul className="space-y-1.5">
+          {row.original.phones.map((phone) => (
+            <li key={phone} className="flex items-center gap-2 whitespace-nowrap">
+              <span className="whitespace-nowrap text-stone-600 tabular-nums">{phone}</span>
+              <WhatsAppLink phone={phone} personName={row.original.name} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="text-stone-400">—</span>
+      ),
   },
   {
     accessorKey: 'birthDate',
@@ -48,7 +86,7 @@ const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
     cell: ({ getValue }) => {
       const value = getValue<string | null | undefined>()
       return value ? (
-        <span className="text-stone-600">{new Date(value).toLocaleDateString('pt-BR')}</span>
+        <span className="text-stone-600">{isoToBrazilian(value)}</span>
       ) : (
         <span className="text-stone-400">—</span>
       )
@@ -65,6 +103,10 @@ const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
     },
   },
 ]
+
+function contactPhones({ phone, secondaryPhone }: { phone?: string; secondaryPhone?: string }) {
+  return [phone, secondaryPhone].filter((value): value is string => !!value)
+}
 
 interface ExistingBeneficiary {
   beneficiary: Beneficiary
@@ -100,7 +142,10 @@ export function BeneficiariesPage() {
   const beneficiaryDefaults: RegisterBeneficiaryForm = {
     name: '',
     cpf: '',
+    email: '',
     birthDate: '',
+    phone: '',
+    secondaryPhone: '',
     registeredByPointId: defaultPointId,
   }
 
@@ -120,8 +165,38 @@ export function BeneficiariesPage() {
 
   const personFields: FormFieldConfig[] = [
     { name: 'name', type: 'text', label: 'Nome', required: true },
-    { name: 'cpf', type: 'text', label: 'CPF', placeholder: '000.000.000-00', required: true },
+    {
+      name: 'cpf',
+      type: 'text',
+      mask: 'cpf',
+      label: 'CPF',
+      placeholder: '000.000.000-00',
+      required: true,
+    },
+    {
+      name: 'email',
+      type: 'email',
+      label: 'E-mail',
+      placeholder: 'nome@exemplo.com',
+      autoComplete: 'off',
+      required: true,
+    },
     { name: 'birthDate', type: 'date', label: 'Nascimento' },
+    {
+      name: 'phone',
+      type: 'text',
+      mask: 'phone',
+      label: 'Telefone de contato',
+      placeholder: '(11) 98765-4321',
+      required: true,
+    },
+    {
+      name: 'secondaryPhone',
+      type: 'text',
+      mask: 'phone',
+      label: 'Segundo telefone',
+      placeholder: '(11) 3456-7890',
+    },
   ]
   const registrationPointField: FormFieldConfig = {
     name: 'registeredByPointId',
@@ -142,7 +217,10 @@ export function BeneficiariesPage() {
   const editDefaults: UpdateBeneficiaryForm | null = editingBeneficiary && {
     name: editingBeneficiary.name,
     cpf: editingBeneficiary.cpf,
+    email: editingBeneficiary.email ?? '',
     birthDate: editingBeneficiary.birthDate ?? '',
+    phone: maskPhone(editingBeneficiary.phones[0] ?? ''),
+    secondaryPhone: maskPhone(editingBeneficiary.phones[1] ?? ''),
   }
 
   async function linkPendingKinships(created: Beneficiary): Promise<string[]> {
@@ -189,6 +267,8 @@ export function BeneficiariesPage() {
       const created = await registerBeneficiary.register({
         name: values.name,
         cpf: values.cpf,
+        email: values.email,
+        phones: contactPhones(values),
         birthDate: values.birthDate || null,
         registeredByPointId: values.registeredByPointId,
       })
@@ -225,6 +305,8 @@ export function BeneficiariesPage() {
       input: {
         name: values.name,
         cpf: values.cpf,
+        email: values.email,
+        phones: contactPhones(values),
         birthDate: values.birthDate || null,
       },
     })

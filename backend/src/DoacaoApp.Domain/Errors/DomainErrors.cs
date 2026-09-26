@@ -63,6 +63,12 @@ public static class DomainErrors
         public static Error NotFound => Error.NotFound("Beneficiary.NotFound", "Beneficiário não encontrado.");
         public static Error CpfAlreadyRegistered => Error.Conflict("Beneficiary.CpfAlreadyRegistered", "Este CPF já está cadastrado no município.");
 
+        public static Error PhoneRequired =>
+            Error.Validation("Beneficiary.PhoneRequired", "Informe ao menos um telefone de contato.");
+
+        public static Error TooManyPhones =>
+            Error.Validation("Beneficiary.TooManyPhones", "Informe no máximo 2 telefones de contato.");
+
         public static Error AlreadyLinkedToPoint =>
             Error.Conflict("Beneficiary.AlreadyLinkedToPoint", "Este beneficiário já está vinculado a este ponto.");
 

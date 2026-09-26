@@ -1,6 +1,7 @@
 import type { InputHTMLAttributes, ReactNode, Ref, TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 import { inputBase, stateRing } from './fieldStyles'
+import { RequiredMark } from './RequiredMark'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean
@@ -48,7 +49,7 @@ export function FormField({
     <div className={cn('flex flex-col gap-1.5', className)}>
       <label htmlFor={htmlFor} className="text-sm font-semibold text-stone-700">
         {label}
-        {required && <span className="text-brand-600"> *</span>}
+        {required && <RequiredMark />}
       </label>
       {children}
       {hint && !error && <p className="text-xs text-stone-500">{hint}</p>}

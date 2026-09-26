@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Boxes, Store } from 'lucide-react'
 import { useAuth, useCollectionPointsForManagement } from '@/viewmodels'
 import { StockWorkspace } from '@/views/components/stock/StockWorkspace'
-import { Alert, Card, EmptyState, SectionTitle, Select } from '@/views/components/ui'
+import { Alert, Card, EmptyState, RequiredMark, SectionTitle, Select } from '@/views/components/ui'
 
 function AdminPointPicker({
   selectedId,
@@ -17,6 +17,7 @@ function AdminPointPicker({
     <Card className="space-y-2 p-5">
       <label htmlFor="stock-point" className="text-sm font-semibold text-stone-700">
         Ponto de coleta
+        <RequiredMark />
       </label>
       {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
       <Select

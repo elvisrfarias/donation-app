@@ -48,7 +48,7 @@ function PointSelector({
   return (
     <Card className="space-y-3 p-5">
       {isAdmin ? (
-        <FormField label="Ponto da retirada" htmlFor="withdrawal-point">
+        <FormField label="Ponto da retirada" htmlFor="withdrawal-point" required>
           <Select
             id="withdrawal-point"
             value={chosenPointId}

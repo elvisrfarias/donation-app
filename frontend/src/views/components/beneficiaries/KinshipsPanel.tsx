@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { UserRoundPlus, X } from 'lucide-react'
+import { maskCpf } from '@/lib/cpfInput'
 import { kinshipTypeLabels, type KinshipType } from '@/models/types'
 import { Alert, Badge, Button, FormField, Input, Select } from '@/views/components/ui'
 
@@ -68,16 +69,17 @@ export function KinshipsPanel({ items, isAdding, errorMessage, onAdd }: Kinships
       {errorMessage && <Alert tone="error">{errorMessage}</Alert>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <FormField label="CPF do parente" htmlFor="kinship-cpf">
+        <FormField label="CPF do parente" htmlFor="kinship-cpf" required>
           <Input
             id="kinship-cpf"
+            inputMode="numeric"
             placeholder="000.000.000-00"
             value={cpf}
-            onChange={(event) => setCpf(event.target.value)}
+            onChange={(event) => setCpf(maskCpf(event.target.value))}
             onKeyDown={handleCpfKeyDown}
           />
         </FormField>
-        <FormField label="Parentesco" htmlFor="kinship-type">
+        <FormField label="Parentesco" htmlFor="kinship-type" required>
           <Select
             id="kinship-type"
             value={type}

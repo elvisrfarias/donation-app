@@ -53,6 +53,8 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         {
             name = "João Silva",
             cpf = "111.444.777-35",
+            email = "joao@example.com",
+            phones = new[] { "11987654321" },
             birthDate = (string?)null,
             registeredByPointId = point.Id,
         });

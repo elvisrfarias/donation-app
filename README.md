@@ -150,7 +150,7 @@ doacao-app/
 
 - **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s
   e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
-- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município; uma mesma pessoa pode ser atendida por vários pontos (`BeneficiaryPointLink`) e cada gestor decide vinculá-la ao seu ponto — só os pontos vinculados a enxergam e editam. Mantém uma lista de
+- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município, e-mail obrigatório e até 2 telefones de contato (`Email`/`PhoneNumber`); uma mesma pessoa pode ser atendida por vários pontos (`BeneficiaryPointLink`) e cada gestor decide vinculá-la ao seu ponto — só os pontos vinculados a enxergam e editam. Mantém uma lista de
   **vínculos de parentesco** (`BeneficiaryKinship`: beneficiário relacionado + tipo — cônjuge, pai,
   filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro). Todo vínculo é
   espelhado automaticamente no outro lado com o tipo inverso e é apenas informativo: não altera a cota

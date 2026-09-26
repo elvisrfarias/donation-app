@@ -14,8 +14,11 @@ namespace DoacaoApp.Domain.Beneficiaries;
 /// </summary>
 public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
 {
+    public const int MaxPhones = 2;
+
     private readonly List<BeneficiaryKinship> _kinships = [];
     private readonly List<BeneficiaryPointLink> _pointLinks = [];
+    private List<PhoneNumber> _phones = [];
 
     private Beneficiary()
     {
@@ -27,12 +30,16 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         BeneficiaryId id,
         string name,
         Cpf cpf,
+        Email email,
+        List<PhoneNumber> phones,
         DateOnly? birthDate,
         CollectionPointId registeredByPointId,
         DateTime createdAtUtc) : base(id)
     {
         Name = name;
         Cpf = cpf;
+        Email = email;
+        _phones = phones;
         BirthDate = birthDate;
         RegisteredByPointId = registeredByPointId;
         CreatedAtUtc = createdAtUtc;
@@ -43,6 +50,12 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
     public string Name { get; private set; }
     public Cpf Cpf { get; private set; }
     public DateOnly? BirthDate { get; private set; }
+
+    /// <summary>E-mail de contato. Obrigatório no cadastro e na atualização; nulo só em cadastros anteriores a essa exigência.</summary>
+    public Email? Email { get; private set; }
+
+    /// <summary>Telefones de contato: o principal é obrigatório e são no máximo <see cref="MaxPhones"/>.</summary>
+    public IReadOnlyList<PhoneNumber> Phones => _phones.AsReadOnly();
 
     /// <summary>Ponto que fez o cadastro original do beneficiário (rastreabilidade).</summary>
     public CollectionPointId RegisteredByPointId { get; private set; }
@@ -61,6 +74,8 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
     public static ErrorOr<Beneficiary> Create(
         string? name,
         Cpf cpf,
+        Email email,
+        IReadOnlyCollection<PhoneNumber> phones,
         DateOnly? birthDate,
         CollectionPointId registeredByPointId,
         DateTime createdAtUtc)
@@ -70,8 +85,15 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
             return DomainErrors.Beneficiary.NameRequired;
         }
 
+        var distinctPhones = DistinctPhones(phones);
+        var phonesError = ValidatePhones(distinctPhones);
+        if (phonesError is not null)
+        {
+            return phonesError.Value;
+        }
+
         var beneficiary = new Beneficiary(
-            BeneficiaryId.New(), name.Trim(), cpf, birthDate, registeredByPointId, createdAtUtc);
+            BeneficiaryId.New(), name.Trim(), cpf, email, distinctPhones, birthDate, registeredByPointId, createdAtUtc);
 
         beneficiary.RaiseDomainEvent(new BeneficiaryRegistered(beneficiary.Id, registeredByPointId));
 
@@ -81,6 +103,8 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
     public ErrorOr<Success> UpdateDetails(
         string? name,
         Cpf cpf,
+        Email email,
+        IReadOnlyCollection<PhoneNumber> phones,
         DateOnly? birthDate)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -88,12 +112,31 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
             return DomainErrors.Beneficiary.NameRequired;
         }
 
+        var distinctPhones = DistinctPhones(phones);
+        var phonesError = ValidatePhones(distinctPhones);
+        if (phonesError is not null)
+        {
+            return phonesError.Value;
+        }
+
         Name = name.Trim();
         Cpf = cpf;
+        Email = email;
+        _phones = distinctPhones;
         BirthDate = birthDate;
 
         return Result.Success;
     }
+
+    private static Error? ValidatePhones(IReadOnlyCollection<PhoneNumber> phones) => phones.Count switch
+    {
+        0 => DomainErrors.Beneficiary.PhoneRequired,
+        > MaxPhones => DomainErrors.Beneficiary.TooManyPhones,
+        _ => null,
+    };
+
+    private static List<PhoneNumber> DistinctPhones(IReadOnlyCollection<PhoneNumber> phones) =>
+        phones.Distinct().ToList();
 
     public bool IsLinkedTo(CollectionPointId pointId) => _pointLinks.Any(link => link.PointId == pointId);
 

@@ -21,9 +21,12 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePicker } from '@/views/components/ui/DatePicker'
+import { RequiredMark } from '@/views/components/ui/RequiredMark'
+import { maskCpf } from '@/lib/cpfInput'
+import { maskPhone } from '@/lib/phoneInput'
 import { cn } from '@/lib/utils'
 import { FieldShell } from './FieldShell'
-import type { BoundFieldConfig } from './types'
+import type { BoundFieldConfig, InputMask } from './types'
 
 /** Primeira mensagem de erro do campo, exibida só após interação ou tentativa de submit. */
 function fieldError(field: AnyFieldApi): string | undefined {
@@ -38,6 +41,15 @@ interface ControlProps<TConfig extends BoundFieldConfig> {
   field: AnyFieldApi
   id: string
   config: TConfig
+}
+
+const inputMasks: Record<InputMask, (text: string) => string> = {
+  cpf: maskCpf,
+  phone: maskPhone,
+}
+
+function applyMask(mask: InputMask | undefined, text: string): string {
+  return mask ? inputMasks[mask](text) : text
 }
 
 function TextControl({
@@ -57,7 +69,8 @@ function TextControl({
         disabled={config.disabled}
         aria-invalid={!!error}
         value={(field.state.value as string | undefined) ?? ''}
-        onChange={(e) => field.handleChange(e.target.value)}
+        inputMode={config.mask ? 'numeric' : undefined}
+        onChange={(e) => field.handleChange(applyMask(config.mask, e.target.value))}
         onBlur={field.handleBlur}
       />
     </FieldShell>
@@ -318,7 +331,7 @@ function CheckboxControl({ field, id, config }: ControlProps<Extract<BoundFieldC
         {config.label && (
           <Label htmlFor={id} className="font-medium">
             {config.label}
-            {config.required && <span className="text-brand-600">*</span>}
+            {config.required && <RequiredMark />}
           </Label>
         )}
       </div>

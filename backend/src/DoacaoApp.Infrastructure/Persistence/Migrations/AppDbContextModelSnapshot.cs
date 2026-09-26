@@ -41,6 +41,11 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -48,6 +53,13 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Phones")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("phones")
+                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<Guid>("RegisteredByPointId")
                         .HasColumnType("uuid");

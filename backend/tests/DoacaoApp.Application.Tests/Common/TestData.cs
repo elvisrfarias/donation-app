@@ -19,6 +19,8 @@ public static class TestData
         Domain.Beneficiaries.Beneficiary.Create(
             name,
             Cpf.Create(cpf).Value,
+            Email.Create("joao@example.com").Value,
+            [PhoneNumber.Create("11987654321").Value],
             null,
             pointId ?? CollectionPointId.New(),
             Now).Value;

@@ -19,6 +19,8 @@ public sealed record UpdateBeneficiaryCommand(
     Guid BeneficiaryId,
     string Name,
     string Cpf,
+    string Email,
+    IReadOnlyList<string>? Phones,
     DateOnly? BirthDate) : IRequest<ErrorOr<BeneficiaryResponse>>;
 
 public sealed class UpdateBeneficiaryValidator : AbstractValidator<UpdateBeneficiaryCommand>
@@ -28,6 +30,7 @@ public sealed class UpdateBeneficiaryValidator : AbstractValidator<UpdateBenefic
         RuleFor(x => x.BeneficiaryId).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Cpf).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty();
     }
 }
 
@@ -47,6 +50,12 @@ public sealed class UpdateBeneficiaryHandler(
             return cpf.Errors;
         }
 
+        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones);
+        if (contact.IsError)
+        {
+            return contact.Errors;
+        }
+
         var beneficiary = await beneficiaryRepository.GetByIdAsync(
             BeneficiaryId.From(command.BeneficiaryId), cancellationToken);
         if (beneficiary is null || !currentUser.CanAccess(beneficiary))
@@ -59,7 +68,8 @@ public sealed class UpdateBeneficiaryHandler(
             return DomainErrors.Beneficiary.CpfAlreadyRegistered;
         }
 
-        var updated = beneficiary.UpdateDetails(command.Name, cpf.Value, command.BirthDate);
+        var updated = beneficiary.UpdateDetails(
+            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, command.BirthDate);
         if (updated.IsError)
         {
             return updated.Errors;

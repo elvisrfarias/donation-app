@@ -1,7 +1,10 @@
 using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.ValueObjects;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DoacaoApp.Infrastructure.Persistence.Configurations;
 
@@ -21,6 +24,34 @@ public sealed class BeneficiaryConfiguration : IEntityTypeConfiguration<Benefici
             .IsRequired()
             .HasMaxLength(11)
             .HasConversion(cpf => cpf.Value, value => Cpf.FromTrusted(value));
+
+        builder.Property(b => b.Email)
+            .HasColumnName("email")
+            .HasMaxLength(Email.MaxLength)
+            .HasConversion(email => email!.Value, value => Email.FromTrusted(value));
+
+        var phonesConverter = new ValueConverter<IReadOnlyList<PhoneNumber>, string>(
+            phones => JsonSerializer.Serialize(phones.Select(p => p.Value), (JsonSerializerOptions?)null),
+            value => string.IsNullOrWhiteSpace(value)
+                ? new List<PhoneNumber>()
+                : (JsonSerializer.Deserialize<List<string>>(value, (JsonSerializerOptions?)null) ?? new List<string>())
+                    .Select(PhoneNumber.FromTrusted)
+                    .ToList());
+
+        var phonesComparer = new ValueComparer<IReadOnlyList<PhoneNumber>>(
+            (a, b) => a!.SequenceEqual(b!),
+            phones => phones.Aggregate(0, (hash, p) => HashCode.Combine(hash, p.GetHashCode())),
+            phones => phones.ToList());
+
+        builder.Property(b => b.Phones)
+            .HasColumnName("phones")
+            .HasConversion(phonesConverter, phonesComparer)
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasDefaultValueSql("'[]'::jsonb");
+        builder.Metadata
+            .FindProperty(nameof(Beneficiary.Phones))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BirthDate);
         builder.Property(b => b.RegisteredByPointId).IsRequired();

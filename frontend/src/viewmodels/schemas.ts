@@ -64,15 +64,56 @@ export const updateCollectionPointSchema = createCollectionPointSchema.extend({
 })
 export type UpdateCollectionPointForm = z.infer<typeof updateCollectionPointSchema>
 
-export const registerBeneficiarySchema = z.object({
+const PHONE_DIGITS = [10, 11]
+
+const optionalPhoneSchema = z
+  .string()
+  .refine(
+    (value) => value === '' || PHONE_DIGITS.includes(value.replace(/\D/g, '').length),
+    'Telefone inválido.',
+  )
+  .optional()
+
+const requiredPhoneSchema = z
+  .string()
+  .min(1, 'Informe o telefone de contato.')
+  .refine((value) => PHONE_DIGITS.includes(value.replace(/\D/g, '').length), 'Telefone inválido.')
+
+const beneficiaryPersonShape = {
   name: z.string().min(1, 'Nome é obrigatório.').max(160),
   cpf: z.string().min(11, 'CPF inválido (mín. 11 dígitos).').max(14),
+  email: z.string().min(1, 'E-mail é obrigatório.').max(320).email('E-mail inválido.'),
   birthDate: z.string().optional(),
-  registeredByPointId: z.string().min(1, 'Selecione o ponto de cadastro.'),
-})
+  phone: requiredPhoneSchema,
+  secondaryPhone: optionalPhoneSchema,
+}
+
+interface PhonePair {
+  phone?: string
+  secondaryPhone?: string
+}
+
+function hasDistinctPhones({ phone, secondaryPhone }: PhonePair): boolean {
+  const digits = (value?: string) => (value ?? '').replace(/\D/g, '')
+  return !digits(phone) || digits(phone) !== digits(secondaryPhone)
+}
+
+const DISTINCT_PHONES_ISSUE = {
+  message: 'Informe telefones diferentes.',
+  path: ['secondaryPhone'],
+}
+
+export const registerBeneficiarySchema = z
+  .object({
+    ...beneficiaryPersonShape,
+    registeredByPointId: z.string().min(1, 'Selecione o ponto de cadastro.'),
+  })
+  .refine(hasDistinctPhones, DISTINCT_PHONES_ISSUE)
 export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
 
-export const updateBeneficiarySchema = registerBeneficiarySchema.omit({ registeredByPointId: true })
+export const updateBeneficiarySchema = z
+  .object(beneficiaryPersonShape)
+  .refine(hasDistinctPhones, DISTINCT_PHONES_ISSUE)
 export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
 
 export const addBeneficiaryKinshipSchema = z.object({
