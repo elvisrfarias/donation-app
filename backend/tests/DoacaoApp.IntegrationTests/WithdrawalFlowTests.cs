@@ -65,6 +65,7 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         {
             pointId = point.Id,
             beneficiaryId = beneficiary.Id,
+            category = "Food",
             occurredAtUtc = (string?)null,
             notes = "Cesta básica",
         });
@@ -74,6 +75,7 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         {
             pointId = point.Id,
             beneficiaryId = beneficiary.Id,
+            category = "Food",
             occurredAtUtc = (string?)null,
             notes = "Tentativa repetida",
         });

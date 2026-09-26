@@ -244,13 +244,15 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// base nele e na <see cref="WithdrawalRule"/> deste ponto.
     /// </summary>
     /// <param name="beneficiary">Beneficiário que está retirando.</param>
+    /// <param name="categories">Itens retirados na visita; só as cestas básicas estão sujeitas ao limite do ciclo.</param>
     /// <param name="beneficiaryWithdrawalsInCurrentCycle">
-    /// Total de retiradas do beneficiário dentro do ciclo vigente, somando todos os pontos.
+    /// Total de retiradas com cesta básica pelo beneficiário dentro do ciclo vigente, somando todos os pontos.
     /// </param>
     /// <param name="occurredAtUtc">Instante da retirada (UTC).</param>
     /// <param name="notes">Observações opcionais (ex.: itens retirados).</param>
     public ErrorOr<Withdrawal> RegisterWithdrawal(
         Beneficiary beneficiary,
+        IReadOnlyCollection<ItemCategory> categories,
         int beneficiaryWithdrawalsInCurrentCycle,
         DateTime occurredAtUtc,
         string? notes)
@@ -260,16 +262,28 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.CollectionPoint.Inactive;
         }
 
-        if (beneficiaryWithdrawalsInCurrentCycle >= WithdrawalRule.MaxWithdrawalsPerCycle)
+        var distinctCategories = categories.Distinct().ToList();
+        if (distinctCategories.Count == 0)
+        {
+            return DomainErrors.Withdrawal.CategoriesRequired;
+        }
+
+        if (distinctCategories.Any(category => _stock.GetValueOrDefault(category) <= 0))
+        {
+            return DomainErrors.Withdrawal.ItemUnavailable;
+        }
+
+        if (distinctCategories.Any(category => category.CountsTowardsWithdrawalLimit())
+            && beneficiaryWithdrawalsInCurrentCycle >= WithdrawalRule.MaxWithdrawalsPerCycle)
         {
             return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
-        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, occurredAtUtc, notes);
+        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategories, occurredAtUtc, notes);
         _withdrawals.Add(withdrawal);
 
         RaiseDomainEvent(new WithdrawalRegistered(
-            withdrawal.Id, Id, beneficiary.Id, occurredAtUtc));
+            withdrawal.Id, Id, beneficiary.Id, withdrawal.Categories, occurredAtUtc));
 
         return withdrawal;
     }

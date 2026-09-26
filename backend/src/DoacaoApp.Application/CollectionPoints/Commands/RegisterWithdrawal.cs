@@ -12,13 +12,14 @@ using MediatR;
 namespace DoacaoApp.Application.CollectionPoints.Commands;
 
 /// <summary>
-/// Registra uma retirada em um ponto de coleta aplicando a regra de equidade:
-/// o beneficiário não pode exceder o limite do ponto no ciclo vigente, considerando o histórico
-/// compartilhado de TODOS os pontos do município.
+/// Registra uma retirada (uma visita, com um ou mais itens) em um ponto de coleta. Só as cestas básicas
+/// seguem a regra de equidade (limite do ponto no ciclo vigente, somando o histórico de TODOS os pontos
+/// do município); os demais itens não têm limite, mas ficam registrados no histórico do beneficiário.
 /// </summary>
 public sealed record RegisterWithdrawalCommand(
     Guid PointId,
     Guid BeneficiaryId,
+    IReadOnlyList<ItemCategory> Categories,
     DateTime? OccurredAtUtc,
     string? Notes) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
 {
@@ -31,6 +32,7 @@ public sealed class RegisterWithdrawalValidator : AbstractValidator<RegisterWith
     {
         RuleFor(x => x.PointId).NotEmpty();
         RuleFor(x => x.BeneficiaryId).NotEmpty();
+        RuleForEach(x => x.Categories).IsInEnum();
         RuleFor(x => x.Notes).MaximumLength(500);
     }
 }
@@ -63,11 +65,13 @@ public sealed class RegisterWithdrawalHandler(
 
         var (startUtc, endUtc) = point.WithdrawalRule.GetCurrentPeriod(occurredAt);
 
-        var alreadyInCycle = await pointRepository.CountBeneficiaryWithdrawalsAsync(
-            beneficiary.Id, startUtc, endUtc, cancellationToken);
+        var alreadyInCycle = command.Categories.Any(category => category.CountsTowardsWithdrawalLimit())
+            ? await pointRepository.CountBeneficiaryWithdrawalsAsync(
+                beneficiary.Id, ItemCategoryExtensions.WithdrawalLimitedCategory, startUtc, endUtc, cancellationToken)
+            : 0;
 
         var withdrawalResult = point.RegisterWithdrawal(
-            beneficiary, alreadyInCycle, occurredAt, command.Notes);
+            beneficiary, command.Categories, alreadyInCycle, occurredAt, command.Notes);
 
         if (withdrawalResult.IsError)
         {

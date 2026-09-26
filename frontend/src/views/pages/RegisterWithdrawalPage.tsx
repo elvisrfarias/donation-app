@@ -1,7 +1,13 @@
-import { CheckCircle2, MapPin, PackageCheck, UserCog } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { CheckCircle2, PackageCheck, UserCog } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { beneficiaryService } from '@/models/services'
-import { cycleTypeLabels, type Beneficiary, type CollectionPoint } from '@/models/types'
+import {
+  cycleTypeLabels,
+  itemCategoryLabels,
+  type Beneficiary,
+  type CollectionPoint,
+  type ItemCategory,
+} from '@/models/types'
 import {
   registerWithdrawalSchema,
   useAuth,
@@ -9,8 +15,16 @@ import {
   useCollectionPoints,
   useRegisterWithdrawal,
 } from '@/viewmodels'
+import { categoryIcons } from '@/views/components/stock/categoryIcons'
+import { toStockQuantities } from '@/views/components/stock/stockDraft'
 import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
 import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
+import {
+  LIMITED_CATEGORY,
+  availableWithdrawalCategories,
+  isLimitedCategory,
+} from '@/views/components/withdrawal/withdrawalCategories'
+import { WithdrawalHistoryList } from '@/views/components/withdrawal/WithdrawalHistoryList'
 import {
   Alert,
   Badge,
@@ -20,8 +34,37 @@ import {
   SectionTitle,
   Select,
   Spinner,
+  TagBox,
   Textarea,
+  type TagBoxOption,
 } from '@/views/components/ui'
+
+function defaultCategoriesFor(availableCategories: ItemCategory[]): ItemCategory[] {
+  if (availableCategories.includes(LIMITED_CATEGORY)) return [LIMITED_CATEGORY]
+  return availableCategories.slice(0, 1)
+}
+
+function categoryOptionsOf(
+  availableCategories: ItemCategory[],
+  quantities: Record<ItemCategory, number>,
+): TagBoxOption[] {
+  return availableCategories.map((category) => {
+    const Icon = categoryIcons[category]
+    return {
+      value: category,
+      label: `${itemCategoryLabels[category]} (${quantities[category]})`,
+      icon: <Icon className="size-4 text-stone-500" aria-hidden />,
+    }
+  })
+}
+
+function describeCategoriesHint(categories: ItemCategory[], hasAnyItem: boolean): string {
+  if (!hasAnyItem) return 'Este ponto não tem nenhum item em estoque no momento.'
+  if (categories.length === 0) return 'Escolha ao menos um item disponível.'
+  return categories.some(isLimitedCategory)
+    ? `${itemCategoryLabels[LIMITED_CATEGORY]} seguem o limite do ciclo; os demais itens não têm limite.`
+    : 'Sem limite por ciclo — a retirada fica registrada no histórico.'
+}
 
 const MAX_NOTES_LENGTH = 500
 const NOTES_ERROR_MESSAGE = 'Máximo de 500 caracteres.'
@@ -34,45 +77,34 @@ function describeRule(point: CollectionPoint): string {
 
 function PointSelector({
   points,
-  isAdmin,
-  chosenPointId,
+  selectedPointId,
   onChoose,
   point,
 }: {
   points: CollectionPoint[]
-  isAdmin: boolean
-  chosenPointId: string
+  selectedPointId: string
   onChoose: (pointId: string) => void
   point: CollectionPoint | null
 }) {
+  const hasSingleOption = points.length === 1
+
   return (
     <Card className="space-y-3 p-5">
-      {isAdmin ? (
-        <FormField label="Ponto da retirada" htmlFor="withdrawal-point" required>
-          <Select
-            id="withdrawal-point"
-            value={chosenPointId}
-            onValueChange={onChoose}
-            disabled={points.length === 0}
-          >
-            <option value="">Selecione o ponto…</option>
-            {points.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — {p.address.city}/{p.address.state}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-      ) : (
-        point && (
-          <p className="flex items-center gap-2 text-sm text-stone-600">
-            <MapPin className="size-4 shrink-0 text-stone-400" />
-            <span>
-              Ponto da retirada: <strong className="text-stone-800">{point.name}</strong>
-            </span>
-          </p>
-        )
-      )}
+      <FormField label="Ponto da retirada" htmlFor="withdrawal-point" required>
+        <Select
+          id="withdrawal-point"
+          value={selectedPointId}
+          onValueChange={onChoose}
+          disabled={hasSingleOption || points.length === 0}
+        >
+          <option value="">Selecione o ponto…</option>
+          {points.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} — {p.address.city}/{p.address.state}
+            </option>
+          ))}
+        </Select>
+      </FormField>
       {point && (
         <p className="text-xs text-stone-500">
           Limite deste ponto: <strong className="text-stone-700">{describeRule(point)}</strong>. O
@@ -97,16 +129,38 @@ export function RegisterWithdrawalPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
-  const [registeredFor, setRegisteredFor] = useState<{ name: string; at: string } | null>(null)
+  const [categories, setCategories] = useState<ItemCategory[]>([])
+  const [registeredFor, setRegisteredFor] = useState<{
+    name: string
+    categories: ItemCategory[]
+    at: string
+  } | null>(null)
   const { history, isLoading: isLoadingHistory } = useBeneficiaryWithdrawalHistory(
     beneficiary?.id ?? null,
     pointId || null,
   )
 
+  const quantities = point ? toStockQuantities(point) : ({} as Record<ItemCategory, number>)
+  const availableCategories = point ? availableWithdrawalCategories(point) : []
+  const hasAnyItemInStock = availableCategories.length > 0
+
+  useEffect(() => {
+    setCategories(defaultCategoriesFor(availableCategories))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [point?.id])
+
+  const includesLimitedCategory = categories.some(isLimitedCategory)
   const limitReached = history?.remainingInCurrentCycle === 0
+  const isBlockedByLimit = limitReached && includesLimitedCategory
   const isInactive = beneficiary !== null && !beneficiary.isActive
   const notesTooLong = notes.length > MAX_NOTES_LENGTH
-  const canRegister = !!point && !!history && !limitReached && !isInactive && !notesTooLong
+  const canRegister =
+    !!point &&
+    !!history &&
+    categories.length > 0 &&
+    !isBlockedByLimit &&
+    !isInactive &&
+    !notesTooLong
 
   async function searchByCpf(cpf: string) {
     setLookupError(null)
@@ -125,6 +179,7 @@ export function RegisterWithdrawalPage() {
     withdrawal.reset()
     setBeneficiary(null)
     setNotes('')
+    setCategories(defaultCategoriesFor(availableCategories))
   }
 
   async function register(event: FormEvent) {
@@ -136,9 +191,10 @@ export function RegisterWithdrawalPage() {
       const registered = await withdrawal.register({
         pointId: point.id,
         beneficiaryId: beneficiary.id,
+        categories,
         notes: parsed.data.notes || null,
       })
-      setRegisteredFor({ name: beneficiary.name, at: registered.occurredAtUtc })
+      setRegisteredFor({ name: beneficiary.name, categories, at: registered.occurredAtUtc })
       changeBeneficiary()
     } catch {
       return
@@ -155,6 +211,7 @@ export function RegisterWithdrawalPage() {
 
       {registeredFor && (
         <Alert tone="success" title="Retirada registrada!">
+          {registeredFor.categories.map((item) => itemCategoryLabels[item]).join(', ')} para{' '}
           {registeredFor.name} · {new Date(registeredFor.at).toLocaleString('pt-BR')}. Já pode
           buscar o próximo beneficiário.
         </Alert>
@@ -162,8 +219,7 @@ export function RegisterWithdrawalPage() {
 
       <PointSelector
         points={availablePoints}
-        isAdmin={isAdmin}
-        chosenPointId={chosenPointId}
+        selectedPointId={pointId}
         onChoose={setChosenPointId}
         point={point}
       />
@@ -204,10 +260,34 @@ export function RegisterWithdrawalPage() {
             )}
 
             {isLoadingHistory && <Spinner />}
-            {history && point && <CycleUsage history={history} currentPointId={point.id} />}
-            {limitReached && (
+            {history && <CycleUsage history={history} />}
+            {history && point && (
+              <WithdrawalHistoryList withdrawals={history.withdrawals} currentPointId={point.id} />
+            )}
+
+            <FormField
+              label="Itens da retirada"
+              htmlFor="withdrawal-categories"
+              required
+              hint={describeCategoriesHint(categories, hasAnyItemInStock)}
+            >
+              <TagBox
+                id="withdrawal-categories"
+                aria-label="Itens da retirada"
+                options={categoryOptionsOf(availableCategories, quantities)}
+                value={categories}
+                placeholder="Selecione os itens retirados…"
+                disabled={!hasAnyItemInStock}
+                invalid={categories.length === 0}
+                onValueChange={(value) => setCategories(value as ItemCategory[])}
+              />
+            </FormField>
+            {isBlockedByLimit && (
               <Alert tone="warning">
-                Este beneficiário atingiu o limite de retiradas do ciclo vigente neste ponto.
+                Este beneficiário atingiu o limite de{' '}
+                {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} do ciclo vigente neste ponto.
+                Remova as {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} da lista para
+                registrar os demais itens.
               </Alert>
             )}
 

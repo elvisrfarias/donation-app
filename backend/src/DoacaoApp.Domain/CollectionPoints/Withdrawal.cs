@@ -10,6 +10,8 @@ namespace DoacaoApp.Domain.CollectionPoints;
 /// </summary>
 public sealed class Withdrawal : Entity<WithdrawalId>
 {
+    private readonly List<ItemCategory> _categories = [];
+
     private Withdrawal()
     {
     }
@@ -18,25 +20,34 @@ public sealed class Withdrawal : Entity<WithdrawalId>
         WithdrawalId id,
         CollectionPointId pointId,
         BeneficiaryId beneficiaryId,
+        IEnumerable<ItemCategory> categories,
         DateTime occurredAtUtc,
         string? notes) : base(id)
     {
         PointId = pointId;
         BeneficiaryId = beneficiaryId;
+        _categories.AddRange(categories);
         OccurredAtUtc = occurredAtUtc;
         Notes = notes;
     }
 
     public CollectionPointId PointId { get; private set; }
     public BeneficiaryId BeneficiaryId { get; private set; }
+    /// <summary>Itens retirados na visita (cestas básicas, roupas, calçados…), sem repetição.</summary>
+    public IReadOnlyList<ItemCategory> Categories => _categories.AsReadOnly();
+
+    /// <summary>Indica se a retirada inclui algum item sujeito ao limite por ciclo.</summary>
+    public bool CountsTowardsLimit => _categories.Any(category => category.CountsTowardsWithdrawalLimit());
+
     public DateTime OccurredAtUtc { get; private set; }
     public string? Notes { get; private set; }
 
     internal static Withdrawal Create(
         CollectionPointId pointId,
         BeneficiaryId beneficiaryId,
+        IEnumerable<ItemCategory> categories,
         DateTime occurredAtUtc,
         string? notes) =>
-        new(WithdrawalId.New(), pointId, beneficiaryId, occurredAtUtc,
+        new(WithdrawalId.New(), pointId, beneficiaryId, categories, occurredAtUtc,
             string.IsNullOrWhiteSpace(notes) ? null : notes.Trim());
 }

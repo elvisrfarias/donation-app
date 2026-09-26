@@ -1,17 +1,25 @@
 import { useState } from 'react'
 import { Boxes, Store } from 'lucide-react'
+import type { ApiError } from '@/models/api/problemDetails'
+import type { CollectionPoint } from '@/models/types'
 import { useAuth, useCollectionPointsForManagement } from '@/viewmodels'
 import { StockWorkspace } from '@/views/components/stock/StockWorkspace'
 import { Alert, Card, EmptyState, RequiredMark, SectionTitle, Select } from '@/views/components/ui'
 
 function AdminPointPicker({
+  points,
+  isLoading,
+  error,
   selectedId,
   onSelect,
 }: {
+  points: CollectionPoint[]
+  isLoading: boolean
+  error?: ApiError | null
   selectedId: string
   onSelect: (id: string) => void
 }) {
-  const { points, isLoading, isError, error } = useCollectionPointsForManagement()
+  const hasSingleOption = points.length === 1
 
   return (
     <Card className="space-y-2 p-5">
@@ -19,12 +27,12 @@ function AdminPointPicker({
         Ponto de coleta
         <RequiredMark />
       </label>
-      {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
+      {error && <Alert tone="error">{error.displayMessage}</Alert>}
       <Select
         id="stock-point"
         value={selectedId}
         onValueChange={onSelect}
-        disabled={isLoading || points.length === 0}
+        disabled={isLoading || points.length === 0 || hasSingleOption}
       >
         <option value="">{isLoading ? 'Carregando pontos…' : 'Selecione um ponto…'}</option>
         {points.map((point) => (
@@ -38,11 +46,19 @@ function AdminPointPicker({
 }
 
 function AdminStock() {
-  const [selectedId, setSelectedId] = useState('')
+  const { points, isLoading, error } = useCollectionPointsForManagement()
+  const [chosenId, setChosenId] = useState('')
+  const selectedId = points.length === 1 ? points[0].id : chosenId
 
   return (
     <>
-      <AdminPointPicker selectedId={selectedId} onSelect={setSelectedId} />
+      <AdminPointPicker
+        points={points}
+        isLoading={isLoading}
+        error={error}
+        selectedId={selectedId}
+        onSelect={setChosenId}
+      />
       {selectedId ? (
         <StockWorkspace pointId={selectedId} canEdit />
       ) : (

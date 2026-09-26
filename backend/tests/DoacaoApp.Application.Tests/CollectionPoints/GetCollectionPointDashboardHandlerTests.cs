@@ -101,9 +101,9 @@ public class GetCollectionPointDashboardHandlerTests
         var maria = TestData.Beneficiary("Maria");
         var joao = TestData.Beneficiary("João", TestData.ValidCpfB);
         GivenWithdrawals(point,
-            point.RegisterWithdrawal(maria, 0, TestData.Now, null).Value,
-            point.RegisterWithdrawal(maria, 0, TestData.Now.AddHours(-2), null).Value,
-            point.RegisterWithdrawal(joao, 0, TestData.Now.AddHours(-3), null).Value);
+            point.RegisterWithdrawal(maria, [ItemCategory.Food], 0, TestData.Now, null).Value,
+            point.RegisterWithdrawal(maria, [ItemCategory.Food], 0, TestData.Now.AddHours(-2), null).Value,
+            point.RegisterWithdrawal(joao, [ItemCategory.Food], 0, TestData.Now.AddHours(-3), null).Value);
 
         var result = await Query(point);
 
@@ -131,7 +131,7 @@ public class GetCollectionPointDashboardHandlerTests
     {
         var point = GivenPoint();
         var beneficiary = TestData.Beneficiary("Maria Souza");
-        GivenWithdrawals(point, point.RegisterWithdrawal(beneficiary, 0, TestData.Now, null).Value);
+        GivenWithdrawals(point, point.RegisterWithdrawal(beneficiary, [ItemCategory.Clothing], 0, TestData.Now, null).Value);
         _beneficiaryRepo
             .Setup(r => r.ListByIdsAsync(It.IsAny<IReadOnlyCollection<BeneficiaryId>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([beneficiary]);
@@ -141,6 +141,7 @@ public class GetCollectionPointDashboardHandlerTests
         var recent = result.Value.RecentWithdrawals.Should().ContainSingle().Subject;
         recent.BeneficiaryName.Should().Be("Maria Souza");
         recent.OccurredAtUtc.Should().Be(TestData.Now);
+        recent.Categories.Should().Equal("Clothing");
     }
 
     [Fact]
@@ -221,5 +222,5 @@ public class GetCollectionPointDashboardHandlerTests
             .ReturnsAsync(withdrawals.OrderByDescending(w => w.OccurredAtUtc).ToList());
 
     private static Withdrawal WithdrawalAt(CollectionPoint point, DateTime occurredAtUtc) =>
-        point.RegisterWithdrawal(TestData.Beneficiary(), 0, occurredAtUtc, null).Value;
+        point.RegisterWithdrawal(TestData.Beneficiary(), [ItemCategory.Food], 0, occurredAtUtc, null).Value;
 }

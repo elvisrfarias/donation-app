@@ -137,7 +137,10 @@ public sealed class GetCollectionPointDashboardHandler(
 
         return recent
             .Select(w => new RecentWithdrawalResponse(
-                w.Id.Value, nameById.GetValueOrDefault(w.BeneficiaryId, "Beneficiário removido"), w.OccurredAtUtc))
+                w.Id.Value,
+                nameById.GetValueOrDefault(w.BeneficiaryId, "Beneficiário removido"),
+                w.Categories.Select(category => category.ToString()).ToList(),
+                w.OccurredAtUtc))
             .ToList();
     }
 

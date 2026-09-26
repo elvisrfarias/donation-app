@@ -131,6 +131,7 @@ export interface WithdrawalsSeriesPoint {
 export interface RecentWithdrawal {
   withdrawalId: string
   beneficiaryName: string
+  categories: ItemCategory[]
   occurredAtUtc: string
 }
 

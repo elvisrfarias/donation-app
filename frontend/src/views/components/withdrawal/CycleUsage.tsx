@@ -1,16 +1,10 @@
-import { History } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { BeneficiaryWithdrawalHistory } from '@/models/types'
+import { itemCategoryLabels, type BeneficiaryWithdrawalHistory } from '@/models/types'
 import { Badge } from '@/views/components/ui'
 
-const RECENT_WITHDRAWALS_SHOWN = 3
 const MILLISECONDS_PER_DAY = 86_400_000
 
 const cycleDateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' })
-const withdrawalDateFormatter = new Intl.DateTimeFormat('pt-BR', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-})
 
 function describeCycle(history: BeneficiaryWithdrawalHistory): string {
   const start = new Date(history.currentCycleStartUtc)
@@ -29,21 +23,15 @@ function usagePercent(history: BeneficiaryWithdrawalHistory): number {
   return Math.min(100, (history.usedInCurrentCycle / history.maxPerCycle) * 100)
 }
 
-interface CycleUsageProps {
-  history: BeneficiaryWithdrawalHistory
-  currentPointId: string
-}
-
-export function CycleUsage({ history, currentPointId }: CycleUsageProps) {
+export function CycleUsage({ history }: { history: BeneficiaryWithdrawalHistory }) {
   const limitReached = history.remainingInCurrentCycle === 0
-  const recent = history.withdrawals.slice(0, RECENT_WITHDRAWALS_SHOWN)
+  const limitedLabel = itemCategoryLabels[history.limitedCategory]
 
   return (
     <div className="space-y-3 rounded-2xl bg-stone-50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-stone-800">
-          {history.usedInCurrentCycle} de {history.maxPerCycle}{' '}
-          {history.maxPerCycle === 1 ? 'retirada usada' : 'retiradas usadas'}
+          {limitedLabel} no ciclo: {history.usedInCurrentCycle} de {history.maxPerCycle}
         </p>
         <Badge tone={limitReached ? 'red' : 'green'}>
           {limitReached
@@ -53,7 +41,7 @@ export function CycleUsage({ history, currentPointId }: CycleUsageProps) {
       </div>
       <div
         role="progressbar"
-        aria-label="Retiradas usadas no ciclo"
+        aria-label={`${limitedLabel} usadas no ciclo`}
         aria-valuemin={0}
         aria-valuemax={history.maxPerCycle}
         aria-valuenow={history.usedInCurrentCycle}
@@ -64,28 +52,10 @@ export function CycleUsage({ history, currentPointId }: CycleUsageProps) {
           style={{ width: `${usagePercent(history)}%` }}
         />
       </div>
-      <p className="text-xs text-stone-500">{describeCycle(history)}</p>
-
-      {recent.length > 0 && (
-        <div className="border-t border-stone-200 pt-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-stone-600">
-            <History className="size-3.5" />
-            Últimas retiradas
-          </p>
-          <ul className="mt-1.5 space-y-1">
-            {recent.map((withdrawal) => (
-              <li key={withdrawal.id} className="flex justify-between gap-3 text-xs text-stone-600">
-                <time dateTime={withdrawal.occurredAtUtc} className="tabular-nums">
-                  {withdrawalDateFormatter.format(new Date(withdrawal.occurredAtUtc))}
-                </time>
-                <span className="text-stone-500">
-                  {withdrawal.pointId === currentPointId ? 'Neste ponto' : 'Em outro ponto'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <p className="text-xs text-stone-500">
+        {describeCycle(history)}. Só {limitedLabel.toLowerCase()} têm limite por ciclo; os demais
+        itens não têm limite, mas ficam registrados no histórico.
+      </p>
     </div>
   )
 }

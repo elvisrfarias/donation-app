@@ -24,11 +24,12 @@ public interface ICollectionPointRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Conta as retiradas de um beneficiário dentro da janela [início, fim) considerando
-    /// TODOS os pontos do município. É o coração do controle de equidade compartilhado.
+    /// Conta as retiradas de um beneficiário, de uma categoria, dentro da janela [início, fim)
+    /// considerando TODOS os pontos do município. É o coração do controle de equidade compartilhado.
     /// </summary>
     Task<int> CountBeneficiaryWithdrawalsAsync(
         BeneficiaryId beneficiaryId,
+        ItemCategory category,
         DateTime startInclusiveUtc,
         DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default);

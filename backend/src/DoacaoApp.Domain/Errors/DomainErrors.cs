@@ -117,6 +117,12 @@ public static class DomainErrors
 
     public static class Withdrawal
     {
+        public static Error CategoriesRequired =>
+            Error.Validation("Withdrawal.CategoriesRequired", "Informe ao menos um item da retirada.");
+
+        public static Error ItemUnavailable =>
+            Error.Conflict("Withdrawal.ItemUnavailable", "Um dos itens selecionados não está disponível no estoque deste ponto.");
+
         public static Error CycleLimitReached(int max) =>
             Error.Conflict(
                 "Withdrawal.CycleLimitReached",

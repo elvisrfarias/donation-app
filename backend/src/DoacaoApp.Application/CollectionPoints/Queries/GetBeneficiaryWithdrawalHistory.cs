@@ -47,7 +47,7 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
         var (startUtc, endUtc) = rule.GetCurrentPeriod(clock.UtcNow);
 
         var usedInCycle = await pointRepository.CountBeneficiaryWithdrawalsAsync(
-            beneficiary.Id, startUtc, endUtc, cancellationToken);
+            beneficiary.Id, ItemCategoryExtensions.WithdrawalLimitedCategory, startUtc, endUtc, cancellationToken);
 
         var history = await pointRepository.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, cancellationToken);
 
@@ -56,6 +56,7 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
         return new BeneficiaryWithdrawalHistoryResponse(
             beneficiary.Id.Value,
             beneficiary.Name,
+            ItemCategoryExtensions.WithdrawalLimitedCategory.ToString(),
             rule.Type.ToString(),
             rule.MaxWithdrawalsPerCycle,
             usedInCycle,

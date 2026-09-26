@@ -11,7 +11,11 @@ public enum DashboardGranularity
 public sealed record WithdrawalsSeriesPointResponse(DateOnly Date, int Count);
 
 /// <summary>Retirada recente de um ponto, com o nome do beneficiário atendido.</summary>
-public sealed record RecentWithdrawalResponse(Guid WithdrawalId, string BeneficiaryName, DateTime OccurredAtUtc);
+public sealed record RecentWithdrawalResponse(
+    Guid WithdrawalId,
+    string BeneficiaryName,
+    IReadOnlyList<string> Categories,
+    DateTime OccurredAtUtc);
 
 /// <summary>Indicadores de resultado de um único ponto de coleta em um período.</summary>
 public sealed record CollectionPointDashboardResponse(

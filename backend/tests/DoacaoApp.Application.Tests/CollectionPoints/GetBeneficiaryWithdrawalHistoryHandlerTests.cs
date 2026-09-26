@@ -34,6 +34,24 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_InformaQualCategoriaTemLimiteEListaTodasAsRetiradasComACategoria()
+    {
+        var point = GivenPoint(maxPerCycle: 3);
+        var beneficiary = GivenBeneficiaryWithUsage(point, usedInCycle: 1);
+        var clothing = point.RegisterWithdrawal(beneficiary, [ItemCategory.Clothing], 0, TestData.Now, null).Value;
+        var food = point.RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now.AddDays(-1), null).Value;
+        _pointRepo
+            .Setup(r => r.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([clothing, food]);
+
+        var result = await CreateSut().Handle(
+            new GetBeneficiaryWithdrawalHistoryQuery(beneficiary.Id.Value, point.Id.Value), CancellationToken.None);
+
+        result.Value.LimitedCategory.Should().Be("Food");
+        result.Value.Withdrawals.SelectMany(w => w.Categories).Should().Equal("Clothing", "Food");
+    }
+
+    [Fact]
     public async Task Handle_QuandoOUsoPassaDoLimite_ORestanteNuncaFicaNegativo()
     {
         var point = GivenPoint(maxPerCycle: 1);
@@ -98,7 +116,7 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
         _beneficiaryRepo.Setup(r => r.GetByIdAsync(beneficiary.Id, It.IsAny<CancellationToken>())).ReturnsAsync(beneficiary);
         _pointRepo
             .Setup(r => r.CountBeneficiaryWithdrawalsAsync(
-                beneficiary.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                beneficiary.Id, ItemCategory.Food, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(usedInCycle);
         _pointRepo
             .Setup(r => r.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, It.IsAny<CancellationToken>()))

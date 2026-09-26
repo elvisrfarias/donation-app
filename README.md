@@ -298,7 +298,7 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | POST | `/api/beneficiaries/{id}/points` | Admin, PointManager (vincula uma pessoa já cadastrada a um ponto; o gestor só vincula ao próprio ponto; 409 se já vinculada) |
 | POST | `/api/beneficiaries/{id}/kinships` | Admin, PointManager (vínculo de parentesco informativo, espelhado no outro beneficiário) |
 | GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, PointManager (histórico + saldo do ciclo pela regra do ponto; gestor só consulta pelo próprio ponto) |
-| POST | `/api/withdrawals` | Admin, PointManager |
+| POST | `/api/withdrawals` | Admin, PointManager (informa `categories`, lista de itens da visita; cada item precisa ter quantidade positiva no estoque do ponto; só cestas básicas seguem o limite do ciclo, os demais itens são livres e ficam registrados no histórico) |
 | POST | `/api/files` | Admin, PointManager (upload multipart, máx. 20MB) |
 | GET | `/api/files/{id}` | autenticado (metadado + URL pré-assinada) |
 | GET | `/api/files?ownerType=&ownerId=` | autenticado (arquivos de um dono) |

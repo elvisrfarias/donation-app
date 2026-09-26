@@ -15,6 +15,13 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
 
         builder.Property(w => w.PointId).IsRequired();
         builder.Property(w => w.BeneficiaryId).IsRequired();
+        builder.PrimitiveCollection(w => w.Categories)
+            .HasColumnName("categories")
+            .ElementType()
+            .HasConversion<string>();
+        builder.Metadata
+            .FindProperty(nameof(Withdrawal.Categories))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);
 

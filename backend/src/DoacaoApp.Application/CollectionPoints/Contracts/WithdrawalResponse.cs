@@ -7,6 +7,7 @@ public sealed record WithdrawalResponse(
     Guid Id,
     Guid PointId,
     Guid BeneficiaryId,
+    IReadOnlyList<string> Categories,
     DateTime OccurredAtUtc,
     string? Notes);
 
@@ -17,6 +18,7 @@ public static class WithdrawalMappings
             withdrawal.Id.Value,
             withdrawal.PointId.Value,
             withdrawal.BeneficiaryId.Value,
+            withdrawal.Categories.Select(category => category.ToString()).ToList(),
             withdrawal.OccurredAtUtc,
             withdrawal.Notes);
 }

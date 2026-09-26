@@ -11,4 +11,5 @@ public sealed record WithdrawalRegistered(
     WithdrawalId WithdrawalId,
     CollectionPointId PointId,
     BeneficiaryId BeneficiaryId,
+    IReadOnlyList<ItemCategory> Categories,
     DateTime OccurredAtUtc) : IDomainEvent;

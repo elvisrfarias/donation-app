@@ -28,6 +28,7 @@ import {
 } from '@/models/types'
 import { useCollectionPoint, useCollectionPointDashboard } from '@/viewmodels'
 import { StatCard } from '@/views/components/common/StatCard'
+import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
 import { DashboardHeader } from './DashboardHeader'
 import { PeriodFilter } from './PeriodFilter'
 import {
@@ -243,8 +244,11 @@ function RecentWithdrawalsCard({ dashboard }: { dashboard: CollectionPointDashbo
               key={withdrawal.withdrawalId}
               className="flex items-center justify-between gap-3 py-2.5"
             >
-              <span className="truncate text-sm font-medium text-stone-800">
-                {withdrawal.beneficiaryName}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-medium text-stone-800">
+                  {withdrawal.beneficiaryName}
+                </span>
+                <CategoryBadges categories={withdrawal.categories} />
               </span>
               <time
                 dateTime={withdrawal.occurredAtUtc}

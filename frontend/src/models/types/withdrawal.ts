@@ -1,8 +1,12 @@
+import type { ItemCategory } from './collectionPoint'
+
 /** WithdrawalResponse do backend. */
 export interface Withdrawal {
   id: string
   pointId: string
   beneficiaryId: string
+  /** Itens retirados na visita (cestas básicas, roupas, calçados…). */
+  categories: ItemCategory[]
   occurredAtUtc: string
   notes?: string | null
 }
@@ -11,6 +15,7 @@ export interface Withdrawal {
 export interface RegisterWithdrawalInput {
   pointId: string
   beneficiaryId: string
+  categories: ItemCategory[]
   occurredAtUtc?: string | null
   notes?: string | null
 }
@@ -19,6 +24,8 @@ export interface RegisterWithdrawalInput {
 export interface BeneficiaryWithdrawalHistory {
   beneficiaryId: string
   beneficiaryName: string
+  /** Única categoria sujeita ao limite por ciclo (as demais são livres, mas registradas). */
+  limitedCategory: ItemCategory
   cycleType: string
   maxPerCycle: number
   usedInCurrentCycle: number

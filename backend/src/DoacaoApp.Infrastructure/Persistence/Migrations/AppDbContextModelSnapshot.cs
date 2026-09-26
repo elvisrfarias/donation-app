@@ -149,6 +149,11 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
 
+                    b.PrimitiveCollection<string[]>("Categories")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("categories");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");

@@ -45,12 +45,14 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
 
     public async Task<int> CountBeneficiaryWithdrawalsAsync(
         BeneficiaryId beneficiaryId,
+        ItemCategory category,
         DateTime startInclusiveUtc,
         DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default) =>
         await context.Withdrawals
             .CountAsync(
                 w => w.BeneficiaryId == beneficiaryId
+                     && w.Categories.Contains(category)
                      && w.OccurredAtUtc >= startInclusiveUtc
                      && w.OccurredAtUtc < endExclusiveUtc,
                 cancellationToken);

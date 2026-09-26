@@ -123,7 +123,12 @@ fronteiras de agregado (Withdrawal referencia Beneficiary por Id, não por naveg
 O `Beneficiary` é único por CPF no município, mas pode ser atendido por vários pontos: `PointLinks`
 (`BeneficiaryPointLink`) guarda os pontos vinculados, `RegisteredByPointId` só registra quem fez o cadastro
 original, e a visibilidade/edição de um gestor vale para quem está vinculado ao seu ponto
-(`Beneficiary.IsLinkedTo`, `LinkBeneficiaryToPointCommand`). Não existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
+(`Beneficiary.IsLinkedTo`, `LinkBeneficiaryToPointCommand`). Toda retirada (uma visita) tem uma ou mais categorias (`Withdrawal.Categories`, coluna `text[]`); só as **cestas básicas** (`ItemCategory.Food`,
+`ItemCategoryExtensions.CountsTowardsWithdrawalLimit`) estão sujeitas ao limite por ciclo — as demais
+(roupas, calçados…) são livres, mas ficam no histórico do beneficiário. Só é possível retirar categorias
+com quantidade positiva no `CollectionPoint.Stock` do próprio ponto no momento do registro — é o mesmo
+agregado que decide isso, sem I/O extra (`RegisterWithdrawal` verifica antes do limite de ciclo). Não
+existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
 de retirada (`WithdrawalCycle`: tipo do ciclo + máximo por família; padrão: 3 por ano) é do **ponto**
 (`CollectionPoint.WithdrawalRule`, configurada na aba "Metas e avisos" do estoque): o histórico é somado entre
 todos os pontos, mas o limite aplicado é o do ponto onde a retirada acontece. Vínculos de parentesco

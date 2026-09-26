@@ -170,6 +170,7 @@ export function registrationFields(
       searchPlaceholder: 'Buscar ponto…',
       emptyText: 'Nenhum ponto encontrado.',
       required: true,
+      disabled: pointOptions.length === 1,
       colSpan: 2,
     },
   ]

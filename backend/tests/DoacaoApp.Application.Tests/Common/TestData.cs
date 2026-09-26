@@ -32,6 +32,7 @@ public static class TestData
         var contact = ContactInfo.Create("Maria", "maria@x.com", "11987654321").Value;
         var point = CollectionPoint.Create("Ponto", CollectionPointType.Church, address, contact, Now).Value;
         point.UpdateWithdrawalRule(WithdrawalCycle.Create(CycleType.Monthly, maxPerCycle).Value);
+        point.ReplaceStock(Enum.GetValues<ItemCategory>().Select(category => new KeyValuePair<ItemCategory, int>(category, 999)));
         return point;
     }
 }

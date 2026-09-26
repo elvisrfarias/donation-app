@@ -35,7 +35,7 @@ const dashboard: CollectionPointDashboard = {
     { date: '2026-06-02', count: 3 },
   ],
   recentWithdrawals: [
-    { withdrawalId: 'w-1', beneficiaryName: 'Maria Souza', occurredAtUtc: '2026-06-20T14:00:00Z' },
+    { withdrawalId: 'w-1', beneficiaryName: 'Maria Souza', categories: ['Food', 'Clothing'], occurredAtUtc: '2026-06-20T14:00:00Z' },
   ],
 }
 

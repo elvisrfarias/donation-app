@@ -6,6 +6,7 @@ namespace DoacaoApp.Application.CollectionPoints.Contracts;
 public sealed record BeneficiaryWithdrawalHistoryResponse(
     Guid BeneficiaryId,
     string BeneficiaryName,
+    string LimitedCategory,
     string CycleType,
     int MaxPerCycle,
     int UsedInCurrentCycle,

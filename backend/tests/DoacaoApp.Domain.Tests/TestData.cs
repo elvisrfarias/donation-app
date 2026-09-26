@@ -25,6 +25,7 @@ public static class TestData
     {
         var point = CollectionPoint.Create("Paróquia São José", type, Address(), Contact(), Now).Value;
         point.UpdateWithdrawalRule(Cycle(maxPerCycle));
+        point.ReplaceStock(Enum.GetValues<ItemCategory>().Select(category => new KeyValuePair<ItemCategory, int>(category, 999)));
         return point;
     }
 
