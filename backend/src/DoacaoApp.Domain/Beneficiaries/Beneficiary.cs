@@ -32,6 +32,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Cpf cpf,
         Email email,
         List<PhoneNumber> phones,
+        Address? address,
         DateOnly? birthDate,
         CollectionPointId registeredByPointId,
         DateTime createdAtUtc) : base(id)
@@ -40,6 +41,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Cpf = cpf;
         Email = email;
         _phones = phones;
+        Address = address;
         BirthDate = birthDate;
         RegisteredByPointId = registeredByPointId;
         CreatedAtUtc = createdAtUtc;
@@ -56,6 +58,9 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
 
     /// <summary>Telefones de contato: o principal é obrigatório e são no máximo <see cref="MaxPhones"/>.</summary>
     public IReadOnlyList<PhoneNumber> Phones => _phones.AsReadOnly();
+
+    /// <summary>Endereço de residência; opcional (só as coordenadas do mapa não são usadas aqui).</summary>
+    public Address? Address { get; private set; }
 
     /// <summary>Ponto que fez o cadastro original do beneficiário (rastreabilidade).</summary>
     public CollectionPointId RegisteredByPointId { get; private set; }
@@ -76,6 +81,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Cpf cpf,
         Email email,
         IReadOnlyCollection<PhoneNumber> phones,
+        Address? address,
         DateOnly? birthDate,
         CollectionPointId registeredByPointId,
         DateTime createdAtUtc)
@@ -83,6 +89,11 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         if (string.IsNullOrWhiteSpace(name))
         {
             return DomainErrors.Beneficiary.NameRequired;
+        }
+
+        if (birthDate is null)
+        {
+            return DomainErrors.Beneficiary.BirthDateRequired;
         }
 
         var distinctPhones = DistinctPhones(phones);
@@ -93,7 +104,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         }
 
         var beneficiary = new Beneficiary(
-            BeneficiaryId.New(), name.Trim(), cpf, email, distinctPhones, birthDate, registeredByPointId, createdAtUtc);
+            BeneficiaryId.New(), name.Trim(), cpf, email, distinctPhones, address, birthDate, registeredByPointId, createdAtUtc);
 
         beneficiary.RaiseDomainEvent(new BeneficiaryRegistered(beneficiary.Id, registeredByPointId));
 
@@ -105,11 +116,17 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Cpf cpf,
         Email email,
         IReadOnlyCollection<PhoneNumber> phones,
+        Address? address,
         DateOnly? birthDate)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
             return DomainErrors.Beneficiary.NameRequired;
+        }
+
+        if (birthDate is null)
+        {
+            return DomainErrors.Beneficiary.BirthDateRequired;
         }
 
         var distinctPhones = DistinctPhones(phones);
@@ -123,6 +140,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Cpf = cpf;
         Email = email;
         _phones = distinctPhones;
+        Address = address;
         BirthDate = birthDate;
 
         return Result.Success;

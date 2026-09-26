@@ -21,6 +21,7 @@ public sealed record RegisterBeneficiaryCommand(
     string Cpf,
     string Email,
     IReadOnlyList<string>? Phones,
+    BeneficiaryAddressInput? Address,
     DateOnly? BirthDate,
     Guid RegisteredByPointId) : IRequest<ErrorOr<BeneficiaryResponse>>, IScopedToCollectionPoint
 {
@@ -55,7 +56,7 @@ public sealed class RegisterBeneficiaryHandler(
             return cpf.Errors;
         }
 
-        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones);
+        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones, command.Address);
         if (contact.IsError)
         {
             return contact.Errors;
@@ -74,7 +75,7 @@ public sealed class RegisterBeneficiaryHandler(
         }
 
         var beneficiary = Beneficiary.Create(
-            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, command.BirthDate, point.Id, clock.UtcNow);
+            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, contact.Value.Address, command.BirthDate, point.Id, clock.UtcNow);
 
         if (beneficiary.IsError)
         {

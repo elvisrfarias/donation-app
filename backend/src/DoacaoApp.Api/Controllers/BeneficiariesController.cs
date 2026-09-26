@@ -18,6 +18,7 @@ public sealed record RegisterBeneficiaryRequest(
     string Cpf,
     string Email,
     IReadOnlyList<string>? Phones,
+    BeneficiaryAddressInput? Address,
     DateOnly? BirthDate,
     Guid RegisteredByPointId);
 
@@ -27,6 +28,7 @@ public sealed record UpdateBeneficiaryRequest(
     string Cpf,
     string Email,
     IReadOnlyList<string>? Phones,
+    BeneficiaryAddressInput? Address,
     DateOnly? BirthDate);
 
 /// <summary>Corpo de uma requisição de vínculo do beneficiário a um ponto de coleta.</summary>
@@ -88,6 +90,7 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
             request.Cpf,
             request.Email,
             request.Phones,
+            request.Address,
             request.BirthDate,
             request.RegisteredByPointId);
 
@@ -113,6 +116,7 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
             request.Cpf,
             request.Email,
             request.Phones,
+            request.Address,
             request.BirthDate);
 
         var result = await Sender.Send(command, cancellationToken);

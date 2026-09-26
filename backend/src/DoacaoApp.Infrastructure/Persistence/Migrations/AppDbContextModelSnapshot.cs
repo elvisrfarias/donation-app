@@ -578,6 +578,68 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("DoacaoApp.Domain.Beneficiaries.Beneficiary", b =>
                 {
+                    b.OwnsOne("DoacaoApp.Domain.ValueObjects.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("BeneficiaryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("address_city");
+
+                            b1.Property<string>("Complement")
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("address_complement");
+
+                            b1.Property<string>("District")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("address_district");
+
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("double precision")
+                                .HasColumnName("address_latitude");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("double precision")
+                                .HasColumnName("address_longitude");
+
+                            b1.Property<string>("Number")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("address_number");
+
+                            b1.Property<string>("State")
+                                .IsRequired()
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("address_state");
+
+                            b1.Property<string>("Street")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("address_street");
+
+                            b1.Property<string>("ZipCode")
+                                .IsRequired()
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)")
+                                .HasColumnName("address_zipcode");
+
+                            b1.HasKey("BeneficiaryId");
+
+                            b1.ToTable("beneficiaries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("BeneficiaryId");
+                        });
+
                     b.OwnsMany("DoacaoApp.Domain.Beneficiaries.BeneficiaryKinship", "Kinships", b1 =>
                         {
                             b1.Property<Guid>("beneficiary_id")
@@ -639,6 +701,8 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("beneficiary_id");
                         });
+
+                    b.Navigation("Address");
 
                     b.Navigation("Kinships");
 

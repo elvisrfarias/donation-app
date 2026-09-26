@@ -35,6 +35,7 @@ public static class TestData
             Email.Create("joao@example.com").Value,
             [PhoneNumber.Create("11987654321").Value],
             null,
+            new DateOnly(1990, 5, 20),
             pointId ?? CollectionPointId.New(),
             Now).Value;
 }

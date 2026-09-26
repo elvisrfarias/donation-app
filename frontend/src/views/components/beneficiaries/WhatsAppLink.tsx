@@ -1,5 +1,5 @@
-import { MessageCircle } from 'lucide-react'
 import { whatsappUrl } from '@/lib/whatsapp'
+import { WhatsAppIcon } from '@/views/components/ui/WhatsAppIcon'
 
 interface WhatsAppLinkProps {
   phone: string
@@ -16,7 +16,7 @@ export function WhatsAppLink({ phone, personName }: WhatsAppLinkProps) {
       title="Abrir conversa no WhatsApp"
       className="inline-grid size-7 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 transition-colors ring-inset hover:bg-emerald-600 hover:text-white"
     >
-      <MessageCircle className="size-4" aria-hidden />
+      <WhatsAppIcon className="size-4" />
     </a>
   )
 }

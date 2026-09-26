@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { DatePicker } from '@/views/components/ui/DatePicker'
 import { RequiredMark } from '@/views/components/ui/RequiredMark'
+import { maskCep } from '@/lib/cepInput'
 import { maskCpf } from '@/lib/cpfInput'
 import { maskPhone } from '@/lib/phoneInput'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,7 @@ interface ControlProps<TConfig extends BoundFieldConfig> {
 const inputMasks: Record<InputMask, (text: string) => string> = {
   cpf: maskCpf,
   phone: maskPhone,
+  cep: maskCep,
 }
 
 function applyMask(mask: InputMask | undefined, text: string): string {
@@ -70,7 +72,11 @@ function TextControl({
         aria-invalid={!!error}
         value={(field.state.value as string | undefined) ?? ''}
         inputMode={config.mask ? 'numeric' : undefined}
-        onChange={(e) => field.handleChange(applyMask(config.mask, e.target.value))}
+        onChange={(e) => {
+          const value = applyMask(config.mask, e.target.value)
+          field.handleChange(value)
+          config.onValueChange?.(value, field.form)
+        }}
         onBlur={field.handleBlur}
       />
     </FieldShell>

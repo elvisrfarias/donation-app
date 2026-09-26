@@ -21,6 +21,7 @@ public sealed record UpdateBeneficiaryCommand(
     string Cpf,
     string Email,
     IReadOnlyList<string>? Phones,
+    BeneficiaryAddressInput? Address,
     DateOnly? BirthDate) : IRequest<ErrorOr<BeneficiaryResponse>>;
 
 public sealed class UpdateBeneficiaryValidator : AbstractValidator<UpdateBeneficiaryCommand>
@@ -50,7 +51,7 @@ public sealed class UpdateBeneficiaryHandler(
             return cpf.Errors;
         }
 
-        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones);
+        var contact = BeneficiaryContactParser.Parse(command.Email, command.Phones, command.Address);
         if (contact.IsError)
         {
             return contact.Errors;
@@ -69,7 +70,7 @@ public sealed class UpdateBeneficiaryHandler(
         }
 
         var updated = beneficiary.UpdateDetails(
-            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, command.BirthDate);
+            command.Name, cpf.Value, contact.Value.Email, contact.Value.Phones, contact.Value.Address, command.BirthDate);
         if (updated.IsError)
         {
             return updated.Errors;

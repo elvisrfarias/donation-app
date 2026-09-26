@@ -27,11 +27,13 @@ interface BaseField {
 }
 
 /** Máscara aplicada enquanto o usuário digita. */
-export type InputMask = 'cpf' | 'phone'
+export type InputMask = 'cpf' | 'phone' | 'cep'
 
 type TextLikeField = BaseField & {
   type: 'text' | 'email' | 'password'
   mask?: InputMask
+  /** Executado após cada alteração (já com a máscara aplicada); útil para preencher outros campos. */
+  onValueChange?: (value: string, form: AnyFormApi) => void
   placeholder?: string
   autoComplete?: string
   maxLength?: number

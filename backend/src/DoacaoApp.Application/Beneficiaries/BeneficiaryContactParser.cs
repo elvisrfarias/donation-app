@@ -1,14 +1,19 @@
+using DoacaoApp.Application.Beneficiaries.Contracts;
 using DoacaoApp.Domain.ValueObjects;
 using ErrorOr;
 
 namespace DoacaoApp.Application.Beneficiaries;
 
-/// <summary>Converte o e-mail e os telefones recebidos na API nos Value Objects validados do beneficiário.</summary>
+/// <summary>Contatos e endereço do beneficiário já convertidos nos Value Objects validados.</summary>
+public sealed record BeneficiaryContact(Email Email, IReadOnlyList<PhoneNumber> Phones, Address? Address);
+
+/// <summary>Converte o e-mail, os telefones e o endereço recebidos na API nos Value Objects do beneficiário.</summary>
 public static class BeneficiaryContactParser
 {
-    public static ErrorOr<(Email Email, IReadOnlyList<PhoneNumber> Phones)> Parse(
+    public static ErrorOr<BeneficiaryContact> Parse(
         string? email,
-        IReadOnlyList<string>? phones)
+        IReadOnlyList<string>? phones,
+        BeneficiaryAddressInput? address)
     {
         var parsedEmail = Email.Create(email);
         if (parsedEmail.IsError)
@@ -28,6 +33,25 @@ public static class BeneficiaryContactParser
             parsedPhones.Add(parsedPhone.Value);
         }
 
-        return (parsedEmail.Value, parsedPhones);
+        var parsedAddress = ParseAddress(address);
+        if (parsedAddress.IsError)
+        {
+            return parsedAddress.Errors;
+        }
+
+        return new BeneficiaryContact(parsedEmail.Value, parsedPhones, parsedAddress.Value);
+    }
+
+    private static ErrorOr<Address?> ParseAddress(BeneficiaryAddressInput? input)
+    {
+        if (input is null || input.IsBlank)
+        {
+            return ErrorOrFactory.From<Address?>(null);
+        }
+
+        var address = Address.Create(
+            input.Street, input.Number, input.Complement, input.District, input.City, input.State, input.ZipCode);
+
+        return address.IsError ? address.Errors : ErrorOrFactory.From<Address?>(address.Value);
     }
 }

@@ -11,16 +11,20 @@ public class BeneficiaryTests
 {
     private static Cpf CpfA => Cpf.Create(TestData.ValidCpfA).Value;
     private static Cpf CpfB => Cpf.Create(TestData.ValidCpfB).Value;
+    private static readonly DateOnly Birth = new(1990, 5, 20);
     private static Email EmailA => Email.Create("joao@example.com").Value;
     private static Email EmailB => Email.Create("novo@example.com").Value;
     private static PhoneNumber Phone(string digits) => PhoneNumber.Create(digits).Value;
+
+    private static Address HomeAddress() =>
+        Address.Create("Rua das Flores", "100", "Apto 2", "Centro", "Concórdia", "SC", "89700-000").Value;
 
     [Fact]
     public void Create_Valido_DeveCriarAtivoEDispararEvento()
     {
         var pointId = CollectionPointId.New();
 
-        var result = Beneficiary.Create("  João  ", CpfA, EmailA, [Phone("11987654321")], new DateOnly(1990, 5, 20), pointId, TestData.Now);
+        var result = Beneficiary.Create("  João  ", CpfA, EmailA, [Phone("11987654321")], null, new DateOnly(1990, 5, 20), pointId, TestData.Now);
 
         result.IsError.Should().BeFalse();
         var beneficiary = result.Value;
@@ -39,7 +43,7 @@ public class BeneficiaryTests
     [Fact]
     public void Create_SemTelefones_DeveRetornarErroPoisOContatoPrincipalEObrigatorio()
     {
-        var result = Beneficiary.Create("João", CpfA, EmailA, [], null, CollectionPointId.New(), TestData.Now);
+        var result = Beneficiary.Create("João", CpfA, EmailA, [], null, Birth, CollectionPointId.New(), TestData.Now);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Beneficiary.PhoneRequired");
@@ -49,7 +53,7 @@ public class BeneficiaryTests
     public void Create_ComApenasOContatoPrincipal_DeveCriar()
     {
         var result = Beneficiary.Create(
-            "João", CpfA, EmailA, [Phone("11987654321")], null, CollectionPointId.New(), TestData.Now);
+            "João", CpfA, EmailA, [Phone("11987654321")], null, Birth, CollectionPointId.New(), TestData.Now);
 
         result.IsError.Should().BeFalse();
         result.Value.Phones.Should().HaveCount(1);
@@ -59,7 +63,7 @@ public class BeneficiaryTests
     public void Create_ComDoisTelefones_DeveGuardarOsDois()
     {
         var result = Beneficiary.Create(
-            "João", CpfA, EmailA, [Phone("11987654321"), Phone("1134567890")], null, CollectionPointId.New(), TestData.Now);
+            "João", CpfA, EmailA, [Phone("11987654321"), Phone("1134567890")], null, Birth, CollectionPointId.New(), TestData.Now);
 
         result.Value.Phones.Should().HaveCount(2);
     }
@@ -73,6 +77,7 @@ public class BeneficiaryTests
             EmailA,
             [Phone("11987654321"), Phone("1134567890"), Phone("21987654321")],
             null,
+            Birth,
             CollectionPointId.New(),
             TestData.Now);
 
@@ -84,7 +89,7 @@ public class BeneficiaryTests
     public void Create_ComTelefonesRepetidos_DeveGuardarUmaVezSo()
     {
         var result = Beneficiary.Create(
-            "João", CpfA, EmailA, [Phone("11987654321"), Phone("11987654321")], null, CollectionPointId.New(), TestData.Now);
+            "João", CpfA, EmailA, [Phone("11987654321"), Phone("11987654321")], null, Birth, CollectionPointId.New(), TestData.Now);
 
         result.Value.Phones.Should().Equal(Phone("11987654321"));
     }
@@ -95,7 +100,7 @@ public class BeneficiaryTests
         var beneficiary = TestData.Beneficiary();
         var phonesBefore = beneficiary.Phones.ToList();
 
-        var result = beneficiary.UpdateDetails("João", CpfB, EmailB, [], null);
+        var result = beneficiary.UpdateDetails("João", CpfB, EmailB, [], null, Birth);
 
         result.FirstError.Code.Should().Be("Beneficiary.PhoneRequired");
         beneficiary.Phones.Should().Equal(phonesBefore);
@@ -108,7 +113,7 @@ public class BeneficiaryTests
         var emailBefore = beneficiary.Email;
 
         var result = beneficiary.UpdateDetails(
-            "João", CpfB, EmailB, [Phone("11987654321"), Phone("1134567890"), Phone("21987654321")], null);
+            "João", CpfB, EmailB, [Phone("11987654321"), Phone("1134567890"), Phone("21987654321")], null, Birth);
 
         result.FirstError.Code.Should().Be("Beneficiary.TooManyPhones");
         beneficiary.Email.Should().Be(emailBefore);
@@ -116,9 +121,65 @@ public class BeneficiaryTests
     }
 
     [Fact]
+    public void Create_ComEndereco_DeveGuardarOEndereco()
+    {
+        var address = HomeAddress();
+
+        var result = Beneficiary.Create(
+            "João", CpfA, EmailA, [Phone("11987654321")], address, Birth, CollectionPointId.New(), TestData.Now);
+
+        result.Value.Address.Should().Be(address);
+    }
+
+    [Fact]
+    public void Create_SemEndereco_DeveManterOEnderecoNulo()
+    {
+        var result = Beneficiary.Create(
+            "João", CpfA, EmailA, [Phone("11987654321")], null, Birth, CollectionPointId.New(), TestData.Now);
+
+        result.Value.Address.Should().BeNull();
+    }
+
+    [Fact]
+    public void UpdateDetails_DeveSubstituirEPermitirRemoverOEndereco()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var address = HomeAddress();
+
+        beneficiary.UpdateDetails("João", CpfA, EmailA, [Phone("11987654321")], address, Birth);
+        beneficiary.Address.Should().Be(address);
+
+        beneficiary.UpdateDetails("João", CpfA, EmailA, [Phone("11987654321")], null, Birth);
+        beneficiary.Address.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_SemDataDeNascimento_DeveRetornarErro()
+    {
+        var result = Beneficiary.Create(
+            "João", CpfA, EmailA, [Phone("11987654321")], null, null, CollectionPointId.New(), TestData.Now);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Beneficiary.BirthDateRequired");
+    }
+
+    [Fact]
+    public void UpdateDetails_SemDataDeNascimento_DeveRetornarErroEManterOsDados()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var birthDateBefore = beneficiary.BirthDate;
+
+        var result = beneficiary.UpdateDetails("Outro Nome", CpfB, EmailB, [Phone("11987654321")], null, null);
+
+        result.FirstError.Code.Should().Be("Beneficiary.BirthDateRequired");
+        beneficiary.BirthDate.Should().Be(birthDateBefore);
+        beneficiary.Name.Should().Be("João Silva");
+    }
+
+    [Fact]
     public void Create_SemNome_DeveRetornarErro()
     {
-        var result = Beneficiary.Create("  ", CpfA, EmailA, [Phone("11987654321")], null, CollectionPointId.New(), TestData.Now);
+        var result = Beneficiary.Create("  ", CpfA, EmailA, [Phone("11987654321")], null, Birth, CollectionPointId.New(), TestData.Now);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Beneficiary.NameRequired");
@@ -131,7 +192,7 @@ public class BeneficiaryTests
         var originalPointId = beneficiary.RegisteredByPointId;
         var newBirthDate = new DateOnly(1990, 1, 1);
 
-        var result = beneficiary.UpdateDetails("João Silva", CpfB, EmailB, [Phone("1134567890")], newBirthDate);
+        var result = beneficiary.UpdateDetails("João Silva", CpfB, EmailB, [Phone("1134567890")], null, newBirthDate);
 
         result.IsError.Should().BeFalse();
         beneficiary.Name.Should().Be("João Silva");
@@ -148,7 +209,7 @@ public class BeneficiaryTests
     {
         var beneficiary = TestData.Beneficiary();
 
-        var result = beneficiary.UpdateDetails("  ", CpfB, EmailB, [Phone("11987654321")], null);
+        var result = beneficiary.UpdateDetails("  ", CpfB, EmailB, [Phone("11987654321")], null, Birth);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Beneficiary.NameRequired");

@@ -48,6 +48,17 @@ export interface BeneficiaryKinship {
   type: KinshipType
 }
 
+/** Endereço de residência do beneficiário (CEP formatado). */
+export interface BeneficiaryAddress {
+  street: string
+  number: string
+  complement?: string | null
+  district: string
+  city: string
+  state: string
+  zipCode: string
+}
+
 /** BeneficiaryResponse do backend. */
 export interface Beneficiary {
   id: string
@@ -58,6 +69,8 @@ export interface Beneficiary {
   email?: string | null
   /** Até 2 telefones de contato (formatados). */
   phones: string[]
+  /** Opcional. */
+  address?: BeneficiaryAddress | null
   /** Pontos que atendem a pessoa — só eles a enxergam e editam. */
   linkedPointIds: string[]
   isActive: boolean
@@ -69,7 +82,8 @@ export interface RegisterBeneficiaryInput {
   cpf: string
   email: string
   phones: string[]
-  birthDate?: string | null
+  address?: BeneficiaryAddress | null
+  birthDate: string
   registeredByPointId: string
 }
 

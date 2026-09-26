@@ -13,8 +13,8 @@ interface FormComponentProps<TValues extends Record<string, unknown>> {
   /** Chamado apenas quando o formulário é válido. Recebe os valores e a API do form. */
   onSubmit: (value: TValues, form: AnyFormApi) => void | Promise<void>
   fields: FormFieldConfig[]
-  /** Layout em 1, 2 ou 3 colunas (padrão: 1). 3 vira 2 em telas médias. */
-  columns?: 1 | 2 | 3
+  /** Layout em 1 a 4 colunas (padrão: 1). 3 e 4 viram 2 em telas médias. */
+  columns?: 1 | 2 | 3 | 4
   submitLabel: string
   submitIcon?: ReactNode
   submitSize?: 'sm' | 'md' | 'lg'
@@ -57,8 +57,13 @@ export function FormComponent<TValues extends Record<string, unknown>>({
     },
   })
 
-  const gridCols =
-    columns === 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : columns === 2 ? 'sm:grid-cols-2' : undefined
+  const gridColsByColumns = {
+    1: undefined,
+    2: 'sm:grid-cols-2',
+    3: 'sm:grid-cols-2 lg:grid-cols-3',
+    4: 'sm:grid-cols-2 lg:grid-cols-4',
+  } as const
+  const gridCols = gridColsByColumns[columns]
   const spanFull = columns > 1 ? 'col-span-full' : undefined
   const spanFor = (colSpan?: 1 | 2 | 'full') =>
     colSpan === 'full' ? 'col-span-full' : colSpan === 2 ? 'sm:col-span-2' : undefined

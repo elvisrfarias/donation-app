@@ -83,37 +83,84 @@ const beneficiaryPersonShape = {
   name: z.string().min(1, 'Nome é obrigatório.').max(160),
   cpf: z.string().min(11, 'CPF inválido (mín. 11 dígitos).').max(14),
   email: z.string().min(1, 'E-mail é obrigatório.').max(320).email('E-mail inválido.'),
-  birthDate: z.string().optional(),
+  birthDate: z.string().min(1, 'Data de nascimento é obrigatória.'),
   phone: requiredPhoneSchema,
   secondaryPhone: optionalPhoneSchema,
 }
 
-interface PhonePair {
+const ZIP_CODE_DIGITS = 8
+const STATE_LENGTH = 2
+const ADDRESS_REQUIRED_MESSAGE = 'Obrigatório quando o endereço é informado.'
+
+const optionalText = (max: number) => z.string().max(max).optional()
+
+const beneficiaryAddressShape = {
+  zipCode: optionalText(9),
+  street: optionalText(200),
+  number: optionalText(20),
+  complement: optionalText(120),
+  district: optionalText(120),
+  city: optionalText(120),
+  state: optionalText(STATE_LENGTH),
+}
+
+const addressRequiredFields = ['zipCode', 'street', 'number', 'district', 'city', 'state'] as const
+
+interface BeneficiaryContactFields {
   phone?: string
   secondaryPhone?: string
+  zipCode?: string
+  street?: string
+  number?: string
+  complement?: string
+  district?: string
+  city?: string
+  state?: string
 }
 
-function hasDistinctPhones({ phone, secondaryPhone }: PhonePair): boolean {
-  const digits = (value?: string) => (value ?? '').replace(/\D/g, '')
-  return !digits(phone) || digits(phone) !== digits(secondaryPhone)
+function digitsOf(value?: string): string {
+  return (value ?? '').replace(/\D/g, '')
 }
 
-const DISTINCT_PHONES_ISSUE = {
-  message: 'Informe telefones diferentes.',
-  path: ['secondaryPhone'],
+function isAddressStarted(values: BeneficiaryContactFields): boolean {
+  return [...addressRequiredFields, 'complement' as const].some((field) => !!values[field]?.trim())
+}
+
+function checkBeneficiaryContacts(values: BeneficiaryContactFields, ctx: z.RefinementCtx) {
+  if (digitsOf(values.phone) && digitsOf(values.phone) === digitsOf(values.secondaryPhone)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Informe telefones diferentes.',
+      path: ['secondaryPhone'],
+    })
+  }
+  if (!isAddressStarted(values)) return
+
+  for (const field of addressRequiredFields) {
+    if (!values[field]?.trim()) {
+      ctx.addIssue({ code: 'custom', message: ADDRESS_REQUIRED_MESSAGE, path: [field] })
+    }
+  }
+  if (values.zipCode?.trim() && digitsOf(values.zipCode).length !== ZIP_CODE_DIGITS) {
+    ctx.addIssue({ code: 'custom', message: 'CEP inválido (8 dígitos).', path: ['zipCode'] })
+  }
+  if (values.state?.trim() && values.state.trim().length !== STATE_LENGTH) {
+    ctx.addIssue({ code: 'custom', message: 'UF deve ter 2 letras.', path: ['state'] })
+  }
 }
 
 export const registerBeneficiarySchema = z
   .object({
     ...beneficiaryPersonShape,
+    ...beneficiaryAddressShape,
     registeredByPointId: z.string().min(1, 'Selecione o ponto de cadastro.'),
   })
-  .refine(hasDistinctPhones, DISTINCT_PHONES_ISSUE)
+  .superRefine(checkBeneficiaryContacts)
 export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
 
 export const updateBeneficiarySchema = z
-  .object(beneficiaryPersonShape)
-  .refine(hasDistinctPhones, DISTINCT_PHONES_ISSUE)
+  .object({ ...beneficiaryPersonShape, ...beneficiaryAddressShape })
+  .superRefine(checkBeneficiaryContacts)
 export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
 
 export const addBeneficiaryKinshipSchema = z.object({

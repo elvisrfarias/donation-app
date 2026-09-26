@@ -53,6 +53,19 @@ public sealed class BeneficiaryConfiguration : IEntityTypeConfiguration<Benefici
             .FindProperty(nameof(Beneficiary.Phones))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.OwnsOne(b => b.Address, address =>
+        {
+            address.Property(x => x.Street).HasColumnName("address_street").HasMaxLength(200);
+            address.Property(x => x.Number).HasColumnName("address_number").HasMaxLength(20);
+            address.Property(x => x.Complement).HasColumnName("address_complement").HasMaxLength(120);
+            address.Property(x => x.District).HasColumnName("address_district").HasMaxLength(120);
+            address.Property(x => x.City).HasColumnName("address_city").HasMaxLength(120);
+            address.Property(x => x.State).HasColumnName("address_state").HasMaxLength(2);
+            address.Property(x => x.ZipCode).HasColumnName("address_zipcode").HasMaxLength(8);
+            address.Property(x => x.Latitude).HasColumnName("address_latitude");
+            address.Property(x => x.Longitude).HasColumnName("address_longitude");
+        });
+
         builder.Property(b => b.BirthDate);
         builder.Property(b => b.RegisteredByPointId).IsRequired();
         builder.Property(b => b.IsActive).IsRequired();

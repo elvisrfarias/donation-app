@@ -15,6 +15,7 @@ public sealed record BeneficiaryResponse(
     DateOnly? BirthDate,
     string? Email,
     IReadOnlyList<string> Phones,
+    BeneficiaryAddressResponse? Address,
     IReadOnlyList<Guid> LinkedPointIds,
     bool IsActive,
     IReadOnlyList<BeneficiaryKinshipResponse> Kinships);
@@ -36,6 +37,7 @@ public static class BeneficiaryMappings
             beneficiary.BirthDate,
             beneficiary.Email?.Value,
             beneficiary.Phones.Select(phone => phone.Formatted).ToList(),
+            beneficiary.Address is null ? null : BeneficiaryAddressResponse.From(beneficiary.Address),
             beneficiary.LinkedPointIds.Select(id => id.Value).ToList(),
             beneficiary.IsActive,
             beneficiary.Kinships.Select(k => k.ToResponse()).ToList());

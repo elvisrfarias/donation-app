@@ -2,7 +2,6 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Save, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { isoToBrazilian } from '@/lib/dateInput'
-import { maskPhone } from '@/lib/phoneInput'
 import { ApiError } from '@/models/api/problemDetails'
 import { beneficiaryService } from '@/models/services'
 import { type AddBeneficiaryKinshipInput, type Beneficiary } from '@/models/types'
@@ -23,8 +22,19 @@ import { DataTable, type RowAction } from '@/views/components/data-table'
 import { BeneficiaryKinshipsEditor } from '@/views/components/beneficiaries/BeneficiaryKinshipsEditor'
 import { ExistingBeneficiaryNotice } from '@/views/components/beneficiaries/ExistingBeneficiaryNotice'
 import { WhatsAppLink } from '@/views/components/beneficiaries/WhatsAppLink'
+import {
+  addressFields,
+  addressInputOf,
+  addressValuesOf,
+  contactFields,
+  contactPhonesOf,
+  contactValuesOf,
+  emptyAddressValues,
+  personalFields,
+  registrationFields,
+} from '@/views/components/beneficiaries/beneficiaryForm'
 import { PendingKinshipsEditor } from '@/views/components/beneficiaries/PendingKinshipsEditor'
-import { FormComponent, type FormFieldConfig } from '@/views/components/form'
+import { FormComponent } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
@@ -104,10 +114,6 @@ const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
   },
 ]
 
-function contactPhones({ phone, secondaryPhone }: { phone?: string; secondaryPhone?: string }) {
-  return [phone, secondaryPhone].filter((value): value is string => !!value)
-}
-
 interface ExistingBeneficiary {
   beneficiary: Beneficiary
   pointId: string
@@ -146,6 +152,7 @@ export function BeneficiariesPage() {
     birthDate: '',
     phone: '',
     secondaryPhone: '',
+    ...emptyAddressValues,
     registeredByPointId: defaultPointId,
   }
 
@@ -163,52 +170,13 @@ export function BeneficiariesPage() {
     setEditingBeneficiary(beneficiary)
   }
 
-  const personFields: FormFieldConfig[] = [
-    { name: 'name', type: 'text', label: 'Nome', required: true },
-    {
-      name: 'cpf',
-      type: 'text',
-      mask: 'cpf',
-      label: 'CPF',
-      placeholder: '000.000.000-00',
-      required: true,
-    },
-    {
-      name: 'email',
-      type: 'email',
-      label: 'E-mail',
-      placeholder: 'nome@exemplo.com',
-      autoComplete: 'off',
-      required: true,
-    },
-    { name: 'birthDate', type: 'date', label: 'Nascimento' },
-    {
-      name: 'phone',
-      type: 'text',
-      mask: 'phone',
-      label: 'Telefone de contato',
-      placeholder: '(11) 98765-4321',
-      required: true,
-    },
-    {
-      name: 'secondaryPhone',
-      type: 'text',
-      mask: 'phone',
-      label: 'Segundo telefone',
-      placeholder: '(11) 3456-7890',
-    },
+  const registerFields = [
+    ...personalFields,
+    ...contactFields,
+    ...addressFields,
+    ...registrationFields(availablePoints.map((p) => ({ value: p.id, label: p.name }))),
   ]
-  const registrationPointField: FormFieldConfig = {
-    name: 'registeredByPointId',
-    type: 'autocomplete',
-    label: 'Ponto de cadastro',
-    options: availablePoints.map((p) => ({ value: p.id, label: p.name })),
-    placeholder: 'Selecione…',
-    searchPlaceholder: 'Buscar ponto…',
-    emptyText: 'Nenhum ponto encontrado.',
-    required: true,
-  }
-  const registerFields = [...personFields, registrationPointField]
+  const editFields = [...personalFields, ...contactFields, ...addressFields]
 
   const liveEditingBeneficiary = editingBeneficiary
     ? (beneficiaries.find((row) => row.id === editingBeneficiary.id) ?? editingBeneficiary)
@@ -217,10 +185,9 @@ export function BeneficiariesPage() {
   const editDefaults: UpdateBeneficiaryForm | null = editingBeneficiary && {
     name: editingBeneficiary.name,
     cpf: editingBeneficiary.cpf,
-    email: editingBeneficiary.email ?? '',
     birthDate: editingBeneficiary.birthDate ?? '',
-    phone: maskPhone(editingBeneficiary.phones[0] ?? ''),
-    secondaryPhone: maskPhone(editingBeneficiary.phones[1] ?? ''),
+    ...contactValuesOf(editingBeneficiary),
+    ...addressValuesOf(editingBeneficiary),
   }
 
   async function linkPendingKinships(created: Beneficiary): Promise<string[]> {
@@ -268,8 +235,9 @@ export function BeneficiariesPage() {
         name: values.name,
         cpf: values.cpf,
         email: values.email,
-        phones: contactPhones(values),
-        birthDate: values.birthDate || null,
+        phones: contactPhonesOf(values),
+        address: addressInputOf(values),
+        birthDate: values.birthDate,
         registeredByPointId: values.registeredByPointId,
       })
       rememberPoint(values.registeredByPointId)
@@ -306,8 +274,9 @@ export function BeneficiariesPage() {
         name: values.name,
         cpf: values.cpf,
         email: values.email,
-        phones: contactPhones(values),
-        birthDate: values.birthDate || null,
+        phones: contactPhonesOf(values),
+        address: addressInputOf(values),
+        birthDate: values.birthDate,
       },
     })
     setEditingBeneficiary(null)
@@ -384,7 +353,7 @@ export function BeneficiariesPage() {
           )}
           <FormComponent
             key={beneficiaryOpen ? 'add-beneficiary' : 'closed'}
-            columns={2}
+            columns={4}
             schema={registerBeneficiarySchema}
             defaultValues={beneficiaryDefaults}
             fields={registerFields}
@@ -412,10 +381,10 @@ export function BeneficiariesPage() {
           )}
           <FormComponent
             key={editingBeneficiary.id}
-            columns={2}
+            columns={4}
             schema={updateBeneficiarySchema}
             defaultValues={editDefaults}
-            fields={personFields}
+            fields={editFields}
             onSubmit={(values) => handleUpdate(editingBeneficiary, values)}
             submitLabel="Salvar"
             submitIcon={<Save className="size-4" />}
