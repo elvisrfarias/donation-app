@@ -11,7 +11,7 @@ interface LocationState {
 
 const highlights = [
   { icon: MapPin, text: 'Pontos de coleta no mapa do OpenStreetMap' },
-  { icon: Users, text: 'Rastreabilidade familiar e de beneficiários' },
+  { icon: Users, text: 'Rastreabilidade de beneficiários' },
   { icon: ShieldCheck, text: 'Limite de retiradas por ciclo, no município inteiro' },
 ]
 

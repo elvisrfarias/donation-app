@@ -1,31 +1,43 @@
-import { CheckCircle2, PackageCheck, Search, UserCog } from 'lucide-react'
+import { CheckCircle2, MapPin, PackageCheck, Search, UserCog } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
+import { beneficiaryService } from '@/models/services'
+import { cycleTypeLabels, type Beneficiary } from '@/models/types'
 import {
   registerWithdrawalSchema,
+  useAuth,
+  useBeneficiaryWithdrawalHistory,
   useCollectionPoints,
-  useFamily,
   useRegisterWithdrawal,
   type RegisterWithdrawalForm,
 } from '@/viewmodels'
-import {
-  FormComponent,
-  type AutoCompleteOption,
-  type FormFieldConfig,
-  type SelectOption,
-} from '@/views/components/form'
+import { FormComponent, type FormFieldConfig } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
-import { Alert, Badge, Button, Card, CenteredSpinner, SectionTitle } from '@/views/components/ui'
-import { familyService } from '@/models/services'
+import { Alert, Badge, Button, Card, FormField, SectionTitle, Select } from '@/views/components/ui'
 
 const lookupSchema = z.object({ cpf: z.string().min(11, 'Informe o CPF (11 dígitos).') })
 
+const withdrawalFields: FormFieldConfig[] = [
+  {
+    name: 'notes',
+    type: 'textarea',
+    label: 'Observações',
+    placeholder: 'Itens retirados, observações…',
+  },
+]
+
 export function RegisterWithdrawalPage() {
+  const { user, isAdmin } = useAuth()
   const { points } = useCollectionPoints()
   const withdrawal = useRegisterWithdrawal()
 
-  const [loadedFamilyId, setLoadedFamilyId] = useState<string | null>(null)
-  const family = useFamily(loadedFamilyId)
+  const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
+  const [chosenPointId, setChosenPointId] = useState('')
+  const pointId = availablePoints.length === 1 ? availablePoints[0].id : chosenPointId
+  const point = availablePoints.find((p) => p.id === pointId) ?? null
+
+  const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null)
+  const { history } = useBeneficiaryWithdrawalHistory(beneficiary?.id ?? null, pointId || null)
 
   const [lookupOpen, setLookupOpen] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
@@ -34,72 +46,38 @@ export function RegisterWithdrawalPage() {
   async function loadByCpf(cpf: string) {
     setLookupError(null)
     try {
-      const found = await familyService.findByCpf(cpf)
-      setLoadedFamilyId(found.id)
+      setBeneficiary(await beneficiaryService.findByCpf(cpf))
       setLookupOpen(false)
     } catch {
-      setLookupError('Nenhuma família encontrada com esse CPF. Verifique o número.')
+      setLookupError('Nenhum beneficiário encontrado com esse CPF. Verifique o número.')
     }
   }
 
-  const beneficiaries = family.family?.beneficiaries ?? []
-  const remaining = family.history?.remainingInCurrentCycle
-  const limitReached = remaining === 0
-
-  const pointOptions: AutoCompleteOption[] = points.map((p) => ({
-    value: p.id,
-    label: `${p.name} — ${p.address.city}/${p.address.state}`,
-  }))
-  const beneficiaryOptions: SelectOption[] = beneficiaries.map((b) => ({
-    value: b.id,
-    label: `${b.name} (${b.cpf})`,
-  }))
-
-  const withdrawalDefaults: RegisterWithdrawalForm = {
-    pointId: '',
-    familyId: loadedFamilyId ?? '',
-    beneficiaryId: '',
-    notes: '',
+  function openLookup() {
+    setLookupError(null)
+    setLookupOpen(true)
   }
-
-  const withdrawalFields: FormFieldConfig[] = [
-    {
-      name: 'pointId',
-      type: 'autocomplete',
-      label: 'Ponto de coleta',
-      options: pointOptions,
-      placeholder: 'Selecione o ponto…',
-      searchPlaceholder: 'Buscar por nome ou cidade…',
-      emptyText: 'Nenhum ponto encontrado.',
-      required: true,
-    },
-    {
-      name: 'beneficiaryId',
-      type: 'select',
-      label: 'Beneficiário',
-      options: beneficiaryOptions,
-      placeholder: 'Selecione o beneficiário…',
-      required: true,
-    },
-    {
-      name: 'notes',
-      type: 'textarea',
-      label: 'Observações',
-      placeholder: 'Itens retirados, observações…',
-    },
-  ]
 
   function openWithdrawal() {
     withdrawal.reset()
     setWithdrawalOpen(true)
   }
 
+  const remaining = history?.remainingInCurrentCycle
+  const limitReached = remaining === 0
+  const canRegister = !!point && !limitReached
+  const ruleText = point
+    ? `${point.withdrawalRule.maxWithdrawalsPerCycle} por família (${cycleTypeLabels[point.withdrawalRule.type].toLowerCase()})`
+    : null
+
+  const withdrawalDefaults: RegisterWithdrawalForm = { notes: '' }
+
   return (
     <div className="mx-auto w-[90%] space-y-6">
       <SectionTitle
         icon={<PackageCheck className="size-5" />}
         title="Registrar Retirada"
-        description="A regra de equidade é validada pelo backend, somando todos os pontos do município."
+        description="O histórico é somado entre todos os pontos do município; o limite é o do ponto da retirada."
       />
 
       {withdrawal.lastWithdrawal && (
@@ -108,47 +86,58 @@ export function RegisterWithdrawalPage() {
         </Alert>
       )}
 
-      <Card className="p-6">
-        {!loadedFamilyId ? (
+      <Card className="space-y-5 p-6">
+        {isAdmin ? (
+          <FormField label="Ponto da retirada" htmlFor="withdrawal-point">
+            <Select
+              id="withdrawal-point"
+              value={chosenPointId}
+              onValueChange={setChosenPointId}
+              disabled={availablePoints.length === 0}
+            >
+              <option value="">Selecione o ponto…</option>
+              {availablePoints.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {p.address.city}/{p.address.state}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        ) : (
+          point && (
+            <p className="flex items-center gap-2 text-sm text-stone-600">
+              <MapPin className="size-4 shrink-0 text-stone-400" />
+              <span>
+                Ponto da retirada: <strong className="text-stone-800">{point.name}</strong>
+              </span>
+            </p>
+          )
+        )}
+        {ruleText && <p className="text-sm text-stone-500">Limite deste ponto: {ruleText}.</p>}
+
+        {!beneficiary ? (
           <div className="flex flex-col items-start gap-3">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Família</h2>
+              <h2 className="text-base font-semibold text-stone-900">Beneficiário</h2>
               <p className="mt-1 text-sm text-stone-500">
-                Carregue a família para ver o saldo do ciclo e registrar a retirada.
+                Busque o beneficiário pelo CPF para conferir o limite do ciclo e registrar a
+                retirada.
               </p>
             </div>
             <Button
               variant="secondary"
               leftIcon={<Search className="size-4" />}
-              onClick={() => {
-                setLookupError(null)
-                setLookupOpen(true)
-              }}
+              onClick={openLookup}
             >
               Buscar por CPF
             </Button>
           </div>
-        ) : family.isFetching ? (
-          <CenteredSpinner label="Carregando família…" />
-        ) : family.notFound ? (
-          <div className="flex flex-col items-start gap-3">
-            <Alert tone="warning">Família não encontrada.</Alert>
-            <Button
-              variant="secondary"
-              leftIcon={<Search className="size-4" />}
-              onClick={() => {
-                setLookupError(null)
-                setLookupOpen(true)
-              }}
-            >
-              Buscar por CPF
-            </Button>
-          </div>
-        ) : family.family ? (
+        ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-stone-900">{family.family.name}</h2>
+                <h2 className="text-base font-semibold text-stone-900">{beneficiary.name}</h2>
+                <p className="mt-0.5 text-sm text-stone-500">CPF {beneficiary.cpf}</p>
                 {remaining !== undefined && (
                   <Badge tone={limitReached ? 'red' : 'green'} className="mt-1.5">
                     {limitReached
@@ -161,37 +150,37 @@ export function RegisterWithdrawalPage() {
                 <Button
                   variant="ghost"
                   leftIcon={<UserCog className="size-4" />}
-                  onClick={() => {
-                    setLookupError(null)
-                    setLookupOpen(true)
-                  }}
+                  onClick={openLookup}
                 >
-                  Trocar família
+                  Trocar beneficiário
                 </Button>
                 <Button
                   variant="brand"
                   leftIcon={<CheckCircle2 className="size-4" />}
-                  disabled={limitReached}
+                  disabled={!canRegister}
                   onClick={openWithdrawal}
                 >
                   Registrar retirada
                 </Button>
               </div>
             </div>
+            {!point && (
+              <Alert tone="info">Selecione o ponto da retirada para ver o saldo do ciclo.</Alert>
+            )}
             {limitReached && (
               <Alert tone="warning">
-                Esta família atingiu o limite de retiradas do ciclo vigente.
+                Este beneficiário atingiu o limite de retiradas do ciclo vigente neste ponto.
               </Alert>
             )}
           </div>
-        ) : null}
+        )}
       </Card>
 
       <ModalComponent
         open={lookupOpen}
         onOpenChange={setLookupOpen}
-        title="Buscar família por CPF"
-        description="Informe o CPF de um beneficiário para carregar a família e o saldo do ciclo."
+        title="Buscar beneficiário por CPF"
+        description="Informe o CPF para carregar o beneficiário e o limite do ciclo."
         size="md"
       >
         {lookupError && (
@@ -212,20 +201,18 @@ export function RegisterWithdrawalPage() {
             },
           ]}
           onSubmit={(values) => loadByCpf(values.cpf)}
-          submitLabel="Buscar família"
+          submitLabel="Buscar beneficiário"
           submitIcon={<Search className="size-4" />}
           submitFullWidth
         />
       </ModalComponent>
 
-      {family.family && (
+      {beneficiary && point && (
         <ModalComponent
           open={withdrawalOpen}
           onOpenChange={setWithdrawalOpen}
           title="Registrar retirada"
-          description={`Família ${family.family.name} · ${
-            remaining ?? '—'
-          } retirada(s) restante(s) no ciclo.`}
+          description={`${beneficiary.name} · ${point.name} · ${remaining ?? '—'} retirada(s) restante(s) no ciclo.`}
         >
           {withdrawal.error && (
             <Alert
@@ -241,9 +228,8 @@ export function RegisterWithdrawalPage() {
             fields={withdrawalFields}
             onSubmit={async (values) => {
               await withdrawal.register({
-                pointId: values.pointId,
-                familyId: values.familyId,
-                beneficiaryId: values.beneficiaryId,
+                pointId: point.id,
+                beneficiaryId: beneficiary.id,
                 notes: values.notes || null,
               })
               setWithdrawalOpen(false)

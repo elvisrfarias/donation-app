@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
@@ -21,6 +21,10 @@ export type LocatedCollectionPoint = Geocoded<CollectionPoint> & { distanceKm: n
 
 const EMPTY_FILTERS: MapFilters = { search: '', type: 'all', city: 'all' }
 
+const PRECISE_ACCURACY_METERS = 100
+const APPROXIMATE_ACCURACY_METERS = 1_000
+const LOCATE_TIMEOUT_MS = 15_000
+
 function storedPosition(point: CollectionPoint) {
   const { latitude, longitude } = point.address
   return latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null
@@ -34,8 +38,7 @@ function haversineKm(a: LatLng, b: LatLng): number {
   const dLng = toRad(b.lng - a.lng)
   const lat1 = toRad(a.lat)
   const lat2 = toRad(b.lat)
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(h))
 }
 
@@ -83,20 +86,55 @@ export function useCollectionPointsMapViewModel() {
   const [filters, setFilters] = useState<MapFilters>(EMPTY_FILTERS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [userLocation, setUserLocation] = useState<LatLng | null>(null)
+  const [locationAccuracyMeters, setLocationAccuracyMeters] = useState<number | null>(null)
   const [locating, setLocating] = useState(false)
+  const watchId = useRef<number | null>(null)
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function stopLocating() {
+    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
+    if (stopTimer.current !== null) clearTimeout(stopTimer.current)
+    watchId.current = null
+    stopTimer.current = null
+    setLocating(false)
+  }
+
+  useEffect(
+    () => () => {
+      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
+      if (stopTimer.current !== null) clearTimeout(stopTimer.current)
+    },
+    [],
+  )
 
   function locate() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    stopLocating()
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setLocating(false)
+    let bestAccuracy = Infinity
+    watchId.current = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        if (coords.accuracy < bestAccuracy) {
+          bestAccuracy = coords.accuracy
+          setUserLocation({ lat: coords.latitude, lng: coords.longitude })
+          setLocationAccuracyMeters(coords.accuracy)
+        }
+        if (coords.accuracy <= PRECISE_ACCURACY_METERS) stopLocating()
       },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10_000 },
+      stopLocating,
+      { enableHighAccuracy: true, maximumAge: 0, timeout: LOCATE_TIMEOUT_MS },
     )
+    stopTimer.current = setTimeout(stopLocating, LOCATE_TIMEOUT_MS)
   }
+
+  function pickLocation(position: LatLng) {
+    stopLocating()
+    setUserLocation(position)
+    setLocationAccuracyMeters(null)
+  }
+
+  const locationIsApproximate =
+    locationAccuracyMeters !== null && locationAccuracyMeters > APPROXIMATE_ACCURACY_METERS
 
   const cities = useMemo(
     () => Array.from(new Set(points.map((p) => p.address.city))).sort((a, b) => a.localeCompare(b)),
@@ -153,7 +191,10 @@ export function useCollectionPointsMapViewModel() {
     sortByRating,
     setSortByRating,
     userLocation,
+    locationAccuracyMeters,
+    locationIsApproximate,
     locate,
+    pickLocation,
     locating,
     canLocate: typeof navigator !== 'undefined' && !!navigator.geolocation,
   }

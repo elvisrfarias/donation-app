@@ -1,7 +1,7 @@
 # Doação App — Gestão de Pontos de Doação/Coleta
 
 Sistema de gerenciamento de pontos de doação/coleta (cesta básica, roupas, etc.) com foco em
-**rastreabilidade familiar** e **controle de equidade** entre beneficiários.
+**rastreabilidade por beneficiário** e **controle de equidade** entre beneficiários.
 
 > Regra central: **todos os pontos de coleta do município compartilham o histórico de retiradas**.
 > Se a Família Silva já retirou no Ponto A neste ciclo, o Ponto B é impedido de liberar uma nova
@@ -71,13 +71,13 @@ API  ─►  Infrastructure  ─►  Application  ─►  Domain
 
 | Padrão | Onde |
 |---|---|
-| Aggregates / Aggregate Root | `CollectionPoint`, `Family` |
+| Aggregates / Aggregate Root | `CollectionPoint`, `Beneficiary` |
 | Value Objects | `Cpf`, `Email`, `PhoneNumber`, `Address`, `ContactInfo`, `WithdrawalCycle` |
-| Strongly-typed IDs | `CollectionPointId`, `FamilyId`, `BeneficiaryId`, `WithdrawalId` |
-| Domain Events | `CollectionPointCreated`, `WithdrawalRegistered`, `BeneficiaryLinkedToFamily` |
+| Strongly-typed IDs | `CollectionPointId`, `BeneficiaryId`, `WithdrawalId` |
+| Domain Events | `CollectionPointCreated`, `WithdrawalRegistered`, `BeneficiaryRegistered` |
 | Result Pattern | `ErrorOr<T>` em todos os fluxos de negócio |
 | CQRS | Commands/Queries + Handlers (MediatR) |
-| Repository + Unit of Work | `ICollectionPointRepository`, `IFamilyRepository`, `IUnitOfWork` |
+| Repository + Unit of Work | `ICollectionPointRepository`, `IBeneficiaryRepository`, `IUnitOfWork` |
 
 ---
 
@@ -112,7 +112,7 @@ doacao-app/
 │   │   ├── Common/                # Entity, AggregateRoot, IDomainEvent, IUnitOfWork
 │   │   ├── ValueObjects/          # Cpf, Email, PhoneNumber, Address, ContactInfo, WithdrawalCycle
 │   │   ├── CollectionPoints/      # CollectionPoint (root, com Stock), Withdrawal, eventos, repo
-│   │   ├── Families/              # Family (root), Beneficiary, eventos, repo
+│   │   ├── Beneficiaries/         # Beneficiary (root), vínculos, eventos, repo
 │   │   ├── Reviews/               # Review (root) — avaliação pública de um ponto
 │   │   ├── Storage/                # StoredFile (root) — metadado de arquivo em object storage
 │   │   └── Errors/                # DomainErrors (catálogo de erros)
@@ -120,7 +120,7 @@ doacao-app/
 │   │   ├── Common/                # Behaviors (ValidationBehavior), Abstractions
 │   │   ├── Authentication/        # Commands (Register/Login/Refresh), Roles, AuthErrors
 │   │   ├── CollectionPoints/      # Commands, Queries, Contracts, EventHandlers (inclui estoque)
-│   │   ├── Families/              # Commands, Queries, Contracts, EventHandlers
+│   │   ├── Beneficiaries/         # Commands, Queries, Contracts, EventHandlers
 │   │   ├── Reviews/               # CreateReview, ModerateReview, ListReviewsForPoint
 │   │   └── Storage/                # UploadImage, DeleteFile, GetStoredFile, ListFilesByOwner
 │   ├── DoacaoApp.Infrastructure/
@@ -130,7 +130,7 @@ doacao-app/
 │   │   ├── Authentication/        # JwtOptions, JwtTokenGenerator
 │   │   └── Storage/                # S3FileStorage, StorageBucketInitializer, StorageOptions
 │   └── DoacaoApp.Api/
-│       ├── Controllers/           # CollectionPoints, Families, Withdrawals, Reviews, Files
+│       ├── Controllers/           # CollectionPoints, Beneficiaries, Withdrawals, Reviews, Files
 │       ├── Endpoints/             # Auth, PublicCollectionPoints (Minimal APIs)
 │       ├── Common/                # ApiController, HttpErrorMapping, MinimalApiResults
 │       ├── OpenApi/               # BearerSecuritySchemeTransformer
@@ -150,17 +150,13 @@ doacao-app/
 
 - **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s
   e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
-- **Family** (Aggregate Root) — entidade central de rastreabilidade. Define o `WithdrawalCycle`
-  (tipo + máximo de retiradas por ciclo) e contém `Beneficiary`s.
-- **Beneficiary** (Entity) — vive dentro de `Family`. CPF único no município. Mantém uma lista de
+- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município. Mantém uma lista de
   **vínculos de parentesco** (`BeneficiaryKinship`: beneficiário relacionado + tipo — cônjuge, pai,
-  filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro) com
-  beneficiários de **qualquer** família, não só a própria. Todo vínculo é espelhado automaticamente
-  no outro lado com o tipo inverso. Só o tipo **Cônjuge** entre beneficiários de famílias diferentes
-  move os dois para uma família nova (a cota de retirada da nova família é a do beneficiário mais
-  antigo dos dois; as famílias de origem seguem existindo para quem ficou, e são removidas se
-  ficarem vazias) — os demais tipos são puramente informativos.
-- **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia família/beneficiário por Id.
+  filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro). Todo vínculo é
+  espelhado automaticamente no outro lado com o tipo inverso e é apenas informativo: não altera a cota
+  de retirada de ninguém. Não existe o conceito de "família". O limite de retiradas não é do beneficiário:
+  é a **regra do ponto** (`CollectionPoint.WithdrawalRule`, tipo do ciclo + máximo por família; padrão 3 por ano).
+- **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia o beneficiário por Id.
 - **Review** (Aggregate Root) — avaliação pública de um `CollectionPoint` (nota 1–5 + comentário
   opcional), com moderação (`Hide`/`Restore`) e contagem de denúncias (`Report`).
 - **StoredFile** (Aggregate Root) — metadado de um arquivo (tipicamente foto de ponto de coleta) em
@@ -170,14 +166,13 @@ doacao-app/
 ### A regra de equidade
 
 ```
-RegisterWithdrawal(family, beneficiary, retiradasNoCicloEmTodosOsPontos, instante):
+RegisterWithdrawal(beneficiary, retiradasNoCicloEmTodosOsPontos, instante):
   - ponto deve estar ativo
-  - beneficiário deve pertencer à família
-  - retiradasNoCicloEmTodosOsPontos < family.Cycle.MaxWithdrawalsPerCycle
+  - retiradasNoCicloEmTodosOsPontos < ponto.WithdrawalRule.MaxWithdrawalsPerCycle
 ```
 
 A contagem (`retiradasNoCicloEmTodosOsPontos`) é calculada pelo handler via
-`ICollectionPointRepository.CountFamilyWithdrawalsAsync(familyId, início, fim)`, que consulta a
+`ICollectionPointRepository.CountBeneficiaryWithdrawalsAsync(beneficiaryId, início, fim)`, que consulta a
 tabela `withdrawals` **inteira** (todos os pontos) dentro da janela do ciclo vigente — daí o
 compartilhamento municipal do histórico.
 
@@ -291,14 +286,17 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 |---|---|---|
 | POST | `/api/collection-points` | Admin |
 | PUT | `/api/collection-points/{id}` | Admin |
+| GET | `/api/collection-points/{id}` | Admin, PointManager (gestor só o próprio ponto; inclui estoque e configurações) |
 | PUT | `/api/collection-points/{id}/stock` | Admin, PointManager |
-| POST | `/api/families` | Admin, PointManager |
-| GET | `/api/families/{id}` | autenticado |
-| GET | `/api/families/by-beneficiary-cpf/{cpf}` | Admin, PointManager |
-| POST | `/api/families/{id}/beneficiaries` | Admin, PointManager |
-| PUT | `/api/families/{id}/beneficiaries/{beneficiaryId}` | Admin, PointManager |
-| POST | `/api/families/{id}/beneficiaries/{beneficiaryId}/kinships` | Admin, PointManager (vínculo de parentesco; `familyId` da rota é só nominal — o beneficiário é localizado por Id) |
-| GET | `/api/families/{id}/withdrawals` | autenticado (histórico + saldo do ciclo) |
+| PUT | `/api/collection-points/{id}/stock-settings` | Admin, PointManager (metas, avisos de estoque baixo, categorias acompanhadas e a regra de retirada do ponto; gestor só o próprio ponto) |
+| GET | `/api/collection-points/{id}/dashboard` | Admin, PointManager (só o próprio ponto; `?from=&to=` em `yyyy-MM-dd`, padrão o mês atual, máx. 366 dias: retiradas por dia/mês, atendimentos e últimas retiradas) |
+| GET | `/api/beneficiaries` | autenticado (Admin: todos; gestor: os do próprio ponto) |
+| GET | `/api/beneficiaries/{id}` | autenticado (gestor só vê os do próprio ponto) |
+| GET | `/api/beneficiaries/by-cpf/{cpf}` | Admin, PointManager (busca municipal, usada na retirada) |
+| POST | `/api/beneficiaries` | Admin, PointManager |
+| PUT | `/api/beneficiaries/{id}` | Admin, PointManager (gestor só edita os do próprio ponto) |
+| POST | `/api/beneficiaries/{id}/kinships` | Admin, PointManager (vínculo de parentesco informativo, espelhado no outro beneficiário) |
+| GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, PointManager (histórico + saldo do ciclo pela regra do ponto; gestor só consulta pelo próprio ponto) |
 | POST | `/api/withdrawals` | Admin, PointManager |
 | POST | `/api/files` | Admin, PointManager (upload multipart, máx. 20MB) |
 | GET | `/api/files/{id}` | autenticado (metadado + URL pré-assinada) |
@@ -395,8 +393,8 @@ mais que uma correção pontual:
   no Axios, e uma estratégia de CSRF. Não é uma correção isolada — é uma mudança de arquitetura de
   autenticação.
 - **Cobertura de teste incompleta na Application layer**: sem teste ainda para
-  `CreateCollectionPoint`/`UpdateCollectionPoint`, `CreateFamily`/`FindFamilyByCpf`/
-  `GetFamilyById`/`ListFamilies`, todo o módulo `Reviews` (`CreateReview`, `ModerateReview`,
+  `CreateCollectionPoint`/`UpdateCollectionPoint`, `FindBeneficiaryByCpf`/
+  `GetBeneficiaryById`/`ListBeneficiaries`, todo o módulo `Reviews` (`CreateReview`, `ModerateReview`,
   `ListReviewsForPoint`) e a maior parte de `Storage` (`GetStoredFile`, `ListFilesByOwner`,
   `DeleteFile`). `UploadImage`/`StoredFile.Create`/`MarkDeleted` e todo o módulo `Authentication`
   ganharam teste nesta auditoria.

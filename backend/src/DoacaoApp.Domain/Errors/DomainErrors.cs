@@ -48,11 +48,13 @@ public static class DomainErrors
         public static Error NotFound => Error.NotFound("CollectionPoint.NotFound", "Ponto de coleta não encontrado.");
     }
 
-    public static class Family
+    public static class StockSetting
     {
-        public static Error NameRequired => Error.Validation("Family.NameRequired", "O nome/identificação da família é obrigatório.");
-        public static Error NotFound => Error.NotFound("Family.NotFound", "Família não encontrada.");
-        public static Error DuplicatedBeneficiaryCpf => Error.Conflict("Family.DuplicatedBeneficiaryCpf", "Já existe um beneficiário com este CPF nesta família.");
+        public static Error NegativeValue =>
+            Error.Validation("StockSetting.NegativeValue", "A meta e o aviso de estoque não podem ser negativos.");
+
+        public static Error AlertAboveGoal =>
+            Error.Validation("StockSetting.AlertAboveGoal", "O aviso de estoque baixo não pode ser maior que a meta.");
     }
 
     public static class Beneficiary
@@ -103,12 +105,9 @@ public static class DomainErrors
 
     public static class Withdrawal
     {
-        public static Error BeneficiaryNotInFamily =>
-            Error.Validation("Withdrawal.BeneficiaryNotInFamily", "O beneficiário informado não pertence à família indicada.");
-
         public static Error CycleLimitReached(int max) =>
             Error.Conflict(
                 "Withdrawal.CycleLimitReached",
-                $"A família já atingiu o limite de {max} retirada(s) no ciclo vigente (considerando todos os pontos do município).");
+                $"O beneficiário já atingiu o limite de {max} retirada(s) no ciclo vigente (considerando todos os pontos do município).");
     }
 }

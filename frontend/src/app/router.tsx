@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { CenteredSpinner } from '@/views/components/ui'
 import { lazyWithReload } from './lazyWithReload'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -22,9 +22,6 @@ const CollectionPointsPage = lazyWithReload(() =>
 )
 const StockPage = lazyWithReload(() =>
   import('@/views/pages/StockPage').then((m) => ({ default: m.StockPage })),
-)
-const FamiliesPage = lazyWithReload(() =>
-  import('@/views/pages/FamiliesPage').then((m) => ({ default: m.FamiliesPage })),
 )
 const BeneficiariesPage = lazyWithReload(() =>
   import('@/views/pages/BeneficiariesPage').then((m) => ({ default: m.BeneficiariesPage })),
@@ -60,24 +57,31 @@ export const router = createBrowserRouter([
   { path: '/login', element: withSuspense(<LoginPage />), errorElement: <RouteError /> },
   {
     path: '/app',
-    element: (
-      <ProtectedRoute>{withSuspense(<AppLayout />)}</ProtectedRoute>
-    ),
+    element: <ProtectedRoute>{withSuspense(<AppLayout />)}</ProtectedRoute>,
     errorElement: <RouteError />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       {
-        path: 'collection-points',
-        element: <ProtectedRoute roles={['Admin']}>{withSuspense(<CollectionPointsPage />)}</ProtectedRoute>,
+        path: 'admin',
+        element: (
+          <ProtectedRoute roles={['Admin']}>
+            <Outlet />
+          </ProtectedRoute>
+        ),
+        children: [
+          { index: true, element: <Navigate to="collection-points" replace /> },
+          { path: 'collection-points', element: withSuspense(<CollectionPointsPage />) },
+          { path: 'users', element: withSuspense(<UsersPage />) },
+        ],
       },
       { path: 'stock', element: withSuspense(<StockPage />) },
-      { path: 'families', element: withSuspense(<FamiliesPage />) },
       { path: 'beneficiaries', element: withSuspense(<BeneficiariesPage />) },
       { path: 'withdrawals/new', element: withSuspense(<RegisterWithdrawalPage />) },
       {
-        path: 'users',
-        element: <ProtectedRoute roles={['Admin']}>{withSuspense(<UsersPage />)}</ProtectedRoute>,
+        path: 'collection-points',
+        element: <Navigate to="/app/admin/collection-points" replace />,
       },
+      { path: 'users', element: <Navigate to="/app/admin/users" replace /> },
     ],
   },
   { path: '*', element: withSuspense(<NotFoundPage />), errorElement: <RouteError /> },

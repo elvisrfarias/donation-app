@@ -1,7 +1,7 @@
 using DoacaoApp.Domain.CollectionPoints.Events;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
-using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Domain.ValueObjects;
 using ErrorOr;
@@ -18,12 +18,14 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     private readonly List<ItemCategory> _acceptedItems = [];
     private List<string> _needs = [];
     private Dictionary<ItemCategory, int> _stock = [];
+    private Dictionary<ItemCategory, StockSetting> _stockSettings = [];
 
     private CollectionPoint()
     {
         Name = string.Empty;
         Address = null!;
         Contact = null!;
+        WithdrawalRule = null!;
     }
 
     private CollectionPoint(
@@ -50,6 +52,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         _needs = NormalizeNeeds(needs);
         CreatedAtUtc = createdAtUtc;
         IsActive = true;
+        WithdrawalRule = WithdrawalCycle.AnnualDefault();
     }
 
     /// <summary>Tamanho máximo da descrição livre da iniciativa/projeto.</summary>
@@ -69,6 +72,13 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public Address Address { get; private set; }
     public ContactInfo Contact { get; private set; }
 
+    /// <summary>
+    /// Regra de retirada deste ponto: tipo do ciclo + máximo de retiradas por pessoa em cada ciclo. O
+    /// histórico de retiradas é somado entre todos os pontos, mas o limite aplicado é o do ponto em que
+    /// a retirada acontece.
+    /// </summary>
+    public WithdrawalCycle WithdrawalRule { get; private set; }
+
     /// <summary>Texto livre que apresenta a iniciativa/projeto para a divulgação pública.</summary>
     public string? Description { get; private set; }
 
@@ -83,6 +93,12 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// significam "sem disponibilidade". Ajuda as famílias a saber o que há antes de irem ao ponto.
     /// </summary>
     public IReadOnlyDictionary<ItemCategory, int> Stock => _stock;
+
+    /// <summary>
+    /// Metas, avisos de estoque baixo e categorias acompanhadas, por categoria. Categorias sem
+    /// entrada usam o padrão (sem meta, aviso padrão, acompanhada).
+    /// </summary>
+    public IReadOnlyDictionary<ItemCategory, StockSetting> StockSettings => _stockSettings;
 
     /// <summary>
     /// Imagem (foto) do ponto de coleta no storage. Obrigatória para pontos cadastrados pela
@@ -164,6 +180,31 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
                 .GroupBy(kv => kv.Key)
                 .ToDictionary(g => g.Key, g => g.Last().Value);
 
+    /// <summary>
+    /// Redefine as configurações de estoque (substitui o mapa atual). Quando há entradas repetidas
+    /// da mesma categoria, prevalece a última. Valores negativos, ou um aviso acima da meta (quando
+    /// há meta), são recusados e o mapa anterior é mantido.
+    /// </summary>
+    public ErrorOr<Success> ReplaceStockSettings(IEnumerable<KeyValuePair<ItemCategory, StockSetting>>? settings)
+    {
+        var next = (settings ?? [])
+            .GroupBy(kv => kv.Key)
+            .ToDictionary(g => g.Key, g => g.Last().Value);
+
+        if (next.Values.Any(setting => setting.Goal < 0 || setting.AlertThreshold < 0))
+        {
+            return DomainErrors.StockSetting.NegativeValue;
+        }
+
+        if (next.Values.Any(setting => setting.Goal > 0 && setting.AlertThreshold > setting.Goal))
+        {
+            return DomainErrors.StockSetting.AlertAboveGoal;
+        }
+
+        _stockSettings = next;
+        return Result.Success;
+    }
+
     private static string? NormalizeDescription(string? description) =>
         string.IsNullOrWhiteSpace(description) ? null : description.Trim();
 
@@ -190,26 +231,27 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     public void Deactivate() => IsActive = false;
 
+    public void UpdateWithdrawalRule(WithdrawalCycle rule) => WithdrawalRule = rule;
+
     public void UpdateContact(ContactInfo contact) => Contact = contact;
 
     public void UpdateAddress(Address address) => Address = address;
 
     /// <summary>
     /// Registra uma retirada aplicando a regra de equidade. O número de retiradas já
-    /// feitas pela família NO CICLO VIGENTE (considerando TODOS os pontos do município)
-    /// é calculado fora do agregado e injetado aqui — o domínio só decide com base nele.
+    /// feitas pelo beneficiário NO CICLO VIGENTE deste ponto (considerando o histórico de TODOS os
+    /// pontos do município) é calculado fora do agregado e injetado aqui — o domínio só decide com
+    /// base nele e na <see cref="WithdrawalRule"/> deste ponto.
     /// </summary>
-    /// <param name="family">Família que está retirando.</param>
-    /// <param name="beneficiary">Beneficiário que comparece (deve pertencer à família).</param>
-    /// <param name="familyWithdrawalsInCurrentCycle">
-    /// Total de retiradas da família dentro do ciclo vigente, somando todos os pontos.
+    /// <param name="beneficiary">Beneficiário que está retirando.</param>
+    /// <param name="beneficiaryWithdrawalsInCurrentCycle">
+    /// Total de retiradas do beneficiário dentro do ciclo vigente, somando todos os pontos.
     /// </param>
     /// <param name="occurredAtUtc">Instante da retirada (UTC).</param>
     /// <param name="notes">Observações opcionais (ex.: itens retirados).</param>
     public ErrorOr<Withdrawal> RegisterWithdrawal(
-        Family family,
         Beneficiary beneficiary,
-        int familyWithdrawalsInCurrentCycle,
+        int beneficiaryWithdrawalsInCurrentCycle,
         DateTime occurredAtUtc,
         string? notes)
     {
@@ -218,21 +260,16 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.CollectionPoint.Inactive;
         }
 
-        if (beneficiary.FamilyId != family.Id)
+        if (beneficiaryWithdrawalsInCurrentCycle >= WithdrawalRule.MaxWithdrawalsPerCycle)
         {
-            return DomainErrors.Withdrawal.BeneficiaryNotInFamily;
+            return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
-        if (familyWithdrawalsInCurrentCycle >= family.Cycle.MaxWithdrawalsPerCycle)
-        {
-            return DomainErrors.Withdrawal.CycleLimitReached(family.Cycle.MaxWithdrawalsPerCycle);
-        }
-
-        var withdrawal = Withdrawal.Create(Id, family.Id, beneficiary.Id, occurredAtUtc, notes);
+        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, occurredAtUtc, notes);
         _withdrawals.Add(withdrawal);
 
         RaiseDomainEvent(new WithdrawalRegistered(
-            withdrawal.Id, family.Id, Id, beneficiary.Id, occurredAtUtc));
+            withdrawal.Id, Id, beneficiary.Id, occurredAtUtc));
 
         return withdrawal;
     }

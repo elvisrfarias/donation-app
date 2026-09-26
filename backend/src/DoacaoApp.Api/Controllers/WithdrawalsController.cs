@@ -13,13 +13,13 @@ namespace DoacaoApp.Api.Controllers;
 [Produces("application/json")]
 public sealed class WithdrawalsController(ISender sender) : ApiController(sender)
 {
-    /// <summary>Registra uma retirada de uma família em um ponto de coleta.</summary>
+    /// <summary>Registra uma retirada de um beneficiário em um ponto de coleta.</summary>
     /// <remarks>
-    /// Bloqueado (409) quando a família já atingiu o limite do ciclo vigente,
+    /// Bloqueado (409) quando o beneficiário já atingiu o limite do ciclo vigente,
     /// considerando o histórico de TODOS os pontos do município.
     /// </remarks>
     /// <response code="201">Retirada registrada.</response>
-    /// <response code="404">Família, beneficiário ou ponto não encontrado.</response>
+    /// <response code="404">Beneficiário ou ponto não encontrado.</response>
     /// <response code="409">Limite de retiradas do ciclo atingido / ponto inativo.</response>
     [HttpPost]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]

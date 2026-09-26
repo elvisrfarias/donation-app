@@ -1,8 +1,17 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import L from 'leaflet'
-import { Clock, HeartHandshake } from 'lucide-react'
-import { MapContainer, Marker, Popup, TileLayer, useMap, ZoomControl } from 'react-leaflet'
+import { Clock, HeartHandshake, Navigation } from 'lucide-react'
+import {
+  Circle,
+  MapContainer,
+  Marker,
+  Popup,
+  useMap,
+  useMapEvents,
+  ZoomControl,
+} from 'react-leaflet'
 import { env } from '@/lib/env'
+import { pointDirectionsUrl } from '@/lib/pointActions'
 import {
   collectionPointTypeLabels,
   formatAddress,
@@ -13,6 +22,7 @@ import {
 } from '@/models/types'
 import { Badge } from '@/views/components/ui'
 import { StarRating } from '@/views/components/reviews/StarRating'
+import { BaseMapTiles } from './BaseMapTiles'
 import { createMarkerIcon } from './markerIcon'
 
 interface Props {
@@ -20,6 +30,8 @@ interface Props {
   selectedId: string | null
   onSelect: (id: string | null) => void
   userLocation?: LatLng | null
+  userAccuracyMeters?: number | null
+  onPickLocation?: (position: LatLng) => void
 }
 
 const userLocationIcon = L.divIcon({
@@ -28,6 +40,12 @@ const userLocationIcon = L.divIcon({
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 })
+
+/** Permite marcar a própria localização com um toque no mapa quando a estimativa é imprecisa. */
+function PickLocationOnClick({ onPick }: { onPick: (position: LatLng) => void }) {
+  useMapEvents({ click: (event) => onPick({ lat: event.latlng.lat, lng: event.latlng.lng }) })
+  return null
+}
 
 /** Centraliza o mapa na localização do usuário quando ela é obtida. */
 function FlyToUser({ position }: { position: LatLng | null | undefined }) {
@@ -88,7 +106,14 @@ function FitToPoints({ points }: Pick<Props, 'points'>) {
   return null
 }
 
-export function CollectionPointsMap({ points, selectedId, onSelect, userLocation }: Props) {
+export function CollectionPointsMap({
+  points,
+  selectedId,
+  onSelect,
+  userLocation,
+  userAccuracyMeters,
+  onPickLocation,
+}: Props) {
   const located = points.filter(hasPosition)
   const markerRefs = useRef<Record<string, L.Marker>>({})
 
@@ -100,12 +125,7 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
       zoomControl={false}
       className="size-full bg-stone-100"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
-        maxZoom={20}
-      />
+      <BaseMapTiles />
       <ZoomControl position="bottomright" />
 
       {located.map(({ item, position }) => (
@@ -146,11 +166,11 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
                   </span>
                 </div>
               )}
-              {item.familiesServed > 0 && (
+              {item.beneficiariesServed > 0 && (
                 <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                   <HeartHandshake className="size-3.5" />
-                  {item.familiesServed}{' '}
-                  {item.familiesServed === 1 ? 'família atendida' : 'famílias atendidas'}
+                  {item.beneficiariesServed}{' '}
+                  {item.beneficiariesServed === 1 ? 'pessoa atendida' : 'pessoas atendidas'}
                 </p>
               )}
               {item.openingHours && (
@@ -161,14 +181,14 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
               )}
               {item.needs.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                  <p className="text-[10px] font-bold tracking-wide text-amber-600 uppercase">
                     Precisa agora
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.needs.map((need) => (
                       <span
                         key={need}
-                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200"
+                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200 ring-inset"
                       >
                         {need}
                       </span>
@@ -178,14 +198,14 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
               )}
               {item.stock.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                  <p className="text-[10px] font-bold tracking-wide text-emerald-600 uppercase">
                     Disponível agora
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.stock.map((s) => (
                       <span
                         key={s.category}
-                        className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                        className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 ring-inset"
                       >
                         {itemCategoryLabels[s.category]}: {s.quantity}
                       </span>
@@ -199,11 +219,27 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
                   {item.contact.phone} · {item.contact.email}
                 </p>
               </div>
+              <a
+                href={pointDirectionsUrl(item)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-brand-600 hover:bg-brand-700 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white! transition-colors"
+              >
+                <Navigation className="size-4" />
+                Como chegar (Google Maps)
+              </a>
             </div>
           </Popup>
         </Marker>
       ))}
 
+      {userLocation && userAccuracyMeters != null && (
+        <Circle
+          center={[userLocation.lat, userLocation.lng]}
+          radius={userAccuracyMeters}
+          pathOptions={{ color: '#2563eb', weight: 1, fillOpacity: 0.08 }}
+        />
+      )}
       {userLocation && (
         <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
           <Popup>Você está aqui</Popup>
@@ -213,6 +249,7 @@ export function CollectionPointsMap({ points, selectedId, onSelect, userLocation
       <FitToPoints points={points} />
       <FlyToSelected points={points} selectedId={selectedId} markerRefs={markerRefs} />
       <FlyToUser position={userLocation} />
+      {onPickLocation && <PickLocationOnClick onPick={onPickLocation} />}
     </MapContainer>
   )
 }

@@ -22,6 +22,13 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
         builder.Property(p => p.Description).HasColumnName("description").HasMaxLength(CollectionPoint.MaxDescriptionLength);
         builder.Property(p => p.OpeningHours).HasColumnName("opening_hours").HasMaxLength(CollectionPoint.MaxOpeningHoursLength);
 
+        builder.OwnsOne(p => p.WithdrawalRule, rule =>
+        {
+            rule.Property(x => x.Type).HasColumnName("withdrawal_cycle_type").HasConversion<string>().HasMaxLength(20).IsRequired();
+            rule.Property(x => x.MaxWithdrawalsPerCycle).HasColumnName("withdrawal_cycle_max").IsRequired();
+        });
+        builder.Navigation(p => p.WithdrawalRule).IsRequired();
+
         var needsConverter = new ValueConverter<IReadOnlyList<string>, string>(
             needs => JsonSerializer.Serialize(needs, (JsonSerializerOptions?)null),
             value => string.IsNullOrWhiteSpace(value)
@@ -65,6 +72,30 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
             .HasDefaultValueSql("'{}'::jsonb");
         builder.Metadata
             .FindProperty(nameof(CollectionPoint.Stock))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        var stockSettingsConverter = new ValueConverter<IReadOnlyDictionary<ItemCategory, StockSetting>, string>(
+            settings => JsonSerializer.Serialize(
+                settings.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), (JsonSerializerOptions?)null),
+            value => string.IsNullOrWhiteSpace(value)
+                ? new Dictionary<ItemCategory, StockSetting>()
+                : (JsonSerializer.Deserialize<Dictionary<string, StockSetting>>(value, (JsonSerializerOptions?)null)
+                        ?? new Dictionary<string, StockSetting>())
+                    .ToDictionary(kv => Enum.Parse<ItemCategory>(kv.Key), kv => kv.Value));
+
+        var stockSettingsComparer = new ValueComparer<IReadOnlyDictionary<ItemCategory, StockSetting>>(
+            (a, b) => a!.Count == b!.Count && !a.Except(b!).Any(),
+            settings => settings.Aggregate(0, (hash, kv) => HashCode.Combine(hash, (int)kv.Key, kv.Value)),
+            settings => (IReadOnlyDictionary<ItemCategory, StockSetting>)settings.ToDictionary(kv => kv.Key, kv => kv.Value));
+
+        builder.Property(p => p.StockSettings)
+            .HasColumnName("stock_settings")
+            .HasConversion(stockSettingsConverter, stockSettingsComparer)
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasDefaultValueSql("'{}'::jsonb");
+        builder.Metadata
+            .FindProperty(nameof(CollectionPoint.StockSettings))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(

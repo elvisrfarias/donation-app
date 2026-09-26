@@ -1,5 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApiList, useApiMutation } from '@/lib/apiHooks'
+import type { DashboardPeriod } from '@/lib/dashboardPeriod'
 import { queryKeys } from '@/lib/queryClient'
 import { ApiError } from '@/models/api/problemDetails'
 import { cepService, collectionPointService, geocodingService } from '@/models/services'
@@ -7,8 +8,10 @@ import {
   formatAddress,
   type Address,
   type CollectionPoint,
+  type CollectionPointDashboard,
   type LatLng,
   type StockItem,
+  type UpdateStockSettingsInput,
 } from '@/models/types'
 import type { CreateCollectionPointForm, UpdateCollectionPointForm } from '@/viewmodels/schemas'
 
@@ -73,6 +76,44 @@ export function useCollectionPointsForManagement() {
   return { points: items, ...rest }
 }
 
+/** Um único ponto (com estoque). O backend limita o gestor ao próprio ponto. */
+export function useCollectionPoint(pointId: string | null) {
+  const query = useQuery<CollectionPoint, ApiError>({
+    queryKey: queryKeys.collectionPoints.detail(pointId ?? ''),
+    queryFn: ({ signal }) => collectionPointService.getById(pointId ?? '', signal),
+    enabled: pointId !== null,
+  })
+
+  return {
+    point: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  }
+}
+
+/** Indicadores de resultado de um único ponto (retiradas por mês, atendimentos, últimas retiradas). */
+export function useCollectionPointDashboard(
+  pointId: string | null,
+  period: DashboardPeriod,
+  enabled = true,
+) {
+  const query = useQuery<CollectionPointDashboard, ApiError>({
+    queryKey: queryKeys.collectionPoints.dashboard(pointId ?? '', period.from, period.to),
+    queryFn: ({ signal }) => collectionPointService.getDashboard(pointId ?? '', period, signal),
+    enabled: pointId !== null && enabled,
+    placeholderData: keepPreviousData,
+  })
+
+  return {
+    dashboard: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  }
+}
+
 /** Mutação de criação de ponto de coleta (Admin). */
 export function useCreateCollectionPoint() {
   const queryClient = useQueryClient()
@@ -126,8 +167,28 @@ export function useUpdateStock() {
 
   const { mutate, ...rest } = useApiMutation<CollectionPoint, { id: string; items: StockItem[] }>({
     mutationFn: ({ id, items }) => collectionPointService.updateStock(id, items),
-    onSuccess: () => invalidateCollectionPointLists(queryClient),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+      invalidateCollectionPointLists(queryClient)
+    },
   })
 
   return { updateStock: mutate, ...rest }
+}
+
+/** Mutação das metas, avisos, categorias acompanhadas e regra de retirada do ponto (Admin ou PointManager). */
+export function useUpdateStockSettings() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { id: string; input: UpdateStockSettingsInput }
+  >({
+    mutationFn: ({ id, input }) => collectionPointService.updateStockSettings(id, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateStockSettings: mutate, ...rest }
 }

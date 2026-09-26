@@ -2,7 +2,6 @@
 export interface Withdrawal {
   id: string
   pointId: string
-  familyId: string
   beneficiaryId: string
   occurredAtUtc: string
   notes?: string | null
@@ -11,16 +10,15 @@ export interface Withdrawal {
 /** Corpo do RegisterWithdrawalCommand. */
 export interface RegisterWithdrawalInput {
   pointId: string
-  familyId: string
   beneficiaryId: string
   occurredAtUtc?: string | null
   notes?: string | null
 }
 
-/** FamilyWithdrawalHistoryResponse — histórico municipal + saldo do ciclo vigente. */
-export interface FamilyWithdrawalHistory {
-  familyId: string
-  familyName: string
+/** BeneficiaryWithdrawalHistoryResponse — histórico municipal + saldo do ciclo vigente. */
+export interface BeneficiaryWithdrawalHistory {
+  beneficiaryId: string
+  beneficiaryName: string
   cycleType: string
   maxPerCycle: number
   usedInCurrentCycle: number

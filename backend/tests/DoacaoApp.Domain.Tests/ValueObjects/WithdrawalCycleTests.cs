@@ -34,6 +34,17 @@ public class WithdrawalCycleTests
     }
 
     [Fact]
+    public void GetCurrentPeriod_Anual_DeveRetornarPrimeiroDeJaneiroAoPrimeiroDoAnoSeguinte()
+    {
+        var cycle = WithdrawalCycle.Create(CycleType.Annual, 1).Value;
+
+        var (start, end) = cycle.GetCurrentPeriod(new DateTime(2026, 9, 26, 12, 0, 0, DateTimeKind.Utc));
+
+        start.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        end.Should().Be(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
     public void GetCurrentPeriod_Semanal_DeveComecarNaSegundaEDurarSeteDias()
     {
         var cycle = WithdrawalCycle.Create(CycleType.Weekly, 1).Value;

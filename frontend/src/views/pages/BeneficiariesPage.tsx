@@ -1,28 +1,30 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, UserPlus } from 'lucide-react'
+import { Pencil, Save, UserPlus } from 'lucide-react'
 import { useState } from 'react'
-import { type Beneficiary } from '@/models/types'
+import { ApiError } from '@/models/api/problemDetails'
+import { type AddBeneficiaryKinshipInput, type Beneficiary } from '@/models/types'
 import {
-  registerBeneficiaryWithFamilySchema,
+  registerBeneficiarySchema,
   updateBeneficiarySchema,
+  useAddBeneficiaryKinship,
   useAuth,
+  useBeneficiaries,
   useCollectionPoints,
-  useCreateFamily,
-  useFamilies,
   useRegisterBeneficiary,
   useUpdateBeneficiary,
-  type RegisterBeneficiaryWithFamilyForm,
+  type RegisterBeneficiaryForm,
   type UpdateBeneficiaryForm,
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
-import { BeneficiaryKinshipsEditor } from '@/views/components/families/BeneficiaryKinshipsEditor'
+import { BeneficiaryKinshipsEditor } from '@/views/components/beneficiaries/BeneficiaryKinshipsEditor'
+import { PendingKinshipsEditor } from '@/views/components/beneficiaries/PendingKinshipsEditor'
 import { FormComponent, type FormFieldConfig } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
-type BeneficiaryRow = Beneficiary & { familyName: string }
+const LAST_POINT_KEY = 'doacao.lastRegistrationPointId'
 
-const beneficiaryColumns: ColumnDef<BeneficiaryRow>[] = [
+const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
   {
     accessorKey: 'name',
     header: 'Nome',
@@ -30,11 +32,6 @@ const beneficiaryColumns: ColumnDef<BeneficiaryRow>[] = [
     cell: ({ getValue }) => (
       <span className="font-medium text-stone-800">{getValue<string>()}</span>
     ),
-  },
-  {
-    accessorKey: 'familyName',
-    header: 'Família',
-    meta: { label: 'Família', filterPlaceholder: 'Filtrar família…' },
   },
   {
     accessorKey: 'cpf',
@@ -66,55 +63,31 @@ const beneficiaryColumns: ColumnDef<BeneficiaryRow>[] = [
   },
 ]
 
-const LAST_POINT_KEY = 'doacao.lastRegistrationPointId'
-
 export function BeneficiariesPage() {
-  const { isManager } = useAuth()
+  const { user, isAdmin, isManager } = useAuth()
   const { points } = useCollectionPoints()
-  const { families, isLoading, isError, error } = useFamilies()
+  const { beneficiaries, isLoading, isError, error } = useBeneficiaries()
   const registerBeneficiary = useRegisterBeneficiary()
   const updateBeneficiary = useUpdateBeneficiary()
-  const createFamily = useCreateFamily()
+  const { addKinship } = useAddBeneficiaryKinship()
 
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
-  const [editingBeneficiary, setEditingBeneficiary] = useState<BeneficiaryRow | null>(null)
-  const [createdFamilies, setCreatedFamilies] = useState<{ id: string; name: string }[]>([])
+  const [editingBeneficiary, setEditingBeneficiary] = useState<Beneficiary | null>(null)
+  const [pendingKinships, setPendingKinships] = useState<AddBeneficiaryKinshipInput[]>([])
+  const [kinshipNotice, setKinshipNotice] = useState<string | null>(null)
 
-  const rows: BeneficiaryRow[] = families.flatMap((family) =>
-    family.beneficiaries.map((beneficiary) => ({ ...beneficiary, familyName: family.name })),
-  )
+  const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
 
-  const familyOptions = [
-    ...families.map((f) => ({ value: f.id, label: f.name })),
-    ...createdFamilies
-      .filter((cf) => !families.some((f) => f.id === cf.id))
-      .map((cf) => ({ value: cf.id, label: cf.name })),
-  ]
-
-  async function createFamilyInline(name: string): Promise<string | undefined> {
-    try {
-      const family = await createFamily.create({
-        name,
-        cycleType: 'Monthly',
-        maxWithdrawalsPerCycle: 1,
-      })
-      setCreatedFamilies((prev) => [...prev, { id: family.id, name: family.name }])
-      return family.id
-    } catch {
-      return undefined
-    }
-  }
-
-  const lastPointId = typeof localStorage !== 'undefined' ? localStorage.getItem(LAST_POINT_KEY) : null
+  const lastPointId =
+    typeof localStorage !== 'undefined' ? localStorage.getItem(LAST_POINT_KEY) : null
   const defaultPointId =
-    points.length === 1
-      ? points[0].id
-      : points.some((p) => p.id === lastPointId)
+    availablePoints.length === 1
+      ? availablePoints[0].id
+      : availablePoints.some((p) => p.id === lastPointId)
         ? (lastPointId as string)
         : ''
 
-  const beneficiaryDefaults: RegisterBeneficiaryWithFamilyForm = {
-    familyId: '',
+  const beneficiaryDefaults: RegisterBeneficiaryForm = {
     name: '',
     cpf: '',
     birthDate: '',
@@ -123,12 +96,13 @@ export function BeneficiariesPage() {
 
   function openBeneficiary() {
     registerBeneficiary.reset()
-    createFamily.reset()
+    setPendingKinships([])
     setBeneficiaryOpen(true)
   }
 
-  function openEditBeneficiary(beneficiary: BeneficiaryRow) {
+  function openEditBeneficiary(beneficiary: Beneficiary) {
     updateBeneficiary.reset()
+    setKinshipNotice(null)
     setEditingBeneficiary(beneficiary)
   }
 
@@ -140,32 +114,16 @@ export function BeneficiariesPage() {
       name: 'registeredByPointId',
       type: 'autocomplete',
       label: 'Ponto de cadastro',
-      options: points.map((p) => ({ value: p.id, label: p.name })),
+      options: availablePoints.map((p) => ({ value: p.id, label: p.name })),
       placeholder: 'Selecione…',
       searchPlaceholder: 'Buscar ponto…',
       emptyText: 'Nenhum ponto encontrado.',
       required: true,
     },
-    {
-      name: 'familyId',
-      type: 'autocomplete',
-      label: 'Família',
-      options: familyOptions,
-      placeholder: 'Selecione ou crie…',
-      searchPlaceholder: 'Buscar ou digitar nova família…',
-      emptyText: 'Digite o nome para criar uma família.',
-      hint: 'Selecione a família ou digite um nome novo para criá-la na hora.',
-      onCreate: createFamilyInline,
-      createLabel: (name) => `Criar família “${name}”`,
-      required: true,
-      colSpan: 'full',
-    },
   ]
 
-  const editFields = beneficiaryFields.filter((field) => !('name' in field) || field.name !== 'familyId')
-
   const liveEditingBeneficiary = editingBeneficiary
-    ? (rows.find((row) => row.id === editingBeneficiary.id) ?? editingBeneficiary)
+    ? (beneficiaries.find((row) => row.id === editingBeneficiary.id) ?? editingBeneficiary)
     : null
 
   const editDefaults: UpdateBeneficiaryForm | null = editingBeneficiary && {
@@ -175,7 +133,59 @@ export function BeneficiariesPage() {
     registeredByPointId: editingBeneficiary.registeredByPointId,
   }
 
-  const beneficiaryActions: RowAction<BeneficiaryRow>[] = [
+  async function linkPendingKinships(created: Beneficiary): Promise<string[]> {
+    const failures: string[] = []
+    for (const kinship of pendingKinships) {
+      try {
+        await addKinship({ beneficiaryId: created.id, input: kinship })
+      } catch (error) {
+        const reason = error instanceof ApiError ? error.displayMessage : 'erro inesperado.'
+        failures.push(`${kinship.relatedBeneficiaryCpf} (${reason})`)
+      }
+    }
+    return failures
+  }
+
+  function describeKinshipFailures(failures: string[]): string {
+    const summary =
+      failures.length === 1
+        ? 'um vínculo não foi gravado'
+        : `${failures.length} vínculos não foram gravados`
+    return `Beneficiário salvo, mas ${summary}: ${failures.join(' ')}`
+  }
+
+  async function handleRegister(values: RegisterBeneficiaryForm) {
+    const created = await registerBeneficiary.register({
+      name: values.name,
+      cpf: values.cpf,
+      birthDate: values.birthDate || null,
+      registeredByPointId: values.registeredByPointId,
+    })
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LAST_POINT_KEY, values.registeredByPointId)
+    }
+    const failures = await linkPendingKinships(created)
+    setBeneficiaryOpen(false)
+    if (failures.length > 0) {
+      setKinshipNotice(describeKinshipFailures(failures))
+      setEditingBeneficiary(created)
+    }
+  }
+
+  async function handleUpdate(beneficiary: Beneficiary, values: UpdateBeneficiaryForm) {
+    await updateBeneficiary.update({
+      beneficiaryId: beneficiary.id,
+      input: {
+        name: values.name,
+        cpf: values.cpf,
+        birthDate: values.birthDate || null,
+        registeredByPointId: values.registeredByPointId,
+      },
+    })
+    setEditingBeneficiary(null)
+  }
+
+  const beneficiaryActions: RowAction<Beneficiary>[] = [
     {
       label: 'Editar',
       icon: <Pencil className="size-4" />,
@@ -188,13 +198,17 @@ export function BeneficiariesPage() {
       <SectionTitle
         icon={<UserPlus className="size-5" />}
         title="Beneficiários"
-        description="Cadastre pessoas e agrupe em famílias — crie a família na hora, sem sair da tela."
+        description="Cadastre as pessoas atendidas. O limite de retiradas é definido na configuração do estoque de cada ponto."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-stone-900">Beneficiários cadastrados</h2>
         {isManager ? (
-          <Button variant="brand" leftIcon={<UserPlus className="size-4" />} onClick={openBeneficiary}>
+          <Button
+            variant="brand"
+            leftIcon={<UserPlus className="size-4" />}
+            onClick={openBeneficiary}
+          >
             Adicionar beneficiário
           </Button>
         ) : (
@@ -208,7 +222,7 @@ export function BeneficiariesPage() {
 
       <DataTable
         columns={beneficiaryColumns}
-        data={rows}
+        data={beneficiaries}
         isLoading={isLoading}
         actions={isManager ? beneficiaryActions : undefined}
         searchPlaceholder="Buscar beneficiário…"
@@ -220,37 +234,25 @@ export function BeneficiariesPage() {
           open={beneficiaryOpen}
           onOpenChange={setBeneficiaryOpen}
           title="Adicionar beneficiário"
-          description="Vincule a uma família existente ou digite um nome novo para criar a família na hora."
+          description="Cadastre a pessoa e, se quiser, os vínculos de parentesco."
+          size="xl"
         >
           {registerBeneficiary.error && (
             <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
           )}
-          {createFamily.error && (
-            <Alert tone="error">{createFamily.error.displayMessage}</Alert>
-          )}
           <FormComponent
             key={beneficiaryOpen ? 'add-beneficiary' : 'closed'}
             columns={2}
-            schema={registerBeneficiaryWithFamilySchema}
+            schema={registerBeneficiarySchema}
             defaultValues={beneficiaryDefaults}
             fields={beneficiaryFields}
-            onSubmit={async (values) => {
-              await registerBeneficiary.register({
-                familyId: values.familyId,
-                name: values.name,
-                cpf: values.cpf,
-                birthDate: values.birthDate || null,
-                registeredByPointId: values.registeredByPointId,
-              })
-              if (typeof localStorage !== 'undefined') {
-                localStorage.setItem(LAST_POINT_KEY, values.registeredByPointId)
-              }
-              setBeneficiaryOpen(false)
-            }}
-            submitLabel="Adicionar"
-            submitIcon={<UserPlus className="size-4" />}
+            onSubmit={handleRegister}
+            submitLabel="Salvar"
+            submitIcon={<Save className="size-4" />}
             submitFullWidth
-          />
+          >
+            <PendingKinshipsEditor items={pendingKinships} onChange={setPendingKinships} />
+          </FormComponent>
         </ModalComponent>
       )}
 
@@ -260,7 +262,9 @@ export function BeneficiariesPage() {
           onOpenChange={(open) => !open && setEditingBeneficiary(null)}
           title="Editar beneficiário"
           description={`Atualize os dados de ${editingBeneficiary.name}.`}
+          size="xl"
         >
+          {kinshipNotice && <Alert tone="warning">{kinshipNotice}</Alert>}
           {updateBeneficiary.error && (
             <Alert tone="error">{updateBeneficiary.error.displayMessage}</Alert>
           )}
@@ -269,29 +273,16 @@ export function BeneficiariesPage() {
             columns={2}
             schema={updateBeneficiarySchema}
             defaultValues={editDefaults}
-            fields={editFields}
-            onSubmit={async (values) => {
-              await updateBeneficiary.update({
-                familyId: editingBeneficiary.familyId,
-                beneficiaryId: editingBeneficiary.id,
-                input: {
-                  name: values.name,
-                  cpf: values.cpf,
-                  birthDate: values.birthDate || null,
-                  registeredByPointId: values.registeredByPointId,
-                },
-              })
-              setEditingBeneficiary(null)
-            }}
-            submitLabel="Salvar alterações"
-            submitIcon={<Pencil className="size-4" />}
+            fields={beneficiaryFields}
+            onSubmit={(values) => handleUpdate(editingBeneficiary, values)}
+            submitLabel="Salvar"
+            submitIcon={<Save className="size-4" />}
             submitFullWidth
-          />
-          {liveEditingBeneficiary && (
-            <div className="mt-4">
+          >
+            {liveEditingBeneficiary && (
               <BeneficiaryKinshipsEditor beneficiary={liveEditingBeneficiary} />
-            </div>
-          )}
+            )}
+          </FormComponent>
         </ModalComponent>
       )}
     </div>

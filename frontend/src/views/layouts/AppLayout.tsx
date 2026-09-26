@@ -1,34 +1,124 @@
+import { useState } from 'react'
 import {
   Boxes,
+  ChevronDown,
   LayoutDashboard,
   LogOut,
   Map,
   MapPin,
   PackageCheck,
+  Shield,
   ShieldUser,
   UserPlus,
-  Users,
 } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { cn, initials } from '@/lib/utils'
 import { roleLabels } from '@/models/types/auth'
 import { useAuth } from '@/viewmodels'
 import { AppLogo } from '@/views/components/common/AppLogo'
 
-const navItems = [
-  { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true, adminOnly: false },
-  { to: '/app/collection-points', label: 'Pontos de Coleta', icon: MapPin, end: false, adminOnly: true },
-  { to: '/app/stock', label: 'Estoque', icon: Boxes, end: false, adminOnly: false },
-  { to: '/app/families', label: 'Famílias', icon: Users, end: false, adminOnly: false },
-  { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false, adminOnly: false },
-  { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false, adminOnly: false },
-  { to: '/app/users', label: 'Usuários', icon: ShieldUser, end: false, adminOnly: true },
+interface NavItem {
+  to: string
+  label: string
+  icon: typeof LayoutDashboard
+  end: boolean
+}
+
+const ADMIN_ROUTE_PREFIX = '/app/admin'
+
+const mainNavItems: NavItem[] = [
+  { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true },
+  { to: '/app/stock', label: 'Estoque', icon: Boxes, end: false },
+  { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false },
+  { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },
 ]
+
+const adminNavItems: NavItem[] = [
+  {
+    to: `${ADMIN_ROUTE_PREFIX}/collection-points`,
+    label: 'Pontos de Coleta',
+    icon: MapPin,
+    end: false,
+  },
+  { to: `${ADMIN_ROUTE_PREFIX}/users`, label: 'Usuários', icon: ShieldUser, end: false },
+]
+
+const adminMobileNavItem: NavItem = {
+  to: ADMIN_ROUTE_PREFIX,
+  label: 'Admin',
+  icon: Shield,
+  end: false,
+}
+
+function SidebarLink({ item, nested = false }: { item: NavItem; nested?: boolean }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        cn(
+          'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all',
+          nested && 'py-2 pl-4',
+          isActive
+            ? 'text-brand-700 shadow-lift bg-white'
+            : 'text-white/65 hover:bg-white/10 hover:text-white',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <item.icon
+            className={cn(
+              nested ? 'size-4' : 'size-5',
+              'transition-colors',
+              isActive ? 'text-brand-600' : 'text-white/55 group-hover:text-white',
+            )}
+          />
+          {item.label}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+function AdminMenu() {
+  const { pathname } = useLocation()
+  const isOnAdminRoute = pathname.startsWith(ADMIN_ROUTE_PREFIX)
+  const [isOpen, setIsOpen] = useState(isOnAdminRoute)
+  const isExpanded = isOpen || isOnAdminRoute
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        onClick={() => setIsOpen(!isExpanded)}
+        className={cn(
+          'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all',
+          isOnAdminRoute ? 'text-white' : 'text-white/65 hover:bg-white/10 hover:text-white',
+        )}
+      >
+        <Shield className="size-5 text-white/55 group-hover:text-white" />
+        Admin
+        <ChevronDown
+          className={cn('ml-auto size-4 transition-transform', isExpanded && 'rotate-180')}
+        />
+      </button>
+      {isExpanded && (
+        <div className="ml-3 flex flex-col gap-1 border-l border-white/15 pl-2">
+          {adminNavItems.map((item) => (
+            <SidebarLink key={item.to} item={item} nested />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function AppLayout() {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
-  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin)
+  const mobileNavItems: NavItem[] = isAdmin ? [...mainNavItems, adminMobileNavItem] : mainNavItems
 
   const handleLogout = async () => {
     await logout()
@@ -36,38 +126,15 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas">
-      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-linear-to-b from-sidebar to-sidebar-deep px-4 py-6 lg:flex">
+    <div className="bg-canvas flex h-dvh overflow-hidden">
+      <aside className="from-sidebar to-sidebar-deep hidden w-64 shrink-0 flex-col overflow-y-auto bg-linear-to-b px-4 py-6 lg:flex">
         <AppLogo className="px-1" inverted />
 
         <nav className="mt-9 flex flex-1 flex-col gap-1.5">
-          {visibleNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all',
-                  isActive
-                    ? 'bg-white text-brand-700 shadow-lift'
-                    : 'text-white/65 hover:bg-white/10 hover:text-white',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon
-                    className={cn(
-                      'size-5 transition-colors',
-                      isActive ? 'text-brand-600' : 'text-white/55 group-hover:text-white',
-                    )}
-                  />
-                  {item.label}
-                </>
-              )}
-            </NavLink>
+          {mainNavItems.map((item) => (
+            <SidebarLink key={item.to} item={item} />
           ))}
+          {isAdmin && <AdminMenu />}
 
           <NavLink
             to="/"
@@ -78,9 +145,9 @@ export function AppLayout() {
           </NavLink>
         </nav>
 
-        <div className="mt-auto rounded-3xl bg-white/10 p-3 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+        <div className="mt-auto rounded-3xl bg-white/10 p-3 ring-1 ring-white/15 backdrop-blur-sm ring-inset">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-brand-700">
+            <span className="text-brand-700 grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold">
               {initials(user?.fullName ?? '?')}
             </span>
             <div className="min-w-0">
@@ -93,7 +160,7 @@ export function AppLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-inset ring-white/15 transition-colors hover:bg-white hover:text-brand-700 hover:ring-white"
+            className="hover:text-brand-700 mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/15 transition-colors ring-inset hover:bg-white hover:ring-white"
           >
             <LogOut className="size-4" />
             Sair
@@ -120,7 +187,7 @@ export function AppLayout() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-stone-200 bg-white/90 backdrop-blur-md lg:hidden">
-        {visibleNavItems.map((item) => (
+        {mobileNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

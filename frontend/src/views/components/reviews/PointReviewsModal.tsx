@@ -119,11 +119,11 @@ function PointReviewsBody({ point }: { point: CollectionPoint }) {
                 ? 'Ainda sem avaliações. Seja o primeiro a avaliar!'
                 : `${point.reviewCount} ${point.reviewCount === 1 ? 'avaliação' : 'avaliações'} da comunidade`}
             </p>
-            {point.familiesServed > 0 && (
+            {point.beneficiariesServed > 0 && (
               <p className="inline-flex items-center gap-1.5 font-medium text-emerald-600">
                 <HeartHandshake className="size-4" />
-                {point.familiesServed}{' '}
-                {point.familiesServed === 1 ? 'família atendida' : 'famílias atendidas'}
+                {point.beneficiariesServed}{' '}
+                {point.beneficiariesServed === 1 ? 'pessoa atendida' : 'pessoas atendidas'}
               </p>
             )}
           </div>

@@ -1,18 +1,17 @@
 import { http } from '@/models/api/httpClient'
 import type {
   CollectionPoint,
+  CollectionPointDashboard,
   CreateCollectionPointInput,
   StockItem,
+  UpdateStockSettingsInput,
   UpdateCollectionPointInput,
   UploadedImage,
 } from '@/models/types'
 
 export const collectionPointService = {
   /** Lista pública (anônima) dos pontos de coleta ativos. Use sort='top-rated' para o ranking. */
-  async listPublic(
-    signal?: AbortSignal,
-    sort?: 'top-rated',
-  ): Promise<CollectionPoint[]> {
+  async listPublic(signal?: AbortSignal, sort?: 'top-rated'): Promise<CollectionPoint[]> {
     const { data } = await http.get<CollectionPoint[]>('/public/collection-points', {
       signal,
       params: sort ? { sort } : undefined,
@@ -38,6 +37,25 @@ export const collectionPointService = {
     return data
   },
 
+  /** Consulta um ponto com o estoque (Admin: qualquer ponto; PointManager: apenas o próprio). */
+  async getById(id: string, signal?: AbortSignal): Promise<CollectionPoint> {
+    const { data } = await http.get<CollectionPoint>(`/collection-points/${id}`, { signal })
+    return data
+  },
+
+  /** Indicadores de resultado do ponto no período (Admin: qualquer ponto; PointManager: apenas o próprio). */
+  async getDashboard(
+    id: string,
+    period: { from: string; to: string },
+    signal?: AbortSignal,
+  ): Promise<CollectionPointDashboard> {
+    const { data } = await http.get<CollectionPointDashboard>(
+      `/collection-points/${id}/dashboard`,
+      { signal, params: period },
+    )
+    return data
+  },
+
   /** Cadastra um novo ponto de coleta (requer role Admin). */
   async create(input: CreateCollectionPointInput): Promise<CollectionPoint> {
     const { data } = await http.post<CollectionPoint>('/collection-points', input)
@@ -53,6 +71,18 @@ export const collectionPointService = {
   /** Redefine o estoque (itens disponíveis) do ponto (requer role Admin ou PointManager). */
   async updateStock(id: string, items: StockItem[]): Promise<CollectionPoint> {
     const { data } = await http.put<CollectionPoint>(`/collection-points/${id}/stock`, { items })
+    return data
+  },
+
+  /**
+   * Redefine metas, avisos e categorias acompanhadas do ponto e a regra de retirada dele
+   * (requer role Admin ou PointManager).
+   */
+  async updateStockSettings(id: string, input: UpdateStockSettingsInput): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/stock-settings`,
+      input,
+    )
     return data
   },
 }

@@ -27,11 +27,13 @@ interface BaseField {
 }
 
 type TextLikeField = BaseField & {
-  type: 'text' | 'email' | 'password' | 'date'
+  type: 'text' | 'email' | 'password'
   placeholder?: string
   autoComplete?: string
   maxLength?: number
 }
+
+type DateField = BaseField & { type: 'date' }
 
 type NumberField = BaseField & {
   type: 'number'
@@ -95,6 +97,7 @@ type CustomField = {
 /** Campos vinculados a um valor do schema (tudo menos `custom`). */
 export type BoundFieldConfig =
   | TextLikeField
+  | DateField
   | NumberField
   | TextareaField
   | SelectField

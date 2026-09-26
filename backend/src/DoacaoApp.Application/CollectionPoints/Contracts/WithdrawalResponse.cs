@@ -6,7 +6,6 @@ namespace DoacaoApp.Application.CollectionPoints.Contracts;
 public sealed record WithdrawalResponse(
     Guid Id,
     Guid PointId,
-    Guid FamilyId,
     Guid BeneficiaryId,
     DateTime OccurredAtUtc,
     string? Notes);
@@ -17,7 +16,6 @@ public static class WithdrawalMappings
         new(
             withdrawal.Id.Value,
             withdrawal.PointId.Value,
-            withdrawal.FamilyId.Value,
             withdrawal.BeneficiaryId.Value,
             withdrawal.OccurredAtUtc,
             withdrawal.Notes);

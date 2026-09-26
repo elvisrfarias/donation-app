@@ -3,20 +3,22 @@ export { useLoginViewModel } from './useLoginViewModel'
 export { useCollectionPointsMapViewModel } from './useCollectionPointsMapViewModel'
 export type { MapFilters } from './useCollectionPointsMapViewModel'
 export {
+  useCollectionPoint,
+  useCollectionPointDashboard,
   useCollectionPoints,
   useCollectionPointsForManagement,
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
   useUpdateStock,
+  useUpdateStockSettings,
 } from './useCollectionPointsViewModel'
 export {
   useAddBeneficiaryKinship,
-  useCreateFamily,
-  useFamilies,
-  useFamily,
+  useBeneficiaries,
+  useBeneficiaryWithdrawalHistory,
   useRegisterBeneficiary,
   useUpdateBeneficiary,
-} from './useFamiliesViewModel'
+} from './useBeneficiariesViewModel'
 export { useRegisterWithdrawal } from './useRegisterWithdrawalViewModel'
 export { useCreateUser, useDeactivateUser, useUpdateUser, useUsers } from './useUsersViewModel'
 export { useReviewsViewModel } from './useReviewsViewModel'

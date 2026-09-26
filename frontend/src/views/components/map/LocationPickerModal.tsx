@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, MapPin } from 'lucide-react'
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import { env } from '@/lib/env'
 import { geocodingService, type ReverseAddress } from '@/models/services'
 import type { LatLng } from '@/models/types'
 import { ModalComponent } from '@/views/components/modal'
 import { Button } from '@/views/components/ui'
+import { BaseMapTiles } from './BaseMapTiles'
 import { createMarkerIcon } from './markerIcon'
 
 export interface PickedLocation {
@@ -126,12 +127,7 @@ function PickerBody({ initialPosition, initialQuery, onCancel, onConfirm }: Body
           scrollWheelZoom
           className="size-full"
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            subdomains="abcd"
-            maxZoom={20}
-          />
+          <BaseMapTiles />
           <ClickToPlace onPlace={choose} />
           <RecenterOn position={recenter} />
           <InvalidateSize />

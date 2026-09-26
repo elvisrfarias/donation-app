@@ -1,5 +1,5 @@
 using DoacaoApp.Domain.CollectionPoints;
-using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Beneficiaries;
 using Microsoft.EntityFrameworkCore;
 
 namespace DoacaoApp.Infrastructure.Persistence.Repositories;
@@ -24,7 +24,7 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyDictionary<CollectionPointId, int>> GetFamiliesServedAsync(
+    public async Task<IReadOnlyDictionary<CollectionPointId, int>> GetBeneficiariesServedAsync(
         IReadOnlyCollection<CollectionPointId> pointIds,
         CancellationToken cancellationToken = default)
     {
@@ -37,30 +37,48 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .AsNoTracking()
             .Where(w => pointIds.Contains(w.PointId))
             .GroupBy(w => w.PointId)
-            .Select(g => new { PointId = g.Key, FamiliesServed = g.Select(w => w.FamilyId).Distinct().Count() })
+            .Select(g => new { PointId = g.Key, BeneficiariesServed = g.Select(w => w.BeneficiaryId).Distinct().Count() })
             .ToListAsync(cancellationToken);
 
-        return stats.ToDictionary(s => s.PointId, s => s.FamiliesServed);
+        return stats.ToDictionary(s => s.PointId, s => s.BeneficiariesServed);
     }
 
-    public async Task<int> CountFamilyWithdrawalsAsync(
-        FamilyId familyId,
+    public async Task<int> CountBeneficiaryWithdrawalsAsync(
+        BeneficiaryId beneficiaryId,
         DateTime startInclusiveUtc,
         DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default) =>
         await context.Withdrawals
             .CountAsync(
-                w => w.FamilyId == familyId
+                w => w.BeneficiaryId == beneficiaryId
                      && w.OccurredAtUtc >= startInclusiveUtc
                      && w.OccurredAtUtc < endExclusiveUtc,
                 cancellationToken);
 
-    public async Task<IReadOnlyList<Withdrawal>> GetFamilyWithdrawalHistoryAsync(
-        FamilyId familyId,
+    public async Task<IReadOnlyList<Withdrawal>> ListWithdrawalsBetweenAsync(
+        CollectionPointId pointId,
+        DateTime startInclusiveUtc,
+        DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default) =>
         await context.Withdrawals
             .AsNoTracking()
-            .Where(w => w.FamilyId == familyId)
+            .Where(w => w.PointId == pointId
+                        && w.OccurredAtUtc >= startInclusiveUtc
+                        && w.OccurredAtUtc < endExclusiveUtc)
+            .OrderByDescending(w => w.OccurredAtUtc)
+            .ToListAsync(cancellationToken);
+
+    public async Task<int> CountWithdrawalsAsync(
+        CollectionPointId pointId,
+        CancellationToken cancellationToken = default) =>
+        await context.Withdrawals.CountAsync(w => w.PointId == pointId, cancellationToken);
+
+    public async Task<IReadOnlyList<Withdrawal>> GetBeneficiaryWithdrawalHistoryAsync(
+        BeneficiaryId beneficiaryId,
+        CancellationToken cancellationToken = default) =>
+        await context.Withdrawals
+            .AsNoTracking()
+            .Where(w => w.BeneficiaryId == beneficiaryId)
             .OrderByDescending(w => w.OccurredAtUtc)
             .ToListAsync(cancellationToken);
 }

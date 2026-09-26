@@ -1,7 +1,7 @@
 export { authService } from './authService'
 export { collectionPointService } from './collectionPointService'
 export { reviewService } from './reviewService'
-export { familyService } from './familyService'
+export { beneficiaryService } from './beneficiaryService'
 export { withdrawalService } from './withdrawalService'
 export { geocodingService, type ReverseAddress } from './geocodingService'
 export { cepService, type CepLookup } from './cepService'

@@ -36,7 +36,7 @@ public sealed class ListPublicCollectionPointsHandler(
         var summaryByPoint = (await reviewRepository.GetSummariesAsync(pointIds, cancellationToken))
             .ToDictionary(s => s.PointId);
 
-        var familiesServedByPoint = await repository.GetFamiliesServedAsync(pointIds, cancellationToken);
+        var beneficiariesServedByPoint = await repository.GetBeneficiariesServedAsync(pointIds, cancellationToken);
 
         var responses = points.Select(p =>
         {
@@ -46,7 +46,7 @@ public sealed class ListPublicCollectionPointsHandler(
                 imageUrl,
                 summary?.AverageRating ?? 0,
                 summary?.ReviewCount ?? 0,
-                familiesServedByPoint.GetValueOrDefault(p.Id));
+                beneficiariesServedByPoint.GetValueOrDefault(p.Id));
         });
 
         if (query.TopRatedFirst)

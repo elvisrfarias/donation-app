@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { DatePicker } from '@/views/components/ui/DatePicker'
 import { cn } from '@/lib/utils'
 import { FieldShell } from './FieldShell'
 import type { BoundFieldConfig } from './types'
@@ -43,7 +44,7 @@ function TextControl({
   field,
   id,
   config,
-}: ControlProps<Extract<BoundFieldConfig, { type: 'text' | 'email' | 'password' | 'date' }>>) {
+}: ControlProps<Extract<BoundFieldConfig, { type: 'text' | 'email' | 'password' }>>) {
   const error = fieldError(field)
   return (
     <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
@@ -58,6 +59,22 @@ function TextControl({
         value={(field.state.value as string | undefined) ?? ''}
         onChange={(e) => field.handleChange(e.target.value)}
         onBlur={field.handleBlur}
+      />
+    </FieldShell>
+  )
+}
+
+function DateControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'date' }>>) {
+  const error = fieldError(field)
+  return (
+    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+      <DatePicker
+        id={id}
+        value={(field.state.value as string | undefined) ?? ''}
+        onValueChange={(isoDate) => field.handleChange(isoDate)}
+        onBlur={field.handleBlur}
+        disabled={config.disabled}
+        invalid={!!error}
       />
     </FieldShell>
   )
@@ -390,8 +407,9 @@ export function FieldRenderer({ field, config }: { field: AnyFieldApi; config: B
     case 'text':
     case 'email':
     case 'password':
-    case 'date':
       return <TextControl field={field} id={id} config={config} />
+    case 'date':
+      return <DateControl field={field} id={id} config={config} />
     case 'number':
       return <NumberControl field={field} id={id} config={config} />
     case 'textarea':

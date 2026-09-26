@@ -29,11 +29,11 @@ src/
 ├── components/ui/       # primitivas shadcn/ui geradas pela CLI (chart, table, dialog, select…)
 │                        # — não editar à mão, regenerar via `pnpm dlx shadcn@latest add <componente>`
 ├── models/              # MODEL — sem React
-│   ├── types/           # tipos de domínio (auth, collectionPoint, family, withdrawal, review, geo)
+│   ├── types/           # tipos de domínio (auth, collectionPoint, beneficiary, withdrawal, review, geo)
 │   ├── api/             # httpClient (axios + refresh de JWT), problemDetails, tokenStorage
-│   └── services/        # auth, collectionPoint, family, withdrawal, review, geocoding, cep
+│   └── services/        # auth, collectionPoint, beneficiary, withdrawal, review, geocoding, cep
 ├── viewmodels/          # VIEWMODEL — hooks (estado + comandos) + schemas.ts (Zod)
-│                        # useAuth, useLogin, useCollectionPoints(Map), useFamilies,
+│                        # useAuth, useLogin, useCollectionPoints(Map), useBeneficiaries,
 │                        # useRegisterWithdrawal, useReviews
 ├── views/               # VIEW — componentes/páginas (sem regra de negócio)
 │   ├── components/ui/       # wrappers de View sobre os primitivos shadcn (Button, Card, feedback…)
@@ -44,7 +44,7 @@ src/
 │   ├── components/reviews/  # StarRating, PointReviewsModal
 │   ├── components/collection-points/  # StockEditorModal
 │   ├── layouts/          # AppLayout (área autenticada)
-│   └── pages/             # Map, Login, Dashboard, CollectionPoints, Stock, Families,
+│   └── pages/             # Map, Login, Dashboard, CollectionPoints, Stock,
 │                          # Beneficiaries, RegisterWithdrawal, NotFound
 ├── stores/               # Zustand (sessão de autenticação)
 ├── lib/                  # env (validado por Zod), queryClient, logger, csv, utils

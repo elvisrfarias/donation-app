@@ -5,7 +5,7 @@ namespace DoacaoApp.Domain.Common;
 /// Igualdade é por identidade (Id + tipo), não por valor.
 /// Mantém a lista de Domain Events pendentes até serem despachados.
 /// </summary>
-/// <typeparam name="TId">Tipo do identificador (ex.: <c>FamilyId</c>).</typeparam>
+/// <typeparam name="TId">Tipo do identificador (ex.: <c>BeneficiaryId</c>).</typeparam>
 public abstract class Entity<TId> : IHasDomainEvents, IEquatable<Entity<TId>>
     where TId : notnull
 {

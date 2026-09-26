@@ -3,7 +3,7 @@ using Amazon.S3;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
-using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Authentication;
@@ -38,7 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICollectionPointRepository, CollectionPointRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
-        services.AddScoped<IFamilyRepository, FamilyRepository>();
+        services.AddScoped<IBeneficiaryRepository, BeneficiaryRepository>();
         services.AddScoped<IStoredFileRepository, StoredFileRepository>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<JwtTokenGenerator>();

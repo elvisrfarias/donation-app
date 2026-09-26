@@ -1,3 +1,5 @@
+import type { Cycle, CycleType } from './beneficiary'
+
 export type CollectionPointType = 'Association' | 'Church' | 'PublicEntity'
 
 /** Categorias de itens que um ponto recebe/disponibiliza (espelha o enum ItemCategory do backend). */
@@ -29,7 +31,7 @@ export const itemCategoryValues: ItemCategory[] = [
 ]
 
 export const itemCategoryLabels: Record<ItemCategory, string> = {
-  Food: 'Alimentos',
+  Food: 'Cestas básicas',
   Clothing: 'Roupas',
   Footwear: 'Calçados',
   Hygiene: 'Higiene',
@@ -67,6 +69,24 @@ export interface StockItem {
   quantity: number
 }
 
+/**
+ * Configuração de estoque de uma categoria: meta desejada (0 = sem meta), quantidade a partir da qual
+ * o estoque é considerado baixo (aviso) e se a categoria é acompanhada pelo ponto.
+ */
+export interface StockSetting {
+  category: ItemCategory
+  goal: number
+  alertThreshold: number
+  isTracked: boolean
+}
+
+/** Corpo do UpdateCollectionPointStockSettingsCommand. */
+export interface UpdateStockSettingsInput {
+  items: StockSetting[]
+  cycleType: CycleType
+  maxWithdrawalsPerCycle: number
+}
+
 /** CollectionPointResponse do backend. */
 export interface CollectionPoint {
   id: string
@@ -80,6 +100,10 @@ export interface CollectionPoint {
   needs: string[]
   /** Itens disponíveis no ponto agora (categoria → quantidade). */
   stock: StockItem[]
+  /** Metas e avisos por categoria. Só vem nas consultas de gestão (vazio na lista pública). */
+  stockSettings: StockSetting[]
+  /** Regra de retirada do ponto: ciclo + máximo por família em cada ciclo. */
+  withdrawalRule: Cycle
   address: Address
   contact: Contact
   isActive: boolean
@@ -92,8 +116,36 @@ export interface CollectionPoint {
   averageRating: number
   /** Total de avaliações registradas pela comunidade. */
   reviewCount: number
-  /** Nº de famílias distintas já atendidas no ponto (indicador de impacto). */
-  familiesServed: number
+  /** Nº de beneficiários distintos já atendidos no ponto (indicador de impacto). */
+  beneficiariesServed: number
+}
+
+export type DashboardGranularity = 'Day' | 'Month'
+
+/** Retiradas de um dia ou mês; `date` é o primeiro dia do intervalo (yyyy-MM-dd). */
+export interface WithdrawalsSeriesPoint {
+  date: string
+  count: number
+}
+
+export interface RecentWithdrawal {
+  withdrawalId: string
+  beneficiaryName: string
+  occurredAtUtc: string
+}
+
+/** Indicadores de resultado de um único ponto em um período (painel do gestor). */
+export interface CollectionPointDashboard {
+  pointId: string
+  periodStart: string
+  periodEnd: string
+  withdrawalsInPeriod: number
+  beneficiariesServedInPeriod: number
+  totalWithdrawals: number
+  registeredBeneficiaries: number
+  granularity: DashboardGranularity
+  withdrawalsSeries: WithdrawalsSeriesPoint[]
+  recentWithdrawals: RecentWithdrawal[]
 }
 
 /** Corpo do CreateCollectionPointCommand. */

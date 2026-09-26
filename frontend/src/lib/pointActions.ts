@@ -1,13 +1,20 @@
 import { formatAddress, type CollectionPoint } from '@/models/types'
 
+function pointMapsQuery(point: CollectionPoint): string {
+  const { latitude, longitude } = point.address
+  return latitude != null && longitude != null
+    ? `${latitude},${longitude}`
+    : formatAddress(point.address)
+}
+
 /** Link do Google Maps para o ponto (usa coordenadas quando houver; senão o endereço). */
 export function pointMapsUrl(point: CollectionPoint): string {
-  const { latitude, longitude } = point.address
-  const query =
-    latitude != null && longitude != null
-      ? `${latitude},${longitude}`
-      : formatAddress(point.address)
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pointMapsQuery(point))}`
+}
+
+/** Link do Google Maps com a rota até o ponto, partindo da localização atual de quem abrir. */
+export function pointDirectionsUrl(point: CollectionPoint): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pointMapsQuery(point))}`
 }
 
 /** Mensagem de divulgação do ponto para compartilhar (WhatsApp/redes). */

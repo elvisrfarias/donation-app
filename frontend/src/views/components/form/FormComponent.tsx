@@ -24,6 +24,8 @@ interface FormComponentProps<TValues extends Record<string, unknown>> {
   /** Reseta o formulário aos valores padrão após um submit bem-sucedido. */
   resetOnSubmit?: boolean
   className?: string
+  /** Conteúdo extra exibido entre os campos e o botão de envio (que continua por último). */
+  children?: ReactNode
 }
 
 /**
@@ -44,6 +46,7 @@ export function FormComponent<TValues extends Record<string, unknown>>({
   submitFullWidth,
   resetOnSubmit,
   className,
+  children,
 }: FormComponentProps<TValues>) {
   const form = useForm({
     defaultValues,
@@ -89,6 +92,8 @@ export function FormComponent<TValues extends Record<string, unknown>>({
           </div>
         )
       })}
+
+      {children && <div className="col-span-full">{children}</div>}
 
       <form.Subscribe selector={(s) => ({ canSubmit: s.canSubmit, isSubmitting: s.isSubmitting })}>
         {({ canSubmit, isSubmitting }) => (

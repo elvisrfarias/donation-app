@@ -52,6 +52,6 @@ public sealed class UpdateCollectionPointStockHandler(
         point.ReplaceStock(command.Items.Select(i => new KeyValuePair<ItemCategory, int>(i.Category, i.Quantity)));
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return point.ToResponse();
+        return point.ToResponse(includeStockSettings: true);
     }
 }

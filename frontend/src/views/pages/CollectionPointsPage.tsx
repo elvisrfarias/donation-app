@@ -1,5 +1,15 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Boxes, Building2, Church, Download, Landmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  Boxes,
+  Building2,
+  Church,
+  Download,
+  Landmark,
+  MapPin,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useState } from 'react'
 import { downloadCsv } from '@/lib/csv'
 import { StockEditorModal } from '@/views/components/collection-points/StockEditorModal'
@@ -48,10 +58,10 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
           src={point.imageUrl}
           alt={point.name}
           loading="lazy"
-          className="size-10 rounded-xl object-cover ring-1 ring-inset ring-stone-200"
+          className="size-10 rounded-xl object-cover ring-1 ring-stone-200 ring-inset"
         />
       ) : (
-        <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
+        <span className="bg-brand-50 text-brand-600 ring-brand-100 grid size-10 place-items-center rounded-xl ring-1 ring-inset">
           <Icon className="size-5" />
         </span>
       )
@@ -61,7 +71,9 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
     accessorKey: 'name',
     header: 'Nome',
     meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
-    cell: ({ getValue }) => <span className="font-medium text-stone-900">{getValue<string>()}</span>,
+    cell: ({ getValue }) => (
+      <span className="font-medium text-stone-900">{getValue<string>()}</span>
+    ),
   },
   {
     id: 'type',
@@ -317,14 +329,22 @@ export function CollectionPointsPage() {
                 onClick={() =>
                   downloadCsv(
                     'pontos-de-coleta',
-                    ['Nome', 'Tipo', 'Cidade/UF', 'Avaliação', 'Nº avaliações', 'Famílias atendidas', 'Itens'],
+                    [
+                      'Nome',
+                      'Tipo',
+                      'Cidade/UF',
+                      'Avaliação',
+                      'Nº avaliações',
+                      'Pessoas atendidas',
+                      'Itens',
+                    ],
                     points.map((p) => [
                       p.name,
                       collectionPointTypeLabels[p.type],
                       `${p.address.city}/${p.address.state}`,
                       p.averageRating.toFixed(1),
                       p.reviewCount,
-                      p.familiesServed,
+                      p.beneficiariesServed,
                       p.acceptedItems.map((i) => itemCategoryLabels[i]).join(', '),
                     ]),
                   )
@@ -363,9 +383,7 @@ export function CollectionPointsPage() {
           description="Locais que compartilham o histórico de retiradas do município."
           size="xl"
         >
-          {createError && (
-            <Alert tone="error">{createError.displayMessage}</Alert>
-          )}
+          {createError && <Alert tone="error">{createError.displayMessage}</Alert>}
           <FormComponent
             columns={3}
             schema={createCollectionPointSchema}
@@ -408,9 +426,7 @@ export function CollectionPointsPage() {
         </ModalComponent>
       )}
 
-      {isManager && (
-        <StockEditorModal point={stockPoint} onClose={() => setStockPoint(null)} />
-      )}
+      {isManager && <StockEditorModal point={stockPoint} onClose={() => setStockPoint(null)} />}
     </div>
   )
 }

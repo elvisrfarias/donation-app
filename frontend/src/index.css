@@ -10,6 +10,22 @@
     outline: 2px solid var(--brand);
     outline-offset: 2px;
   }
+
+  :where(
+    button:not(:disabled),
+    [role='button']:not([aria-disabled='true']),
+    [role='checkbox']:not([aria-disabled='true']),
+    [role='tab']:not([aria-disabled='true']),
+    summary,
+    select:not(:disabled),
+    input:is([type='checkbox'], [type='radio'], [type='submit'], [type='button']):not(:disabled)
+  ) {
+    cursor: pointer;
+  }
+
+  :where(button:disabled, [aria-disabled='true']) {
+    cursor: not-allowed;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -24,7 +40,7 @@
 }
 
 :root {
-  --brand: #6c2bd9;
+  --brand: #2563eb;
 
   --background: #ffffff;
   --foreground: #1c1917;
@@ -48,7 +64,7 @@
 
   --chart-1: var(--brand);
   --chart-2: #10b981;
-  --chart-3: #6366f1;
+  --chart-3: #8b5cf6;
   --chart-4: #f59e0b;
   --chart-5: #06b6d4;
 }
@@ -219,7 +235,7 @@
   width: 60%;
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: var(--dz-color, #6c2bd9);
+  background: var(--dz-color, #2563eb);
 }
 .dz-halo::before {
   content: '';
@@ -241,4 +257,44 @@
   100% {
     opacity: 0;
   }
+}
+
+.date-picker .rdp-root {
+  --rdp-accent-color: var(--color-brand-600);
+  --rdp-accent-background-color: var(--color-brand-50);
+  --rdp-day-height: 2.5rem;
+  --rdp-day-width: 2.75rem;
+  --rdp-day_button-height: 2.25rem;
+  --rdp-day_button-width: 2.5rem;
+  --rdp-day_button-border-radius: 0.75rem;
+  --rdp-selected-border: 0;
+  --rdp-weekday-opacity: 1;
+  --rdp-outside-opacity: 0.4;
+  --rdp-disabled-opacity: 0.3;
+  font-size: 0.875rem;
+}
+.date-picker .rdp-weekday {
+  color: var(--color-stone-400);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.date-picker .rdp-day_button {
+  color: var(--color-stone-700);
+  transition: background-color 0.15s ease;
+}
+.date-picker .rdp-day_button:hover:not(:disabled) {
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+.date-picker .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--color-brand-700);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--color-brand-300);
+}
+.date-picker .rdp-selected .rdp-day_button,
+.date-picker .rdp-selected .rdp-day_button:hover {
+  background: var(--color-brand-600);
+  color: #fff;
+  font-weight: 600;
 }

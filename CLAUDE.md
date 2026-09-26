@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Sobre o projeto
 
-Sistema de gestão de pontos de doação/coleta com rastreabilidade familiar e **controle de equidade**:
-todos os pontos de coleta de um município compartilham o histórico de retiradas, então uma família não
+Sistema de gestão de pontos de doação/coleta com rastreabilidade por beneficiário e **controle de equidade**:
+todos os pontos de coleta de um município compartilham o histórico de retiradas, então um beneficiário não
 pode exceder seu limite por ciclo somando retiradas de *todos* os pontos. .NET 9 / C# 13, Clean
 Architecture + DDD + CQRS, EF Core 9 + PostgreSQL 16.
 
@@ -17,7 +17,7 @@ inline**. A clareza vem dos nomes e do tamanho das funções, não de comentári
 - **Sem comentários `//` nem `/* */`** no meio do código. Se algo precisa de comentário para ser entendido,
   refatore: extraia um método/função com nome descritivo ou renomeie a variável.
 - **Nomes que descrevem a intenção**: métodos, funções, variáveis, constantes e tipos devem dizer *o que*
-  fazem/representam. Prefira `familyWithdrawalsInCurrentCycle` a `count`; extraia constantes nomeadas no lugar
+  fazem/representam. Prefira `beneficiaryWithdrawalsInCurrentCycle` a `count`; extraia constantes nomeadas no lugar
   de literais "mágicos".
 - **Métodos e funções curtos**, com responsabilidade única — fáceis de ler de cima a baixo sem explicação.
 - **A única documentação permitida** é a de API: XML docs `///` no C# (back) e JSDoc/TSDoc quando documentar
@@ -111,12 +111,18 @@ framework algum (só `ErrorOr` e `MediatR.Contracts`). Cada camada tem um `Depen
 
 ### A regra de equidade (a parte mais importante)
 
-`CollectionPoint.RegisterWithdrawal(family, beneficiary, familyWithdrawalsInCurrentCycle, ...)` decide com
+`CollectionPoint.RegisterWithdrawal(beneficiary, beneficiaryWithdrawalsInCurrentCycle, ...)` decide com
 base na contagem **recebida por parâmetro** — o agregado não consulta o banco. Quem calcula é o
-`RegisterWithdrawalHandler`: ele pega a janela do ciclo (`Family.Cycle.GetCurrentPeriod(instante)`) e chama
-`ICollectionPointRepository.CountFamilyWithdrawalsAsync(familyId, início, fim)`, que varre a tabela
+`RegisterWithdrawalHandler`: ele pega a janela do ciclo (`CollectionPoint.WithdrawalRule.GetCurrentPeriod(instante)`) e chama
+`ICollectionPointRepository.CountBeneficiaryWithdrawalsAsync(beneficiaryId, início, fim)`, que varre a tabela
 `withdrawals` inteira (todos os pontos). Esse desenho mantém a regra testável sem banco e respeita as
-fronteiras de agregado (Withdrawal referencia Family/Beneficiary por Id, não por navegação).
+fronteiras de agregado (Withdrawal referencia Beneficiary por Id, não por navegação).
+
+Não existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
+de retirada (`WithdrawalCycle`: tipo do ciclo + máximo por família; padrão: 3 por ano) é do **ponto**
+(`CollectionPoint.WithdrawalRule`, configurada na aba "Metas e avisos" do estoque): o histórico é somado entre
+todos os pontos, mas o limite aplicado é o do ponto onde a retirada acontece. Vínculos de parentesco
+(`BeneficiaryKinship`) são só informativos — espelhados no outro beneficiário com o tipo inverso.
 
 ### Módulos além do core (Reviews, Storage, Stock)
 
@@ -129,10 +135,13 @@ fronteiras de agregado (Withdrawal referencia Family/Beneficiary por Id, não po
   Exclusão é soft-delete (`MarkDeleted`): a linha permanece para auditoria, só o objeto some do bucket.
 - **Estoque** — `CollectionPoint.Stock` é um dicionário `ItemCategory → quantidade`, substituído por
   inteiro via `ReplaceStock` (não incrementado/decrementado por item).
+  `CollectionPoint.StockSettings` guarda, por categoria, meta, aviso de estoque baixo e se é acompanhada
+  (`ReplaceStockSettings`, coluna JSON `stock_settings`). Só as consultas de gestão devolvem as configurações;
+  a lista pública não as expõe.
 
 ## Convenções de mapeamento EF (onde as coisas dão errado)
 
-- **IDs fortemente tipados** (`FamilyId`, `CollectionPointId`, etc. — `readonly record struct`): convertidos
+- **IDs fortemente tipados** (`BeneficiaryId`, `CollectionPointId`, etc. — `readonly record struct`): convertidos
   globalmente em `AppDbContext.ConfigureConventions` via os `ValueConverter`s de
   `Persistence/Converters/StronglyTypedIdConverters.cs`. Chaves usam `ValueGeneratedNever()` (o domínio gera o Guid).
 - **Value Objects multi-campo** (`Address`, `ContactInfo`, `WithdrawalCycle`): mapeados como `OwnsOne`

@@ -14,10 +14,9 @@ public sealed class WithdrawalRegisteredHandler(ILogger<WithdrawalRegisteredHand
     public Task Handle(WithdrawalRegistered notification, CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Retirada {WithdrawalId} registrada no ponto {PointId} para a família {FamilyId} (beneficiário {BeneficiaryId}) em {OccurredAt:u}",
+            "Retirada {WithdrawalId} registrada no ponto {PointId} para o beneficiário {BeneficiaryId} em {OccurredAt:u}",
             notification.WithdrawalId.Value,
             notification.PointId.Value,
-            notification.FamilyId.Value,
             notification.BeneficiaryId.Value,
             notification.OccurredAtUtc);
 

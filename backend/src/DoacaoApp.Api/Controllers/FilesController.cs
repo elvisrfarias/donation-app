@@ -29,7 +29,7 @@ public sealed class FilesController(ISender sender) : ApiController(sender)
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Upload(
         IFormFile file,
-        [FromForm] FileVisibility visibility = FileVisibility.Private,
+        [FromForm] FileVisibility? visibility = null,
         [FromForm] string? ownerType = null,
         [FromForm] Guid? ownerId = null,
         CancellationToken cancellationToken = default)
@@ -46,7 +46,7 @@ public sealed class FilesController(ISender sender) : ApiController(sender)
             file.FileName,
             file.ContentType,
             file.Length,
-            visibility,
+            visibility ?? FileVisibility.Private,
             ownerType,
             ownerId);
 

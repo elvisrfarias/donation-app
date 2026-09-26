@@ -64,17 +64,6 @@ export const updateCollectionPointSchema = createCollectionPointSchema.extend({
 })
 export type UpdateCollectionPointForm = z.infer<typeof updateCollectionPointSchema>
 
-export const createFamilySchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório.').max(200),
-  cycleType: z.enum(['Weekly', 'Biweekly', 'Monthly']),
-  maxWithdrawalsPerCycle: z
-    .number({ message: 'Informe um número.' })
-    .int('Use um número inteiro.')
-    .min(1, 'Mínimo de 1 por ciclo.')
-    .max(100, 'Máximo de 100.'),
-})
-export type CreateFamilyForm = z.infer<typeof createFamilySchema>
-
 export const registerBeneficiarySchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').max(160),
   cpf: z.string().min(11, 'CPF inválido (mín. 11 dígitos).').max(14),
@@ -85,13 +74,6 @@ export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
 
 export const updateBeneficiarySchema = registerBeneficiarySchema
 export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
-
-/** Cadastro de beneficiário fora do contexto de uma família já selecionada: exige
- * escolher a família de destino. */
-export const registerBeneficiaryWithFamilySchema = registerBeneficiarySchema.extend({
-  familyId: z.string().min(1, 'Selecione a família.'),
-})
-export type RegisterBeneficiaryWithFamilyForm = z.infer<typeof registerBeneficiaryWithFamilySchema>
 
 export const addBeneficiaryKinshipSchema = z.object({
   relatedBeneficiaryCpf: z.string().min(11, 'CPF inválido (mín. 11 dígitos).').max(14),
@@ -157,9 +139,6 @@ export const updateUserSchema = z
 export type UpdateUserForm = z.infer<typeof updateUserSchema>
 
 export const registerWithdrawalSchema = z.object({
-  pointId: z.string().min(1, 'Selecione o ponto de coleta.'),
-  familyId: z.string().min(1, 'Informe o ID da família.'),
-  beneficiaryId: z.string().min(1, 'Selecione o beneficiário.'),
   notes: z.string().max(500, 'Máximo de 500 caracteres.').optional(),
 })
 export type RegisterWithdrawalForm = z.infer<typeof registerWithdrawalSchema>

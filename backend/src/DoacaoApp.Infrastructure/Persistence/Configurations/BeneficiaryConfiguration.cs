@@ -1,4 +1,4 @@
-using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -14,7 +14,6 @@ public sealed class BeneficiaryConfiguration : IEntityTypeConfiguration<Benefici
         builder.HasKey(b => b.Id);
         builder.Property(b => b.Id).ValueGeneratedNever();
 
-        builder.Property(b => b.FamilyId).IsRequired();
         builder.Property(b => b.Name).IsRequired().HasMaxLength(200);
 
         builder.Property(b => b.Cpf)

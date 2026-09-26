@@ -14,12 +14,11 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
         builder.Property(w => w.Id).ValueGeneratedNever();
 
         builder.Property(w => w.PointId).IsRequired();
-        builder.Property(w => w.FamilyId).IsRequired();
         builder.Property(w => w.BeneficiaryId).IsRequired();
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);
 
-        builder.HasIndex(w => new { w.FamilyId, w.OccurredAtUtc });
+        builder.HasIndex(w => new { w.BeneficiaryId, w.OccurredAtUtc });
         builder.HasIndex(w => w.PointId);
     }
 }

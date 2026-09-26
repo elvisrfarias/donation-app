@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Application.Common.Abstractions;
-using DoacaoApp.Application.Families.Contracts;
+using DoacaoApp.Application.Beneficiaries.Contracts;
 using DoacaoApp.Application.Storage.Contracts;
 using FluentAssertions;
 using Xunit;
@@ -49,16 +49,7 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         pointResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var point = (await pointResponse.Content.ReadFromJsonAsync<CollectionPointResponse>())!;
 
-        var familyResponse = await client.PostAsJsonAsync("/api/families", new
-        {
-            name = "Família Silva",
-            cycleType = "Monthly",
-            maxWithdrawalsPerCycle = 1,
-        });
-        familyResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        var family = (await familyResponse.Content.ReadFromJsonAsync<FamilyResponse>())!;
-
-        var beneficiaryResponse = await client.PostAsJsonAsync($"/api/families/{family.Id}/beneficiaries", new
+        var beneficiaryResponse = await client.PostAsJsonAsync("/api/beneficiaries", new
         {
             name = "João Silva",
             cpf = "111.444.777-35",
@@ -71,7 +62,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         var firstWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
         {
             pointId = point.Id,
-            familyId = family.Id,
             beneficiaryId = beneficiary.Id,
             occurredAtUtc = (string?)null,
             notes = "Cesta básica",
@@ -81,7 +71,6 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         var secondWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
         {
             pointId = point.Id,
-            familyId = family.Id,
             beneficiaryId = beneficiary.Id,
             occurredAtUtc = (string?)null,
             notes = "Tentativa repetida",

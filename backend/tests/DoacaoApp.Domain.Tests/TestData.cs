@@ -1,5 +1,5 @@
 using DoacaoApp.Domain.CollectionPoints;
-using DoacaoApp.Domain.Families;
+using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.ValueObjects;
 
 namespace DoacaoApp.Domain.Tests;
@@ -21,12 +21,14 @@ public static class TestData
     public static WithdrawalCycle Cycle(int max = 1, CycleType type = CycleType.Monthly) =>
         WithdrawalCycle.Create(type, max).Value;
 
-    public static CollectionPoint Point(CollectionPointType type = CollectionPointType.Church) =>
-        CollectionPoint.Create("Paróquia São José", type, Address(), Contact(), Now).Value;
+    public static CollectionPoint Point(CollectionPointType type = CollectionPointType.Church, int maxPerCycle = 1)
+    {
+        var point = CollectionPoint.Create("Paróquia São José", type, Address(), Contact(), Now).Value;
+        point.UpdateWithdrawalRule(Cycle(maxPerCycle));
+        return point;
+    }
 
-    public static Family Family(int maxPerCycle = 1) =>
-        Domain.Families.Family.Create("Família Silva", Cycle(maxPerCycle), Now).Value;
-
-    public static Beneficiary AddBeneficiary(Family family, string cpf = ValidCpfA, CollectionPointId? pointId = null) =>
-        family.AddBeneficiary("João Silva", Cpf.Create(cpf).Value, null, pointId ?? CollectionPointId.New(), Now).Value;
+    public static Beneficiary Beneficiary(string cpf = ValidCpfA, CollectionPointId? pointId = null) =>
+        Domain.Beneficiaries.Beneficiary.Create(
+            "João Silva", Cpf.Create(cpf).Value, null, pointId ?? CollectionPointId.New(), Now).Value;
 }

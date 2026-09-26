@@ -30,6 +30,50 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
         return Respond(result, Ok);
     }
 
+    /// <summary>Consulta um ponto de coleta, incluindo o estoque.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só consulta o próprio ponto.</remarks>
+    /// <response code="200">Ponto encontrado.</response>
+    /// <response code="401">Não autenticado.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    [HttpGet("{id:guid}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new GetCollectionPointQuery(id), cancellationToken);
+        return Respond(result, Ok);
+    }
+
+    /// <summary>Indicadores de resultado de um ponto em um período: retiradas, atendimentos e últimas retiradas.</summary>
+    /// <remarks>
+    /// Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só consulta o próprio ponto. Sem
+    /// <c>from</c>/<c>to</c> (datas <c>yyyy-MM-dd</c>, UTC), usa o mês atual completo; o período máximo é de 366 dias.
+    /// </remarks>
+    /// <response code="200">Indicadores do ponto.</response>
+    /// <response code="400">Período inválido.</response>
+    /// <response code="401">Não autenticado.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    [HttpGet("{id:guid}/dashboard")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointDashboardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDashboard(
+        Guid id,
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new GetCollectionPointDashboardQuery(id, from, to), cancellationToken);
+        return Respond(result, Ok);
+    }
+
     /// <summary>Cadastra um novo ponto de coleta.</summary>
     /// <remarks>Requer a role <c>Admin</c>.</remarks>
     /// <response code="201">Ponto criado.</response>
@@ -85,6 +129,27 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
     public async Task<IActionResult> UpdateStock(
         Guid id,
         [FromBody] UpdateCollectionPointStockCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(command with { PointId = id }, cancellationToken);
+        return Respond(result, Ok);
+    }
+
+    /// <summary>Atualiza as metas, os avisos de estoque baixo e as categorias acompanhadas do ponto.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só configura o próprio ponto.</remarks>
+    /// <response code="200">Configurações atualizadas.</response>
+    /// <response code="400">Valores inválidos (negativos, ou aviso acima da meta).</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    [HttpPut("{id:guid}/stock-settings")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateStockSettings(
+        Guid id,
+        [FromBody] UpdateCollectionPointStockSettingsCommand command,
         CancellationToken cancellationToken)
     {
         var result = await Sender.Send(command with { PointId = id }, cancellationToken);

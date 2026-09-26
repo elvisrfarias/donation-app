@@ -12,9 +12,14 @@ export function useRegisterWithdrawal() {
     mutationFn: (input) => withdrawalService.register(input),
     onSuccess: (withdrawal) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.families.withdrawals(withdrawal.familyId),
+        queryKey: queryKeys.beneficiaries.withdrawals(withdrawal.beneficiaryId),
       })
-      queryClient.invalidateQueries({ queryKey: queryKeys.families.byId(withdrawal.familyId) })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.beneficiaries.byId(withdrawal.beneficiaryId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.collectionPoints.dashboard(withdrawal.pointId),
+      })
     },
   })
 

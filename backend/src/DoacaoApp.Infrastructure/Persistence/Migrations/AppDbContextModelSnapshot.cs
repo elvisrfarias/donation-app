@@ -24,6 +24,42 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DoacaoApp.Domain.Beneficiaries.Beneficiary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("BirthDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Cpf")
+                        .IsRequired()
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)")
+                        .HasColumnName("cpf");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("RegisteredByPointId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cpf")
+                        .IsUnique();
+
+                    b.ToTable("beneficiaries", (string)null);
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
                     b.Property<Guid>("Id")
@@ -76,6 +112,13 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasColumnName("stock")
                         .HasDefaultValueSql("'{}'::jsonb");
 
+                    b.Property<string>("StockSettings")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("stock_settings")
+                        .HasDefaultValueSql("'{}'::jsonb");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -94,9 +137,6 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("FamilyId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -111,68 +151,9 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PointId");
 
-                    b.HasIndex("FamilyId", "OccurredAtUtc");
+                    b.HasIndex("BeneficiaryId", "OccurredAtUtc");
 
                     b.ToTable("withdrawals", (string)null);
-                });
-
-            modelBuilder.Entity("DoacaoApp.Domain.Families.Beneficiary", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly?>("BirthDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Cpf")
-                        .IsRequired()
-                        .HasMaxLength(11)
-                        .HasColumnType("character varying(11)")
-                        .HasColumnName("cpf");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("FamilyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("RegisteredByPointId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Cpf")
-                        .IsUnique();
-
-                    b.HasIndex("FamilyId");
-
-                    b.ToTable("beneficiaries", (string)null);
-                });
-
-            modelBuilder.Entity("DoacaoApp.Domain.Families.Family", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("families", (string)null);
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>
@@ -583,6 +564,50 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.Beneficiaries.Beneficiary", b =>
+                {
+                    b.OwnsMany("DoacaoApp.Domain.Beneficiaries.BeneficiaryKinship", "Kinships", b1 =>
+                        {
+                            b1.Property<Guid>("beneficiary_id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("RelatedBeneficiaryId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("related_beneficiary_id");
+
+                            b1.Property<DateTime>("CreatedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("created_at_utc");
+
+                            b1.Property<string>("RelatedBeneficiaryCpf")
+                                .IsRequired()
+                                .HasMaxLength(11)
+                                .HasColumnType("character varying(11)")
+                                .HasColumnName("related_beneficiary_cpf");
+
+                            b1.Property<string>("RelatedBeneficiaryName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("related_beneficiary_name");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("type");
+
+                            b1.HasKey("beneficiary_id", "RelatedBeneficiaryId");
+
+                            b1.ToTable("beneficiary_kinships", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("beneficiary_id");
+                        });
+
+                    b.Navigation("Kinships");
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
                     b.OwnsOne("DoacaoApp.Domain.ValueObjects.Address", "Address", b1 =>
@@ -678,10 +703,36 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("CollectionPointId");
                         });
 
+                    b.OwnsOne("DoacaoApp.Domain.ValueObjects.WithdrawalCycle", "WithdrawalRule", b1 =>
+                        {
+                            b1.Property<Guid>("CollectionPointId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("MaxWithdrawalsPerCycle")
+                                .HasColumnType("integer")
+                                .HasColumnName("withdrawal_cycle_max");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("withdrawal_cycle_type");
+
+                            b1.HasKey("CollectionPointId");
+
+                            b1.ToTable("collection_points");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CollectionPointId");
+                        });
+
                     b.Navigation("Address")
                         .IsRequired();
 
                     b.Navigation("Contact")
+                        .IsRequired();
+
+                    b.Navigation("WithdrawalRule")
                         .IsRequired();
                 });
 
@@ -691,85 +742,6 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .WithMany("Withdrawals")
                         .HasForeignKey("PointId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("DoacaoApp.Domain.Families.Beneficiary", b =>
-                {
-                    b.HasOne("DoacaoApp.Domain.Families.Family", null)
-                        .WithMany("Beneficiaries")
-                        .HasForeignKey("FamilyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsMany("DoacaoApp.Domain.Families.BeneficiaryKinship", "Kinships", b1 =>
-                        {
-                            b1.Property<Guid>("beneficiary_id")
-                                .HasColumnType("uuid");
-
-                            b1.Property<Guid>("RelatedBeneficiaryId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("related_beneficiary_id");
-
-                            b1.Property<DateTime>("CreatedAtUtc")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("created_at_utc");
-
-                            b1.Property<string>("RelatedBeneficiaryCpf")
-                                .IsRequired()
-                                .HasMaxLength(11)
-                                .HasColumnType("character varying(11)")
-                                .HasColumnName("related_beneficiary_cpf");
-
-                            b1.Property<string>("RelatedBeneficiaryName")
-                                .IsRequired()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasColumnName("related_beneficiary_name");
-
-                            b1.Property<string>("Type")
-                                .IsRequired()
-                                .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
-                                .HasColumnName("type");
-
-                            b1.HasKey("beneficiary_id", "RelatedBeneficiaryId");
-
-                            b1.ToTable("beneficiary_kinships", (string)null);
-
-                            b1.WithOwner()
-                                .HasForeignKey("beneficiary_id");
-                        });
-
-                    b.Navigation("Kinships");
-                });
-
-            modelBuilder.Entity("DoacaoApp.Domain.Families.Family", b =>
-                {
-                    b.OwnsOne("DoacaoApp.Domain.ValueObjects.WithdrawalCycle", "Cycle", b1 =>
-                        {
-                            b1.Property<Guid>("FamilyId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<int>("MaxWithdrawalsPerCycle")
-                                .HasColumnType("integer")
-                                .HasColumnName("cycle_max_withdrawals");
-
-                            b1.Property<string>("Type")
-                                .IsRequired()
-                                .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
-                                .HasColumnName("cycle_type");
-
-                            b1.HasKey("FamilyId");
-
-                            b1.ToTable("families");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FamilyId");
-                        });
-
-                    b.Navigation("Cycle")
                         .IsRequired();
                 });
 
@@ -845,11 +817,6 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
                     b.Navigation("Withdrawals");
-                });
-
-            modelBuilder.Entity("DoacaoApp.Domain.Families.Family", b =>
-                {
-                    b.Navigation("Beneficiaries");
                 });
 
             modelBuilder.Entity("DoacaoApp.Infrastructure.Identity.ApplicationUser", b =>
