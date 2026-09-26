@@ -11,7 +11,7 @@ public interface IBeneficiaryRepository
     /// <summary>Lista todos os beneficiários.</summary>
     Task<IReadOnlyList<Beneficiary>> ListAllAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Lista os beneficiários cadastrados pelo ponto informado.</summary>
+    /// <summary>Lista os beneficiários vinculados ao ponto informado.</summary>
     Task<IReadOnlyList<Beneficiary>> ListByCollectionPointAsync(
         CollectionPointId pointId, CancellationToken cancellationToken = default);
 

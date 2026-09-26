@@ -48,5 +48,19 @@ public sealed class BeneficiaryConfiguration : IEntityTypeConfiguration<Benefici
         builder.Metadata
             .FindNavigation(nameof(Beneficiary.Kinships))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.OwnsMany(b => b.PointLinks, link =>
+        {
+            link.ToTable("beneficiary_point_links");
+            link.WithOwner().HasForeignKey("beneficiary_id");
+            link.Property(l => l.PointId).HasColumnName("point_id").IsRequired();
+            link.Property(l => l.LinkedAtUtc).HasColumnName("linked_at_utc").IsRequired();
+            link.HasKey("beneficiary_id", nameof(BeneficiaryPointLink.PointId));
+            link.HasIndex(l => l.PointId);
+        });
+
+        builder.Metadata
+            .FindNavigation(nameof(Beneficiary.PointLinks))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

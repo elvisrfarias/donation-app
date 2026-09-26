@@ -75,15 +75,6 @@ export function trackedCategories(settings: StockSettings): ItemCategory[] {
   return itemCategoryValues.filter((category) => settings[category].isTracked)
 }
 
-export function untrackedCategoriesWithStock(
-  quantities: StockQuantities,
-  settings: StockSettings,
-): ItemCategory[] {
-  return itemCategoryValues.filter(
-    (category) => !settings[category].isTracked && quantities[category] > 0,
-  )
-}
-
 export function countChangedCategories(saved: StockQuantities, draft: StockQuantities): number {
   return itemCategoryValues.filter((category) => saved[category] !== draft[category]).length
 }

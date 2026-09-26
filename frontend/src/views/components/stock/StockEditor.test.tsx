@@ -95,7 +95,7 @@ describe('StockEditor', () => {
     expect(screen.getByLabelText('Quantidade de Roupas')).toBeInTheDocument()
   })
 
-  it('esconde a categoria não acompanhada mesmo com estoque e avisa que ela está oculta', () => {
+  it('esconde a categoria não acompanhada mesmo com estoque, sem avisos extras', () => {
     const pointWithHiddenStock = {
       ...point,
       stock: [
@@ -111,7 +111,7 @@ describe('StockEditor', () => {
     )
 
     expect(screen.queryByLabelText('Quantidade de Brinquedos')).not.toBeInTheDocument()
-    expect(screen.getByText(/Brinquedos\) ficam ocultas/)).toBeInTheDocument()
+    expect(screen.queryByText(/ficam ocultas/)).not.toBeInTheDocument()
   })
 
   it('deixa claro no resumo que os números contam categorias, não itens', () => {
@@ -124,12 +124,9 @@ describe('StockEditor', () => {
     expect(screen.getByText('0 de 3', { selector: 'p' })).toBeInTheDocument()
   })
 
-  it('avisa quais categorias precisam de reposição, sem incluir as não acompanhadas', () => {
+  it('não mostra o aviso de reposição no topo da tela', () => {
     renderEditor()
 
-    const banner = screen.getByText('Reposição necessária').parentElement as HTMLElement
-    expect(banner).toHaveTextContent('Roupas')
-    expect(banner).not.toHaveTextContent('Brinquedos')
-    expect(banner).not.toHaveTextContent('Cestas básicas')
+    expect(screen.queryByText('Reposição necessária')).not.toBeInTheDocument()
   })
 })

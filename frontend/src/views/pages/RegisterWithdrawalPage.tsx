@@ -1,30 +1,87 @@
-import { CheckCircle2, MapPin, PackageCheck, Search, UserCog } from 'lucide-react'
-import { useState } from 'react'
-import { z } from 'zod'
+import { CheckCircle2, MapPin, PackageCheck, UserCog } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { beneficiaryService } from '@/models/services'
-import { cycleTypeLabels, type Beneficiary } from '@/models/types'
+import { cycleTypeLabels, type Beneficiary, type CollectionPoint } from '@/models/types'
 import {
   registerWithdrawalSchema,
   useAuth,
   useBeneficiaryWithdrawalHistory,
   useCollectionPoints,
   useRegisterWithdrawal,
-  type RegisterWithdrawalForm,
 } from '@/viewmodels'
-import { FormComponent, type FormFieldConfig } from '@/views/components/form'
-import { ModalComponent } from '@/views/components/modal'
-import { Alert, Badge, Button, Card, FormField, SectionTitle, Select } from '@/views/components/ui'
+import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
+import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  FormField,
+  SectionTitle,
+  Select,
+  Spinner,
+  Textarea,
+} from '@/views/components/ui'
 
-const lookupSchema = z.object({ cpf: z.string().min(11, 'Informe o CPF (11 dígitos).') })
+const MAX_NOTES_LENGTH = 500
+const NOTES_ERROR_MESSAGE = 'Máximo de 500 caracteres.'
 
-const withdrawalFields: FormFieldConfig[] = [
-  {
-    name: 'notes',
-    type: 'textarea',
-    label: 'Observações',
-    placeholder: 'Itens retirados, observações…',
-  },
-]
+function describeRule(point: CollectionPoint): string {
+  const { maxWithdrawalsPerCycle, type } = point.withdrawalRule
+  const times = maxWithdrawalsPerCycle === 1 ? 'retirada' : 'retiradas'
+  return `${maxWithdrawalsPerCycle} ${times} por família · ciclo ${cycleTypeLabels[type].toLowerCase()}`
+}
+
+function PointSelector({
+  points,
+  isAdmin,
+  chosenPointId,
+  onChoose,
+  point,
+}: {
+  points: CollectionPoint[]
+  isAdmin: boolean
+  chosenPointId: string
+  onChoose: (pointId: string) => void
+  point: CollectionPoint | null
+}) {
+  return (
+    <Card className="space-y-3 p-5">
+      {isAdmin ? (
+        <FormField label="Ponto da retirada" htmlFor="withdrawal-point">
+          <Select
+            id="withdrawal-point"
+            value={chosenPointId}
+            onValueChange={onChoose}
+            disabled={points.length === 0}
+          >
+            <option value="">Selecione o ponto…</option>
+            {points.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {p.address.city}/{p.address.state}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+      ) : (
+        point && (
+          <p className="flex items-center gap-2 text-sm text-stone-600">
+            <MapPin className="size-4 shrink-0 text-stone-400" />
+            <span>
+              Ponto da retirada: <strong className="text-stone-800">{point.name}</strong>
+            </span>
+          </p>
+        )
+      )}
+      {point && (
+        <p className="text-xs text-stone-500">
+          Limite deste ponto: <strong className="text-stone-700">{describeRule(point)}</strong>. O
+          histórico é somado entre todos os pontos do município.
+        </p>
+      )}
+    </Card>
+  )
+}
 
 export function RegisterWithdrawalPage() {
   const { user, isAdmin } = useAuth()
@@ -37,210 +94,161 @@ export function RegisterWithdrawalPage() {
   const point = availablePoints.find((p) => p.id === pointId) ?? null
 
   const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null)
-  const { history } = useBeneficiaryWithdrawalHistory(beneficiary?.id ?? null, pointId || null)
-
-  const [lookupOpen, setLookupOpen] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
-  const [withdrawalOpen, setWithdrawalOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [registeredFor, setRegisteredFor] = useState<{ name: string; at: string } | null>(null)
+  const { history, isLoading: isLoadingHistory } = useBeneficiaryWithdrawalHistory(
+    beneficiary?.id ?? null,
+    pointId || null,
+  )
 
-  async function loadByCpf(cpf: string) {
+  const limitReached = history?.remainingInCurrentCycle === 0
+  const isInactive = beneficiary !== null && !beneficiary.isActive
+  const notesTooLong = notes.length > MAX_NOTES_LENGTH
+  const canRegister = !!point && !!history && !limitReached && !isInactive && !notesTooLong
+
+  async function searchByCpf(cpf: string) {
     setLookupError(null)
+    setRegisteredFor(null)
+    setIsSearching(true)
     try {
       setBeneficiary(await beneficiaryService.findByCpf(cpf))
-      setLookupOpen(false)
     } catch {
       setLookupError('Nenhum beneficiário encontrado com esse CPF. Verifique o número.')
+    } finally {
+      setIsSearching(false)
     }
   }
 
-  function openLookup() {
-    setLookupError(null)
-    setLookupOpen(true)
-  }
-
-  function openWithdrawal() {
+  function changeBeneficiary() {
     withdrawal.reset()
-    setWithdrawalOpen(true)
+    setBeneficiary(null)
+    setNotes('')
   }
 
-  const remaining = history?.remainingInCurrentCycle
-  const limitReached = remaining === 0
-  const canRegister = !!point && !limitReached
-  const ruleText = point
-    ? `${point.withdrawalRule.maxWithdrawalsPerCycle} por família (${cycleTypeLabels[point.withdrawalRule.type].toLowerCase()})`
-    : null
-
-  const withdrawalDefaults: RegisterWithdrawalForm = { notes: '' }
+  async function register(event: FormEvent) {
+    event.preventDefault()
+    if (!canRegister || !beneficiary || !point) return
+    const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
+    if (!parsed.success) return
+    try {
+      const registered = await withdrawal.register({
+        pointId: point.id,
+        beneficiaryId: beneficiary.id,
+        notes: parsed.data.notes || null,
+      })
+      setRegisteredFor({ name: beneficiary.name, at: registered.occurredAtUtc })
+      changeBeneficiary()
+    } catch {
+      return
+    }
+  }
 
   return (
-    <div className="mx-auto w-[90%] space-y-6">
+    <div className="mx-auto w-[90%] max-w-3xl space-y-4">
       <SectionTitle
         icon={<PackageCheck className="size-5" />}
         title="Registrar Retirada"
-        description="O histórico é somado entre todos os pontos do município; o limite é o do ponto da retirada."
+        description="Busque o beneficiário pelo CPF, confira o saldo do ciclo e registre."
       />
 
-      {withdrawal.lastWithdrawal && (
+      {registeredFor && (
         <Alert tone="success" title="Retirada registrada!">
-          Registrada em {new Date(withdrawal.lastWithdrawal.occurredAtUtc).toLocaleString('pt-BR')}.
+          {registeredFor.name} · {new Date(registeredFor.at).toLocaleString('pt-BR')}. Já pode
+          buscar o próximo beneficiário.
         </Alert>
       )}
 
-      <Card className="space-y-5 p-6">
-        {isAdmin ? (
-          <FormField label="Ponto da retirada" htmlFor="withdrawal-point">
-            <Select
-              id="withdrawal-point"
-              value={chosenPointId}
-              onValueChange={setChosenPointId}
-              disabled={availablePoints.length === 0}
-            >
-              <option value="">Selecione o ponto…</option>
-              {availablePoints.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {p.address.city}/{p.address.state}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-        ) : (
-          point && (
-            <p className="flex items-center gap-2 text-sm text-stone-600">
-              <MapPin className="size-4 shrink-0 text-stone-400" />
-              <span>
-                Ponto da retirada: <strong className="text-stone-800">{point.name}</strong>
-              </span>
-            </p>
-          )
-        )}
-        {ruleText && <p className="text-sm text-stone-500">Limite deste ponto: {ruleText}.</p>}
+      <PointSelector
+        points={availablePoints}
+        isAdmin={isAdmin}
+        chosenPointId={chosenPointId}
+        onChoose={setChosenPointId}
+        point={point}
+      />
+
+      <Card className="space-y-4 p-5">
+        <h2 className="text-base font-semibold text-stone-900">Beneficiário</h2>
 
         {!beneficiary ? (
-          <div className="flex flex-col items-start gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-stone-900">Beneficiário</h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Busque o beneficiário pelo CPF para conferir o limite do ciclo e registrar a
-                retirada.
-              </p>
-            </div>
-            <Button
-              variant="secondary"
-              leftIcon={<Search className="size-4" />}
-              onClick={openLookup}
-            >
-              Buscar por CPF
-            </Button>
-          </div>
+          <CpfLookup
+            disabled={!point}
+            disabledHint="Selecione o ponto da retirada para buscar."
+            isSearching={isSearching}
+            errorMessage={lookupError}
+            onSearch={searchByCpf}
+          />
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-stone-900">{beneficiary.name}</h2>
-                <p className="mt-0.5 text-sm text-stone-500">CPF {beneficiary.cpf}</p>
-                {remaining !== undefined && (
-                  <Badge tone={limitReached ? 'red' : 'green'} className="mt-1.5">
-                    {limitReached
-                      ? 'Limite do ciclo atingido'
-                      : `${remaining} retirada(s) restante(s)`}
-                  </Badge>
-                )}
+          <form onSubmit={register} className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-lg font-bold text-stone-900">{beneficiary.name}</p>
+                <p className="mt-0.5 text-sm text-stone-500 tabular-nums">CPF {beneficiary.cpf}</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="ghost"
-                  leftIcon={<UserCog className="size-4" />}
-                  onClick={openLookup}
-                >
-                  Trocar beneficiário
-                </Button>
-                <Button
-                  variant="brand"
-                  leftIcon={<CheckCircle2 className="size-4" />}
-                  disabled={!canRegister}
-                  onClick={openWithdrawal}
-                >
-                  Registrar retirada
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leftIcon={<UserCog className="size-4" />}
+                onClick={changeBeneficiary}
+              >
+                Trocar beneficiário
+              </Button>
             </div>
-            {!point && (
-              <Alert tone="info">Selecione o ponto da retirada para ver o saldo do ciclo.</Alert>
+
+            {isInactive && (
+              <Alert tone="warning">
+                <Badge tone="red">Inativo</Badge> Este beneficiário está inativo e não pode retirar.
+              </Alert>
             )}
+
+            {isLoadingHistory && <Spinner />}
+            {history && point && <CycleUsage history={history} currentPointId={point.id} />}
             {limitReached && (
               <Alert tone="warning">
                 Este beneficiário atingiu o limite de retiradas do ciclo vigente neste ponto.
               </Alert>
             )}
-          </div>
+
+            <FormField
+              label="Observações (opcional)"
+              htmlFor="withdrawal-notes"
+              error={notesTooLong ? NOTES_ERROR_MESSAGE : undefined}
+              hint={`${notes.length}/${MAX_NOTES_LENGTH} · itens retirados, observações…`}
+            >
+              <Textarea
+                id="withdrawal-notes"
+                rows={2}
+                invalid={notesTooLong}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+              />
+            </FormField>
+
+            {withdrawal.error && (
+              <Alert
+                tone={withdrawal.error.isConflict ? 'warning' : 'error'}
+                title={withdrawal.error.isConflict ? 'Não permitido' : undefined}
+              >
+                {withdrawal.error.displayMessage}
+              </Alert>
+            )}
+
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              className="w-full"
+              leftIcon={<CheckCircle2 className="size-5" />}
+              loading={withdrawal.isPending}
+              disabled={!canRegister}
+            >
+              Registrar retirada
+            </Button>
+          </form>
         )}
       </Card>
-
-      <ModalComponent
-        open={lookupOpen}
-        onOpenChange={setLookupOpen}
-        title="Buscar beneficiário por CPF"
-        description="Informe o CPF para carregar o beneficiário e o limite do ciclo."
-        size="md"
-      >
-        {lookupError && (
-          <div className="mb-3">
-            <Alert tone="warning">{lookupError}</Alert>
-          </div>
-        )}
-        <FormComponent
-          schema={lookupSchema}
-          defaultValues={{ cpf: '' }}
-          fields={[
-            {
-              name: 'cpf',
-              type: 'text',
-              label: 'CPF do beneficiário',
-              placeholder: '000.000.000-00',
-              required: true,
-            },
-          ]}
-          onSubmit={(values) => loadByCpf(values.cpf)}
-          submitLabel="Buscar beneficiário"
-          submitIcon={<Search className="size-4" />}
-          submitFullWidth
-        />
-      </ModalComponent>
-
-      {beneficiary && point && (
-        <ModalComponent
-          open={withdrawalOpen}
-          onOpenChange={setWithdrawalOpen}
-          title="Registrar retirada"
-          description={`${beneficiary.name} · ${point.name} · ${remaining ?? '—'} retirada(s) restante(s) no ciclo.`}
-        >
-          {withdrawal.error && (
-            <Alert
-              tone={withdrawal.error.isConflict ? 'warning' : 'error'}
-              title={withdrawal.error.isConflict ? 'Não permitido' : undefined}
-            >
-              {withdrawal.error.displayMessage}
-            </Alert>
-          )}
-          <FormComponent
-            schema={registerWithdrawalSchema}
-            defaultValues={withdrawalDefaults}
-            fields={withdrawalFields}
-            onSubmit={async (values) => {
-              await withdrawal.register({
-                pointId: point.id,
-                beneficiaryId: beneficiary.id,
-                notes: values.notes || null,
-              })
-              setWithdrawalOpen(false)
-            }}
-            submitLabel="Registrar retirada"
-            submitIcon={<CheckCircle2 className="size-5" />}
-            submitDisabled={limitReached}
-            submitFullWidth
-          />
-        </ModalComponent>
-      )}
     </div>
   )
 }

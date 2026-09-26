@@ -35,6 +35,7 @@ public class RegisterBeneficiaryHandlerTests
         result.IsError.Should().BeFalse();
         added.Should().NotBeNull();
         added!.RegisteredByPointId.Should().Be(point.Id);
+        added.IsLinkedTo(point.Id).Should().BeTrue();
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -13,7 +13,7 @@ public sealed record BeneficiaryResponse(
     string Name,
     string Cpf,
     DateOnly? BirthDate,
-    Guid RegisteredByPointId,
+    IReadOnlyList<Guid> LinkedPointIds,
     bool IsActive,
     IReadOnlyList<BeneficiaryKinshipResponse> Kinships);
 
@@ -32,7 +32,7 @@ public static class BeneficiaryMappings
             beneficiary.Name,
             beneficiary.Cpf.Formatted,
             beneficiary.BirthDate,
-            beneficiary.RegisteredByPointId.Value,
+            beneficiary.LinkedPointIds.Select(id => id.Value).ToList(),
             beneficiary.IsActive,
             beneficiary.Kinships.Select(k => k.ToResponse()).ToList());
 }

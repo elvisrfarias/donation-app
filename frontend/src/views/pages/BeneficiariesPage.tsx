@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Save, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/models/api/problemDetails'
+import { beneficiaryService } from '@/models/services'
 import { type AddBeneficiaryKinshipInput, type Beneficiary } from '@/models/types'
 import {
   registerBeneficiarySchema,
@@ -10,6 +11,7 @@ import {
   useAuth,
   useBeneficiaries,
   useCollectionPoints,
+  useLinkBeneficiaryToPoint,
   useRegisterBeneficiary,
   useUpdateBeneficiary,
   type RegisterBeneficiaryForm,
@@ -17,6 +19,7 @@ import {
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { BeneficiaryKinshipsEditor } from '@/views/components/beneficiaries/BeneficiaryKinshipsEditor'
+import { ExistingBeneficiaryNotice } from '@/views/components/beneficiaries/ExistingBeneficiaryNotice'
 import { PendingKinshipsEditor } from '@/views/components/beneficiaries/PendingKinshipsEditor'
 import { FormComponent, type FormFieldConfig } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
@@ -63,6 +66,11 @@ const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
   },
 ]
 
+interface ExistingBeneficiary {
+  beneficiary: Beneficiary
+  pointId: string
+}
+
 export function BeneficiariesPage() {
   const { user, isAdmin, isManager } = useAuth()
   const { points } = useCollectionPoints()
@@ -70,11 +78,13 @@ export function BeneficiariesPage() {
   const registerBeneficiary = useRegisterBeneficiary()
   const updateBeneficiary = useUpdateBeneficiary()
   const { addKinship } = useAddBeneficiaryKinship()
+  const linkBeneficiary = useLinkBeneficiaryToPoint()
 
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
   const [editingBeneficiary, setEditingBeneficiary] = useState<Beneficiary | null>(null)
   const [pendingKinships, setPendingKinships] = useState<AddBeneficiaryKinshipInput[]>([])
   const [kinshipNotice, setKinshipNotice] = useState<string | null>(null)
+  const [existing, setExisting] = useState<ExistingBeneficiary | null>(null)
 
   const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
 
@@ -96,6 +106,8 @@ export function BeneficiariesPage() {
 
   function openBeneficiary() {
     registerBeneficiary.reset()
+    linkBeneficiary.reset()
+    setExisting(null)
     setPendingKinships([])
     setBeneficiaryOpen(true)
   }
@@ -106,21 +118,22 @@ export function BeneficiariesPage() {
     setEditingBeneficiary(beneficiary)
   }
 
-  const beneficiaryFields: FormFieldConfig[] = [
+  const personFields: FormFieldConfig[] = [
     { name: 'name', type: 'text', label: 'Nome', required: true },
     { name: 'cpf', type: 'text', label: 'CPF', placeholder: '000.000.000-00', required: true },
     { name: 'birthDate', type: 'date', label: 'Nascimento' },
-    {
-      name: 'registeredByPointId',
-      type: 'autocomplete',
-      label: 'Ponto de cadastro',
-      options: availablePoints.map((p) => ({ value: p.id, label: p.name })),
-      placeholder: 'Selecione…',
-      searchPlaceholder: 'Buscar ponto…',
-      emptyText: 'Nenhum ponto encontrado.',
-      required: true,
-    },
   ]
+  const registrationPointField: FormFieldConfig = {
+    name: 'registeredByPointId',
+    type: 'autocomplete',
+    label: 'Ponto de cadastro',
+    options: availablePoints.map((p) => ({ value: p.id, label: p.name })),
+    placeholder: 'Selecione…',
+    searchPlaceholder: 'Buscar ponto…',
+    emptyText: 'Nenhum ponto encontrado.',
+    required: true,
+  }
+  const registerFields = [...personFields, registrationPointField]
 
   const liveEditingBeneficiary = editingBeneficiary
     ? (beneficiaries.find((row) => row.id === editingBeneficiary.id) ?? editingBeneficiary)
@@ -130,7 +143,6 @@ export function BeneficiariesPage() {
     name: editingBeneficiary.name,
     cpf: editingBeneficiary.cpf,
     birthDate: editingBeneficiary.birthDate ?? '',
-    registeredByPointId: editingBeneficiary.registeredByPointId,
   }
 
   async function linkPendingKinships(created: Beneficiary): Promise<string[]> {
@@ -154,22 +166,57 @@ export function BeneficiariesPage() {
     return `Beneficiário salvo, mas ${summary}: ${failures.join(' ')}`
   }
 
-  async function handleRegister(values: RegisterBeneficiaryForm) {
-    const created = await registerBeneficiary.register({
-      name: values.name,
-      cpf: values.cpf,
-      birthDate: values.birthDate || null,
-      registeredByPointId: values.registeredByPointId,
-    })
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LAST_POINT_KEY, values.registeredByPointId)
-    }
-    const failures = await linkPendingKinships(created)
+  function rememberPoint(pointId: string) {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(LAST_POINT_KEY, pointId)
+  }
+
+  async function finishRegistration(beneficiary: Beneficiary) {
+    const failures = await linkPendingKinships(beneficiary)
     setBeneficiaryOpen(false)
-    if (failures.length > 0) {
-      setKinshipNotice(describeKinshipFailures(failures))
-      setEditingBeneficiary(created)
+    setKinshipNotice(failures.length > 0 ? describeKinshipFailures(failures) : null)
+    if (failures.length > 0) setEditingBeneficiary(beneficiary)
+  }
+
+  async function findExistingBeneficiary(values: RegisterBeneficiaryForm) {
+    const found = await beneficiaryService.findByCpf(values.cpf)
+    setExisting({ beneficiary: found, pointId: values.registeredByPointId })
+  }
+
+  async function handleRegister(values: RegisterBeneficiaryForm) {
+    setExisting(null)
+    linkBeneficiary.reset()
+    try {
+      const created = await registerBeneficiary.register({
+        name: values.name,
+        cpf: values.cpf,
+        birthDate: values.birthDate || null,
+        registeredByPointId: values.registeredByPointId,
+      })
+      rememberPoint(values.registeredByPointId)
+      await finishRegistration(created)
+    } catch (error) {
+      if (!(error instanceof ApiError && error.isConflict)) throw error
+      await findExistingBeneficiary(values)
     }
+  }
+
+  async function handleLinkExisting() {
+    if (!existing) return
+    const linked = await linkBeneficiary.linkToPoint({
+      beneficiaryId: existing.beneficiary.id,
+      pointId: existing.pointId,
+    })
+    rememberPoint(existing.pointId)
+    setExisting(null)
+    await finishRegistration(linked)
+    setEditingBeneficiary(linked)
+  }
+
+  function handleEditExisting() {
+    if (!existing) return
+    setBeneficiaryOpen(false)
+    openEditBeneficiary(existing.beneficiary)
+    setExisting(null)
   }
 
   async function handleUpdate(beneficiary: Beneficiary, values: UpdateBeneficiaryForm) {
@@ -179,7 +226,6 @@ export function BeneficiariesPage() {
         name: values.name,
         cpf: values.cpf,
         birthDate: values.birthDate || null,
-        registeredByPointId: values.registeredByPointId,
       },
     })
     setEditingBeneficiary(null)
@@ -237,15 +283,29 @@ export function BeneficiariesPage() {
           description="Cadastre a pessoa e, se quiser, os vínculos de parentesco."
           size="xl"
         >
-          {registerBeneficiary.error && (
-            <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
+          {existing ? (
+            <ExistingBeneficiaryNotice
+              beneficiary={existing.beneficiary}
+              pointName={
+                availablePoints.find((p) => p.id === existing.pointId)?.name ?? 'seu ponto'
+              }
+              alreadyLinked={existing.beneficiary.linkedPointIds.includes(existing.pointId)}
+              isLinking={linkBeneficiary.isPending}
+              errorMessage={linkBeneficiary.error?.displayMessage}
+              onLink={handleLinkExisting}
+              onEdit={handleEditExisting}
+            />
+          ) : (
+            registerBeneficiary.error && (
+              <Alert tone="error">{registerBeneficiary.error.displayMessage}</Alert>
+            )
           )}
           <FormComponent
             key={beneficiaryOpen ? 'add-beneficiary' : 'closed'}
             columns={2}
             schema={registerBeneficiarySchema}
             defaultValues={beneficiaryDefaults}
-            fields={beneficiaryFields}
+            fields={registerFields}
             onSubmit={handleRegister}
             submitLabel="Salvar"
             submitIcon={<Save className="size-4" />}
@@ -273,7 +333,7 @@ export function BeneficiariesPage() {
             columns={2}
             schema={updateBeneficiarySchema}
             defaultValues={editDefaults}
-            fields={beneficiaryFields}
+            fields={personFields}
             onSubmit={(values) => handleUpdate(editingBeneficiary, values)}
             submitLabel="Salvar"
             submitIcon={<Save className="size-4" />}

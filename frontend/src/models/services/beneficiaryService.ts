@@ -35,6 +35,14 @@ export const beneficiaryService = {
     return data
   },
 
+  /** Vincula um beneficiário já cadastrado a um ponto (decisão do gestor do ponto). */
+  async linkToPoint(beneficiaryId: string, pointId: string): Promise<Beneficiary> {
+    const { data } = await http.post<Beneficiary>(`/beneficiaries/${beneficiaryId}/points`, {
+      pointId,
+    })
+    return data
+  },
+
   async addKinship(beneficiaryId: string, input: AddBeneficiaryKinshipInput): Promise<Beneficiary> {
     const { data } = await http.post<Beneficiary>(`/beneficiaries/${beneficiaryId}/kinships`, input)
     return data

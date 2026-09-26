@@ -120,7 +120,10 @@ base na contagem **recebida por parâmetro** — o agregado não consulta o banc
 `withdrawals` inteira (todos os pontos). Esse desenho mantém a regra testável sem banco e respeita as
 fronteiras de agregado (Withdrawal referencia Beneficiary por Id, não por navegação).
 
-Não existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
+O `Beneficiary` é único por CPF no município, mas pode ser atendido por vários pontos: `PointLinks`
+(`BeneficiaryPointLink`) guarda os pontos vinculados, `RegisteredByPointId` só registra quem fez o cadastro
+original, e a visibilidade/edição de um gestor vale para quem está vinculado ao seu ponto
+(`Beneficiary.IsLinkedTo`, `LinkBeneficiaryToPointCommand`). Não existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
 de retirada (`WithdrawalCycle`: tipo do ciclo + máximo por família; padrão: 3 por ano) é do **ponto**
 (`CollectionPoint.WithdrawalRule`, configurada na aba "Metas e avisos" do estoque): o histórico é somado entre
 todos os pontos, mas o limite aplicado é o do ponto onde a retirada acontece. Vínculos de parentesco

@@ -14,7 +14,6 @@ namespace DoacaoApp.Application.Tests.Beneficiaries;
 public class UpdateBeneficiaryHandlerTests
 {
     private readonly Mock<IBeneficiaryRepository> _beneficiaryRepo = new();
-    private readonly Mock<ICollectionPointRepository> _pointRepo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
     private readonly Mock<ICurrentUser> _currentUser = new();
 
@@ -25,16 +24,14 @@ public class UpdateBeneficiaryHandlerTests
     }
 
     private UpdateBeneficiaryHandler CreateSut() =>
-        new(_beneficiaryRepo.Object, _pointRepo.Object, _unitOfWork.Object, _currentUser.Object);
+        new(_beneficiaryRepo.Object, _unitOfWork.Object, _currentUser.Object);
 
     [Fact]
     public async Task Handle_DadosValidos_DeveAtualizarESalvar()
     {
-        var point = GivenPoint();
-        var beneficiary = GivenBeneficiary(point.Id);
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
 
-        var command = new UpdateBeneficiaryCommand(
-            beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null, point.Id.Value);
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -46,14 +43,12 @@ public class UpdateBeneficiaryHandlerTests
     [Fact]
     public async Task Handle_CpfJaCadastradoEmOutroBeneficiario_DeveBloquear()
     {
-        var point = GivenPoint();
-        var beneficiary = GivenBeneficiary(point.Id);
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
         _beneficiaryRepo
             .Setup(r => r.ExistsWithCpfAsync(It.IsAny<Cpf>(), beneficiary.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var command = new UpdateBeneficiaryCommand(
-            beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null, point.Id.Value);
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -65,7 +60,7 @@ public class UpdateBeneficiaryHandlerTests
     [Fact]
     public async Task Handle_CpfInvalido_DeveRetornarErroDeValidacao()
     {
-        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", "123", null, Guid.NewGuid());
+        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", "123", null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -79,7 +74,7 @@ public class UpdateBeneficiaryHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Beneficiary?)null);
 
-        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", TestData.ValidCpfA, null, Guid.NewGuid());
+        var command = new UpdateBeneficiaryCommand(Guid.NewGuid(), "João", TestData.ValidCpfA, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -90,13 +85,12 @@ public class UpdateBeneficiaryHandlerTests
     [Fact]
     public async Task Handle_QuandoGestorEditaBeneficiarioDeOutroPonto_DeveRetornarNotFound()
     {
-        var ownPoint = GivenPoint();
+        var ownPointId = CollectionPointId.New();
         var beneficiaryOfOtherPoint = GivenBeneficiary(CollectionPointId.New());
         _currentUser.Setup(u => u.IsAdmin).Returns(false);
-        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPoint.Id.Value);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId.Value);
 
-        var command = new UpdateBeneficiaryCommand(
-            beneficiaryOfOtherPoint.Id.Value, "João", TestData.ValidCpfA, null, ownPoint.Id.Value);
+        var command = new UpdateBeneficiaryCommand(beneficiaryOfOtherPoint.Id.Value, "João", TestData.ValidCpfA, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -104,11 +98,21 @@ public class UpdateBeneficiaryHandlerTests
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private CollectionPoint GivenPoint()
+    [Fact]
+    public async Task Handle_QuandoGestorEstaVinculadoAoBeneficiarioCadastradoPorOutroPonto_DeveAtualizar()
     {
-        var point = TestData.Point();
-        _pointRepo.Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>())).ReturnsAsync(point);
-        return point;
+        var ownPointId = CollectionPointId.New();
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
+        beneficiary.LinkToPoint(ownPointId, TestData.Now);
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId.Value);
+
+        var command = new UpdateBeneficiaryCommand(beneficiary.Id.Value, "João Silva", TestData.ValidCpfB, null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Name.Should().Be("João Silva");
     }
 
     private Beneficiary GivenBeneficiary(CollectionPointId pointId)

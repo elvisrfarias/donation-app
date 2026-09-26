@@ -150,7 +150,7 @@ doacao-app/
 
 - **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s
   e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
-- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município. Mantém uma lista de
+- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município; uma mesma pessoa pode ser atendida por vários pontos (`BeneficiaryPointLink`) e cada gestor decide vinculá-la ao seu ponto — só os pontos vinculados a enxergam e editam. Mantém uma lista de
   **vínculos de parentesco** (`BeneficiaryKinship`: beneficiário relacionado + tipo — cônjuge, pai,
   filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro). Todo vínculo é
   espelhado automaticamente no outro lado com o tipo inverso e é apenas informativo: não altera a cota
@@ -294,7 +294,8 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | GET | `/api/beneficiaries/{id}` | autenticado (gestor só vê os do próprio ponto) |
 | GET | `/api/beneficiaries/by-cpf/{cpf}` | Admin, PointManager (busca municipal, usada na retirada) |
 | POST | `/api/beneficiaries` | Admin, PointManager |
-| PUT | `/api/beneficiaries/{id}` | Admin, PointManager (gestor só edita os do próprio ponto) |
+| PUT | `/api/beneficiaries/{id}` | Admin, PointManager (gestor só edita os vinculados ao próprio ponto; os dados valem para todos os pontos) |
+| POST | `/api/beneficiaries/{id}/points` | Admin, PointManager (vincula uma pessoa já cadastrada a um ponto; o gestor só vincula ao próprio ponto; 409 se já vinculada) |
 | POST | `/api/beneficiaries/{id}/kinships` | Admin, PointManager (vínculo de parentesco informativo, espelhado no outro beneficiário) |
 | GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, PointManager (histórico + saldo do ciclo pela regra do ponto; gestor só consulta pelo próprio ponto) |
 | POST | `/api/withdrawals` | Admin, PointManager |

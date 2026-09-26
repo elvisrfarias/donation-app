@@ -1,16 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { MapPin, PackageCheck, RotateCcw, SlidersHorizontal } from 'lucide-react'
-import {
-  collectionPointTypeLabels,
-  itemCategoryLabels,
-  type CollectionPoint,
-  type ItemCategory,
-} from '@/models/types'
+import { MapPin, PackageCheck, RotateCcw } from 'lucide-react'
+import { collectionPointTypeLabels, type CollectionPoint, type ItemCategory } from '@/models/types'
 import { useUpdateStock } from '@/viewmodels'
 import { Alert, Badge, Button, Card } from '@/views/components/ui'
 import { StockItemCard } from './StockItemCard'
 import {
-  categoriesNeedingRestock,
   countByStatus,
   countChangedCategories,
   goalProgress,
@@ -19,7 +13,6 @@ import {
   toStockQuantities,
   toStockSettings,
   trackedCategories,
-  untrackedCategoriesWithStock,
   type StockQuantities,
 } from './stockDraft'
 import { useWarnBeforeLeaving } from './useWarnBeforeLeaving'
@@ -27,7 +20,6 @@ import { useWarnBeforeLeaving } from './useWarnBeforeLeaving'
 interface StockEditorProps {
   point: CollectionPoint
   canEdit: boolean
-  onOpenSettings?: () => void
 }
 
 function SummaryStat({
@@ -54,11 +46,7 @@ function ofTotal(count: number, total: number): string {
   return `${count} de ${total}`
 }
 
-function formatCategoryList(categories: ItemCategory[]): string {
-  return categories.map((category) => itemCategoryLabels[category]).join(', ')
-}
-
-export function StockEditor({ point, canEdit, onOpenSettings }: StockEditorProps) {
+export function StockEditor({ point, canEdit }: StockEditorProps) {
   const { updateStock, isPending, error, reset } = useUpdateStock()
   const savedQuantities = useMemo(() => toStockQuantities(point), [point])
   const settings = useMemo(() => toStockSettings(point), [point])
@@ -70,9 +58,7 @@ export function StockEditor({ point, canEdit, onOpenSettings }: StockEditorProps
   useWarnBeforeLeaving(isDirty)
 
   const shownCategories = trackedCategories(settings)
-  const hiddenWithStock = untrackedCategoriesWithStock(draft, settings)
   const trackedCount = shownCategories.length
-  const needingRestock = categoriesNeedingRestock(savedQuantities, settings)
   const goals = goalProgress(savedQuantities, settings)
 
   function setQuantity(category: ItemCategory, quantity: number) {
@@ -135,22 +121,6 @@ export function StockEditor({ point, canEdit, onOpenSettings }: StockEditorProps
         </div>
       </Card>
 
-      {needingRestock.length > 0 && (
-        <Alert tone="warning" title="Reposição necessária">
-          {formatCategoryList(needingRestock)}.
-          {onOpenSettings && canEdit && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="text-brand-700 ml-2 inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline"
-            >
-              <SlidersHorizontal className="size-3.5" />
-              Ajustar avisos
-            </button>
-          )}
-        </Alert>
-      )}
-
       {error && <Alert tone="error">{error.displayMessage}</Alert>}
       {justSaved && !isDirty && (
         <Alert tone="success">Estoque atualizado. O mapa público já mostra os novos valores.</Alert>
@@ -174,13 +144,6 @@ export function StockEditor({ point, canEdit, onOpenSettings }: StockEditorProps
         <Alert tone="info" title="Nenhuma categoria acompanhada">
           Ative as categorias que este ponto recebe na aba “Metas e avisos”.
         </Alert>
-      )}
-
-      {hiddenWithStock.length > 0 && (
-        <p className="text-sm text-stone-500">
-          Categorias não acompanhadas com estoque ({formatCategoryList(hiddenWithStock)}) ficam
-          ocultas aqui e continuam no mapa público. Ative-as em “Metas e avisos”.
-        </p>
       )}
 
       {canEdit ? (

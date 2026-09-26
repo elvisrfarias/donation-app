@@ -9,7 +9,7 @@ namespace DoacaoApp.Application.Beneficiaries.Queries;
 
 /// <summary>
 /// Lista os beneficiários visíveis ao usuário: um Admin vê todos; um PointManager/Viewer só
-/// vê os beneficiários cadastrados pelo seu próprio ponto de coleta.
+/// vê os beneficiários vinculados ao seu próprio ponto de coleta.
 /// </summary>
 public sealed record ListBeneficiariesQuery : IRequest<ErrorOr<IReadOnlyList<BeneficiaryResponse>>>;
 

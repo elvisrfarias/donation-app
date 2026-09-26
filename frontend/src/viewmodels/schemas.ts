@@ -72,7 +72,7 @@ export const registerBeneficiarySchema = z.object({
 })
 export type RegisterBeneficiaryForm = z.infer<typeof registerBeneficiarySchema>
 
-export const updateBeneficiarySchema = registerBeneficiarySchema
+export const updateBeneficiarySchema = registerBeneficiarySchema.omit({ registeredByPointId: true })
 export type UpdateBeneficiaryForm = z.infer<typeof updateBeneficiarySchema>
 
 export const addBeneficiaryKinshipSchema = z.object({

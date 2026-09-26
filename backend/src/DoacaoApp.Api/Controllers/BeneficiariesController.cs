@@ -23,8 +23,10 @@ public sealed record RegisterBeneficiaryRequest(
 public sealed record UpdateBeneficiaryRequest(
     string Name,
     string Cpf,
-    DateOnly? BirthDate,
-    Guid RegisteredByPointId);
+    DateOnly? BirthDate);
+
+/// <summary>Corpo de uma requisição de vínculo do beneficiário a um ponto de coleta.</summary>
+public sealed record LinkBeneficiaryToPointRequest(Guid PointId);
 
 /// <summary>Corpo de uma requisição de vínculo de parentesco.</summary>
 public sealed record AddBeneficiaryKinshipRequest(string RelatedBeneficiaryCpf, KinshipType Type);
@@ -87,7 +89,7 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
         return Respond(result, value => Created($"/api/beneficiaries/{value.Id}", value));
     }
 
-    /// <summary>Atualiza os dados de um beneficiário.</summary>
+    /// <summary>Atualiza os dados de um beneficiário (valem para todos os pontos que o atendem).</summary>
     [HttpPut("{beneficiaryId:guid}")]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
     [ProducesResponseType(typeof(BeneficiaryResponse), StatusCodes.Status200OK)]
@@ -103,9 +105,32 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
             beneficiaryId,
             request.Name,
             request.Cpf,
-            request.BirthDate,
-            request.RegisteredByPointId);
+            request.BirthDate);
 
+        var result = await Sender.Send(command, cancellationToken);
+        return Respond(result, Ok);
+    }
+
+    /// <summary>
+    /// Vincula um beneficiário já cadastrado a um ponto de coleta. Uma pessoa (CPF único no município)
+    /// pode ser atendida por vários pontos; cada ponto decide vinculá-la. O gestor só vincula ao próprio ponto.
+    /// </summary>
+    /// <response code="200">Beneficiário vinculado ao ponto.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Beneficiário ou ponto não encontrado.</response>
+    /// <response code="409">O beneficiário já está vinculado ao ponto.</response>
+    [HttpPost("{beneficiaryId:guid}/points")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
+    [ProducesResponseType(typeof(BeneficiaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> LinkToPoint(
+        Guid beneficiaryId,
+        [FromBody] LinkBeneficiaryToPointRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new LinkBeneficiaryToPointCommand(beneficiaryId, request.PointId);
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, Ok);
     }

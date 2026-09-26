@@ -20,7 +20,6 @@ import {
   toStockSettingItems,
   toStockSettings,
   trackedCategories,
-  untrackedCategoriesWithStock,
 } from './stockDraft'
 
 const pointWithStock = {
@@ -119,14 +118,6 @@ describe('stockDraft — configurações', () => {
     const settings = toStockSettings(pointWithStock)
 
     expect(trackedCategories(settings)).toEqual(['Food', 'Clothing', 'Footwear'])
-  })
-
-  it('aponta as categorias não acompanhadas que ainda têm estoque', () => {
-    const quantities = { ...toStockQuantities(pointWithStock), Toys: 4 }
-    const settings = toStockSettings(pointWithStock)
-
-    expect(untrackedCategoriesWithStock(quantities, settings)).toEqual(['Toys'])
-    expect(untrackedCategoriesWithStock(toStockQuantities(pointWithStock), settings)).toEqual([])
   })
 
   it('conta as categorias visíveis por situação', () => {

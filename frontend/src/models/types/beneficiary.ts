@@ -54,7 +54,8 @@ export interface Beneficiary {
   name: string
   cpf: string
   birthDate?: string | null
-  registeredByPointId: string
+  /** Pontos que atendem a pessoa — só eles a enxergam e editam. */
+  linkedPointIds: string[]
   isActive: boolean
   kinships: BeneficiaryKinship[]
 }
@@ -66,7 +67,7 @@ export interface RegisterBeneficiaryInput {
   registeredByPointId: string
 }
 
-export type UpdateBeneficiaryInput = RegisterBeneficiaryInput
+export type UpdateBeneficiaryInput = Omit<RegisterBeneficiaryInput, 'registeredByPointId'>
 
 export interface AddBeneficiaryKinshipInput {
   relatedBeneficiaryCpf: string

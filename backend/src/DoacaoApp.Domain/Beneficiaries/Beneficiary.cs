@@ -9,12 +9,13 @@ namespace DoacaoApp.Domain.Beneficiaries;
 
 /// <summary>
 /// Beneficiário — Aggregate Root e entidade central de rastreabilidade. Guarda os dados da pessoa,
-/// o ponto que a cadastrou e os vínculos de parentesco declarados. O limite de retiradas é regra
+/// o ponto que a cadastrou, os pontos que a atendem e os vínculos de parentesco declarados. O limite de retiradas é regra
 /// do ponto de coleta (<see cref="CollectionPoints.CollectionPoint.WithdrawalRule"/>).
 /// </summary>
 public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
 {
     private readonly List<BeneficiaryKinship> _kinships = [];
+    private readonly List<BeneficiaryPointLink> _pointLinks = [];
 
     private Beneficiary()
     {
@@ -36,14 +37,20 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         RegisteredByPointId = registeredByPointId;
         CreatedAtUtc = createdAtUtc;
         IsActive = true;
+        _pointLinks.Add(new BeneficiaryPointLink(registeredByPointId, createdAtUtc));
     }
 
     public string Name { get; private set; }
     public Cpf Cpf { get; private set; }
     public DateOnly? BirthDate { get; private set; }
 
-    /// <summary>Ponto que cadastrou o beneficiário (cada ponto cadastra os seus).</summary>
+    /// <summary>Ponto que fez o cadastro original do beneficiário (rastreabilidade).</summary>
     public CollectionPointId RegisteredByPointId { get; private set; }
+
+    /// <summary>Pontos que atendem o beneficiário — só eles o enxergam e editam.</summary>
+    public IReadOnlyList<BeneficiaryPointLink> PointLinks => _pointLinks.AsReadOnly();
+
+    public IEnumerable<CollectionPointId> LinkedPointIds => _pointLinks.Select(link => link.PointId);
 
     public bool IsActive { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
@@ -74,8 +81,7 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
     public ErrorOr<Success> UpdateDetails(
         string? name,
         Cpf cpf,
-        DateOnly? birthDate,
-        CollectionPointId registeredByPointId)
+        DateOnly? birthDate)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -85,7 +91,21 @@ public sealed class Beneficiary : AggregateRoot<BeneficiaryId>
         Name = name.Trim();
         Cpf = cpf;
         BirthDate = birthDate;
-        RegisteredByPointId = registeredByPointId;
+
+        return Result.Success;
+    }
+
+    public bool IsLinkedTo(CollectionPointId pointId) => _pointLinks.Any(link => link.PointId == pointId);
+
+    /// <summary>Vincula o beneficiário a mais um ponto de coleta que passa a atendê-lo.</summary>
+    public ErrorOr<Success> LinkToPoint(CollectionPointId pointId, DateTime linkedAtUtc)
+    {
+        if (IsLinkedTo(pointId))
+        {
+            return DomainErrors.Beneficiary.AlreadyLinkedToPoint;
+        }
+
+        _pointLinks.Add(new BeneficiaryPointLink(pointId, linkedAtUtc));
 
         return Result.Success;
     }

@@ -605,7 +605,32 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("beneficiary_id");
                         });
 
+                    b.OwnsMany("DoacaoApp.Domain.Beneficiaries.BeneficiaryPointLink", "PointLinks", b1 =>
+                        {
+                            b1.Property<Guid>("beneficiary_id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("PointId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("point_id");
+
+                            b1.Property<DateTime>("LinkedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("linked_at_utc");
+
+                            b1.HasKey("beneficiary_id", "PointId");
+
+                            b1.HasIndex("PointId");
+
+                            b1.ToTable("beneficiary_point_links", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("beneficiary_id");
+                        });
+
                     b.Navigation("Kinships");
+
+                    b.Navigation("PointLinks");
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>

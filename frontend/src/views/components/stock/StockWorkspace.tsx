@@ -60,12 +60,7 @@ export function StockWorkspace({ pointId, canEdit }: StockWorkspaceProps) {
       />
 
       <TabPanel value={STOCK_TAB} activeValue={activeTab}>
-        <StockEditor
-          key={point.id}
-          point={point}
-          canEdit={canEdit}
-          onOpenSettings={() => setActiveTab(SETTINGS_TAB)}
-        />
+        <StockEditor key={point.id} point={point} canEdit={canEdit} />
       </TabPanel>
       <TabPanel value={SETTINGS_TAB} activeValue={activeTab}>
         <StockSettingsEditor key={point.id} point={point} canEdit={canEdit} />

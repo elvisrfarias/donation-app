@@ -60,6 +60,22 @@ export function useRegisterBeneficiary() {
   return { register: mutate, ...rest }
 }
 
+/** Vincula uma pessoa já cadastrada ao ponto; ela passa a aparecer na lista do ponto. */
+export function useLinkBeneficiaryToPoint() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    Beneficiary,
+    { beneficiaryId: string; pointId: string }
+  >({
+    mutationFn: ({ beneficiaryId, pointId }) =>
+      beneficiaryService.linkToPoint(beneficiaryId, pointId),
+    onSuccess: (_, { beneficiaryId }) => invalidateBeneficiaries(queryClient, beneficiaryId),
+  })
+
+  return { linkToPoint: mutate, ...rest }
+}
+
 export function useUpdateBeneficiary() {
   const queryClient = useQueryClient()
 

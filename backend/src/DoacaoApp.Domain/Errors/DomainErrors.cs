@@ -63,6 +63,9 @@ public static class DomainErrors
         public static Error NotFound => Error.NotFound("Beneficiary.NotFound", "Beneficiário não encontrado.");
         public static Error CpfAlreadyRegistered => Error.Conflict("Beneficiary.CpfAlreadyRegistered", "Este CPF já está cadastrado no município.");
 
+        public static Error AlreadyLinkedToPoint =>
+            Error.Conflict("Beneficiary.AlreadyLinkedToPoint", "Este beneficiário já está vinculado a este ponto.");
+
         public static Error RelatedBeneficiaryNotFound =>
             Error.NotFound("Beneficiary.RelatedBeneficiaryNotFound", "Não foi encontrado nenhum beneficiário com o CPF informado.");
 

@@ -41,6 +41,20 @@ public class GetBeneficiaryByIdHandlerTests
     }
 
     [Fact]
+    public async Task Handle_QuandoBeneficiarioFoiCadastradoPorOutroPontoMasEstaVinculadoAoSeu_RetornaOBeneficiario()
+    {
+        var ownPointId = CollectionPointId.New();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId.Value);
+        var beneficiary = GivenBeneficiary(CollectionPointId.New());
+        beneficiary.LinkToPoint(ownPointId, TestData.Now);
+
+        var result = await CreateSut().Handle(new GetBeneficiaryByIdQuery(beneficiary.Id.Value), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Handle_QuandoUsuarioNaoEAdminEBeneficiarioEDeOutroPonto_RetornaNotFound()
     {
         _currentUser.Setup(u => u.IsAdmin).Returns(false);

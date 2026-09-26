@@ -17,7 +17,7 @@ public sealed class BeneficiaryRepository(AppDbContext context) : IBeneficiaryRe
     public async Task<IReadOnlyList<Beneficiary>> ListByCollectionPointAsync(
         CollectionPointId pointId, CancellationToken cancellationToken = default) =>
         await context.Beneficiaries
-            .Where(b => b.RegisteredByPointId == pointId)
+            .Where(b => b.PointLinks.Any(link => link.PointId == pointId))
             .OrderBy(b => b.Name)
             .ToListAsync(cancellationToken);
 

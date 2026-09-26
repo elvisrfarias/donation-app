@@ -2,7 +2,6 @@ using DoacaoApp.Application.Beneficiaries.Contracts;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Domain.Beneficiaries;
-using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
 using DoacaoApp.Domain.ValueObjects;
@@ -13,18 +12,14 @@ using MediatR;
 namespace DoacaoApp.Application.Beneficiaries.Commands;
 
 /// <summary>
-/// Atualiza os dados do beneficiário (nome, CPF, nascimento e ponto de cadastro). Um gestor de
-/// ponto só edita beneficiários cadastrados pelo seu ponto.
+/// Atualiza os dados do beneficiário (nome, CPF e nascimento). Os dados são da pessoa e valem para
+/// todos os pontos que a atendem; um gestor só edita beneficiários vinculados ao seu ponto.
 /// </summary>
 public sealed record UpdateBeneficiaryCommand(
     Guid BeneficiaryId,
     string Name,
     string Cpf,
-    DateOnly? BirthDate,
-    Guid RegisteredByPointId) : IRequest<ErrorOr<BeneficiaryResponse>>, IScopedToCollectionPoint
-{
-    Guid IScopedToCollectionPoint.CollectionPointId => RegisteredByPointId;
-}
+    DateOnly? BirthDate) : IRequest<ErrorOr<BeneficiaryResponse>>;
 
 public sealed class UpdateBeneficiaryValidator : AbstractValidator<UpdateBeneficiaryCommand>
 {
@@ -33,13 +28,11 @@ public sealed class UpdateBeneficiaryValidator : AbstractValidator<UpdateBenefic
         RuleFor(x => x.BeneficiaryId).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Cpf).NotEmpty();
-        RuleFor(x => x.RegisteredByPointId).NotEmpty();
     }
 }
 
 public sealed class UpdateBeneficiaryHandler(
     IBeneficiaryRepository beneficiaryRepository,
-    ICollectionPointRepository pointRepository,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser)
     : IRequestHandler<UpdateBeneficiaryCommand, ErrorOr<BeneficiaryResponse>>
@@ -61,19 +54,12 @@ public sealed class UpdateBeneficiaryHandler(
             return DomainErrors.Beneficiary.NotFound;
         }
 
-        var point = await pointRepository.GetByIdAsync(
-            CollectionPointId.From(command.RegisteredByPointId), cancellationToken);
-        if (point is null)
-        {
-            return DomainErrors.CollectionPoint.NotFound;
-        }
-
         if (await beneficiaryRepository.ExistsWithCpfAsync(cpf.Value, beneficiary.Id, cancellationToken))
         {
             return DomainErrors.Beneficiary.CpfAlreadyRegistered;
         }
 
-        var updated = beneficiary.UpdateDetails(command.Name, cpf.Value, command.BirthDate, point.Id);
+        var updated = beneficiary.UpdateDetails(command.Name, cpf.Value, command.BirthDate);
         if (updated.IsError)
         {
             return updated.Errors;

@@ -25,6 +25,7 @@ public class BeneficiaryTests
         beneficiary.Cpf.Should().Be(CpfA);
         beneficiary.BirthDate.Should().Be(new DateOnly(1990, 5, 20));
         beneficiary.RegisteredByPointId.Should().Be(pointId);
+        beneficiary.LinkedPointIds.Should().Equal(pointId);
         beneficiary.IsActive.Should().BeTrue();
         beneficiary.CreatedAtUtc.Should().Be(TestData.Now);
         beneficiary.DomainEvents.Should().ContainSingle(e => e is BeneficiaryRegistered);
@@ -43,16 +44,17 @@ public class BeneficiaryTests
     public void UpdateDetails_DadosValidos_DeveAtualizarCampos()
     {
         var beneficiary = TestData.Beneficiary();
-        var newPointId = CollectionPointId.New();
+        var originalPointId = beneficiary.RegisteredByPointId;
         var newBirthDate = new DateOnly(1990, 1, 1);
 
-        var result = beneficiary.UpdateDetails("João Silva", CpfB, newBirthDate, newPointId);
+        var result = beneficiary.UpdateDetails("João Silva", CpfB, newBirthDate);
 
         result.IsError.Should().BeFalse();
         beneficiary.Name.Should().Be("João Silva");
         beneficiary.Cpf.Should().Be(CpfB);
         beneficiary.BirthDate.Should().Be(newBirthDate);
-        beneficiary.RegisteredByPointId.Should().Be(newPointId);
+        beneficiary.RegisteredByPointId.Should().Be(originalPointId);
+        beneficiary.LinkedPointIds.Should().Equal(originalPointId);
     }
 
     [Fact]
@@ -60,12 +62,45 @@ public class BeneficiaryTests
     {
         var beneficiary = TestData.Beneficiary();
 
-        var result = beneficiary.UpdateDetails("  ", CpfB, null, CollectionPointId.New());
+        var result = beneficiary.UpdateDetails("  ", CpfB, null);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Beneficiary.NameRequired");
         beneficiary.Name.Should().Be("João Silva");
         beneficiary.Cpf.Should().Be(CpfA);
+    }
+
+    [Fact]
+    public void LinkToPoint_PontoNovo_DeveVincularSemPerderOsAnteriores()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var originalPointId = beneficiary.RegisteredByPointId;
+        var otherPointId = CollectionPointId.New();
+
+        var result = beneficiary.LinkToPoint(otherPointId, TestData.Now);
+
+        result.IsError.Should().BeFalse();
+        beneficiary.LinkedPointIds.Should().BeEquivalentTo([originalPointId, otherPointId]);
+        beneficiary.IsLinkedTo(otherPointId).Should().BeTrue();
+        beneficiary.RegisteredByPointId.Should().Be(originalPointId);
+    }
+
+    [Fact]
+    public void LinkToPoint_PontoJaVinculado_DeveRetornarConflito()
+    {
+        var beneficiary = TestData.Beneficiary();
+
+        var result = beneficiary.LinkToPoint(beneficiary.RegisteredByPointId, TestData.Now);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Beneficiary.AlreadyLinkedToPoint");
+        beneficiary.LinkedPointIds.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void IsLinkedTo_PontoSemVinculo_DeveSerFalso()
+    {
+        TestData.Beneficiary().IsLinkedTo(CollectionPointId.New()).Should().BeFalse();
     }
 
     [Fact]

@@ -16,6 +16,7 @@ export {
   useAddBeneficiaryKinship,
   useBeneficiaries,
   useBeneficiaryWithdrawalHistory,
+  useLinkBeneficiaryToPoint,
   useRegisterBeneficiary,
   useUpdateBeneficiary,
 } from './useBeneficiariesViewModel'
