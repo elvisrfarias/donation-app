@@ -50,28 +50,30 @@ A solution .NET, o `Dockerfile` e o `.dockerignore` vivem em `backend/`. O `dock
 e orquestra a stack inteira (`build.context: ./backend`); o `.env` também é lido da raiz. Os comandos do
 SDK abaixo são rodados **a partir da raiz** montando `backend/` como `/src`.
 
-## Ambiente: sem SDK .NET local
+## Ambiente: SDK .NET só para o editor
 
-Este host **não tem o `dotnet` instalado** — toda compilação, teste e geração de migration roda dentro de
-containers do SDK .NET 9. Monte um volume NuGet persistente (`doacao-nuget`) para não rebaixar pacotes a
-cada execução. O cache do container é efêmero, então **nunca use `--no-restore` em um container novo**
-(o build falha por não achar os assemblies restaurados em outro container).
+O host tem apenas o SDK .NET 10 (o `backend/global.json` usa `rollForward: latestMajor` para o VS Code
+funcionar com ele). Compilação, testes e geração de migration rodam dentro de containers do SDK .NET 9.
+Monte um volume NuGet persistente (`doacao-nuget`) para não rebaixar pacotes a cada execução e mande
+`bin/`/`obj/` do container para o volume `doacao-artifacts` com `--artifacts-path /artifacts`: assim o
+container nunca escreve em `backend/` (nem deixa arquivos de root) e o `obj/` do host, usado pelo editor,
+continua válido. O cache do container é efêmero, então **nunca use `--no-restore` em um container novo**.
 
 ### Comandos (via Docker)
 
 ```bash
 # Build de toda a solution (src + testes)
-docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
-  mcr.microsoft.com/dotnet/sdk:9.0 dotnet build DoacaoApp.sln -c Release
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -v doacao-artifacts:/artifacts -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 dotnet build DoacaoApp.sln -c Release --artifacts-path /artifacts
 
 # Testes unitários (rápidos, sem Docker-in-Docker) — um projeto por vez
-docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
-  mcr.microsoft.com/dotnet/sdk:9.0 dotnet test tests/DoacaoApp.Domain.Tests -c Release
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -v doacao-artifacts:/artifacts -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 dotnet test tests/DoacaoApp.Domain.Tests -c Release --artifacts-path /artifacts
 
 # Um único teste / filtro
-docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src \
+docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -v doacao-artifacts:/artifacts -w /src \
   mcr.microsoft.com/dotnet/sdk:9.0 \
-  dotnet test tests/DoacaoApp.Domain.Tests -c Release --filter "FullyQualifiedName~CpfTests"
+  dotnet test tests/DoacaoApp.Domain.Tests -c Release --artifacts-path /artifacts --filter "FullyQualifiedName~CpfTests"
 
 # Nova migration (constrói o modelo — falha aqui se o mapeamento EF estiver errado)
 docker run --rm -v "$PWD/backend":/src -v doacao-nuget:/root/.nuget -w /src mcr.microsoft.com/dotnet/sdk:9.0 \
@@ -88,7 +90,7 @@ do Docker; rodam melhor no host com SDK ou em CI, não dentro de um container SD
 cp .env.example .env
 docker compose up --build        # postgres + minio (healthcheck) -> api -> pgadmin + frontend
 ```
-Arquivos gerados por containers (`bin/`, `obj/`, `Persistence/Migrations`) saem como `root`; faça
+Só o `dotnet ef migrations add` ainda grava em `backend/` (os arquivos de `Persistence/Migrations` saem como `root`); faça
 `docker run --rm -v "$PWD/backend":/src alpine chown -R "$(stat -c '%u:%g' backend/DoacaoApp.sln)" /src` se precisar editá-los.
 
 ## Arquitetura
