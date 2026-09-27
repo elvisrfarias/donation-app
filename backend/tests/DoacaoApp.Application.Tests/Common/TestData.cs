@@ -32,7 +32,19 @@ public static class TestData
         var contact = ContactInfo.Create("Maria", "maria@x.com", "11987654321").Value;
         var point = CollectionPoint.Create("Ponto", CollectionPointType.Church, address, contact, Now).Value;
         point.UpdateWithdrawalRule(WithdrawalCycle.Create(CycleType.Monthly, maxPerCycle).Value);
-        point.ReplaceStock(Enum.GetValues<ItemCategory>().Select(category => new KeyValuePair<ItemCategory, int>(category, 999)));
         return point;
     }
+
+    public static StockItemId AddStockItem(
+        CollectionPoint point,
+        string name = "Arroz 1kg",
+        string unit = "kg",
+        int quantity = 100,
+        int goal = 0,
+        int alertThreshold = 5) =>
+        point.AddStockItem(name, unit, ItemCategory.Food, quantity, goal, alertThreshold, isTracked: true).Value;
+
+    public static BasketTemplateId AddBasketTemplate(
+        CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>
+        point.CreateBasketTemplate(name, items).Value;
 }

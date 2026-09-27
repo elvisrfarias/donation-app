@@ -24,12 +24,12 @@ public interface ICollectionPointRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Conta as retiradas de um beneficiário, de uma categoria, dentro da janela [início, fim)
-    /// considerando TODOS os pontos do município. É o coração do controle de equidade compartilhado.
+    /// Conta as retiradas de um beneficiário que incluíram uma cesta básica (<c>BasketTemplateId</c>
+    /// não nulo), dentro da janela [início, fim), considerando TODOS os pontos do município. É o
+    /// coração do controle de equidade compartilhado — só a cesta básica é sujeita ao limite do ciclo.
     /// </summary>
-    Task<int> CountBeneficiaryWithdrawalsAsync(
+    Task<int> CountBeneficiaryBasketWithdrawalsAsync(
         BeneficiaryId beneficiaryId,
-        ItemCategory category,
         DateTime startInclusiveUtc,
         DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default);

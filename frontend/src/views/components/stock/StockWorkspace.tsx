@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Boxes, RefreshCw, SlidersHorizontal } from 'lucide-react'
+import { Boxes, RefreshCw, ShoppingBasket, SlidersHorizontal } from 'lucide-react'
 import { useCollectionPoint } from '@/viewmodels'
 import { Alert, Button, CenteredSpinner, TabPanel, Tabs, type TabItem } from '@/views/components/ui'
+import { BasketWorkspace } from './BasketWorkspace'
 import { StockEditor } from './StockEditor'
-import { categoriesNeedingRestock, toStockQuantities, toStockSettings } from './stockDraft'
+import { itemsNeedingRestock } from './stockDraft'
 import { StockSettingsEditor } from './StockSettingsEditor'
 
 interface StockWorkspaceProps {
@@ -11,12 +12,13 @@ interface StockWorkspaceProps {
   canEdit: boolean
 }
 
+const BASKETS_TAB = 'cestas'
 const STOCK_TAB = 'estoque'
 const SETTINGS_TAB = 'configuracao'
 
 export function StockWorkspace({ pointId, canEdit }: StockWorkspaceProps) {
   const { point, isLoading, isError, error, refetch } = useCollectionPoint(pointId)
-  const [activeTab, setActiveTab] = useState(STOCK_TAB)
+  const [activeTab, setActiveTab] = useState(BASKETS_TAB)
 
   if (isLoading) return <CenteredSpinner label="Carregando estoque…" />
 
@@ -37,11 +39,9 @@ export function StockWorkspace({ pointId, canEdit }: StockWorkspaceProps) {
     )
   }
 
-  const restockCount = categoriesNeedingRestock(
-    toStockQuantities(point),
-    toStockSettings(point),
-  ).length
+  const restockCount = itemsNeedingRestock(point.stockItems).length
   const tabs: TabItem[] = [
+    { value: BASKETS_TAB, label: 'Cestas', icon: <ShoppingBasket className="size-4" /> },
     { value: STOCK_TAB, label: 'Estoque', icon: <Boxes className="size-4" />, badge: restockCount },
     {
       value: SETTINGS_TAB,
@@ -59,8 +59,16 @@ export function StockWorkspace({ pointId, canEdit }: StockWorkspaceProps) {
         ariaLabel="Seções do estoque"
       />
 
+      <TabPanel value={BASKETS_TAB} activeValue={activeTab}>
+        <BasketWorkspace key={point.id} point={point} canEdit={canEdit} />
+      </TabPanel>
       <TabPanel value={STOCK_TAB} activeValue={activeTab}>
-        <StockEditor key={point.id} point={point} canEdit={canEdit} />
+        <StockEditor
+          key={point.id}
+          point={point}
+          canEdit={canEdit}
+          onViewBaskets={() => setActiveTab(BASKETS_TAB)}
+        />
       </TabPanel>
       <TabPanel value={SETTINGS_TAB} activeValue={activeTab}>
         <StockSettingsEditor key={point.id} point={point} canEdit={canEdit} />

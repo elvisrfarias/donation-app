@@ -26,7 +26,7 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 1);
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
-        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null);
+        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Clothing], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -36,13 +36,16 @@ public class RegisterWithdrawalHandlerTests
     }
 
     [Fact]
-    public async Task Handle_QuandoBeneficiarioAtingiuLimiteDoPontoSomandoOMunicipio_DeveBloquearENaoSalvar()
+    public async Task Handle_ComCestaEBeneficiarioAtingiuLimiteDoPontoSomandoOMunicipio_DeveBloquearENaoSalvar()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
+        var stockItem = TestData.AddStockItem(point, quantity: 100);
+        var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 1);
 
-        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null);
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, template.Value, 1);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -52,32 +55,39 @@ public class RegisterWithdrawalHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UsaOLimiteConfiguradoNoPontoDaRetirada()
+    public async Task Handle_ComCesta_UsaOLimiteConfiguradoNoPontoDaRetirada()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 3);
+        var stockItem = TestData.AddStockItem(point, quantity: 100);
+        var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 2);
 
         var result = await CreateSut().Handle(
-            new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null), CancellationToken.None);
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, template.Value, 1),
+            CancellationToken.None);
 
         result.IsError.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Handle_ContaARetiradasDoBeneficiarioNoCicloDoPonto()
+    public async Task Handle_ComCesta_ContaARetiradasComCestaDoBeneficiarioNoCicloDoPonto()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
+        var stockItem = TestData.AddStockItem(point, quantity: 100);
+        var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         await CreateSut().Handle(
-            new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null), CancellationToken.None);
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, template.Value, 1),
+            CancellationToken.None);
 
         _pointRepo.Verify(
-            r => r.CountBeneficiaryWithdrawalsAsync(
+            r => r.CountBeneficiaryBasketWithdrawalsAsync(
                 beneficiary.Id,
-                ItemCategory.Food,
                 new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                 It.IsAny<CancellationToken>()),
@@ -85,33 +95,55 @@ public class RegisterWithdrawalHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ComCestaJuntoDeRoupas_ContaNoLimiteEBloqueiaQuandoEsgotado()
+    public async Task Handle_ComCesta_DaBaixaNoEstoqueSegundoAQuantidadeDeCestas()
     {
         var beneficiary = TestData.Beneficiary();
-        var point = TestData.Point(maxPerCycle: 1);
-        SetupRepositories(beneficiary, point, withdrawalsInCycle: 1);
-
-        var result = await CreateSut().Handle(
-            new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Clothing, ItemCategory.Food], null, null),
-            CancellationToken.None);
-
-        result.FirstError.Code.Should().Be("Withdrawal.CycleLimitReached");
-    }
-
-    [Fact]
-    public async Task Handle_ItemSemEstoqueNoPonto_DeveBloquear()
-    {
-        var beneficiary = TestData.Beneficiary();
-        var point = TestData.Point();
-        point.ReplaceStock(new Dictionary<ItemCategory, int> { [ItemCategory.Food] = 5 });
+        var point = TestData.Point(maxPerCycle: 3);
+        var stockItem = TestData.AddStockItem(point, quantity: 10);
+        var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 3));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         var result = await CreateSut().Handle(
-            new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [ItemCategory.Clothing], null, null),
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, template.Value, 2),
             CancellationToken.None);
 
-        result.FirstError.Code.Should().Be("Withdrawal.ItemUnavailable");
+        result.IsError.Should().BeFalse();
+        point.StockItems.Single(i => i.Id == stockItem).Quantity.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task Handle_ComCestaSemEstoqueSuficiente_DeveBloquearSemAlterarEstoque()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point(maxPerCycle: 3);
+        var stockItem = TestData.AddStockItem(point, quantity: 4);
+        var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 3));
+        SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
+
+        var result = await CreateSut().Handle(
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, template.Value, 2),
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Withdrawal.InsufficientStock");
+        point.StockItems.Single(i => i.Id == stockItem).Quantity.Should().Be(4);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ComReceitaInexistenteNoPonto_DeveBloquear()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point(maxPerCycle: 3);
+        SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
+
+        var result = await CreateSut().Handle(
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [ItemCategory.Food], null, null, Guid.NewGuid(), 1),
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Withdrawal.BasketTemplateNotFound");
     }
 
     [Fact]
@@ -131,7 +163,8 @@ public class RegisterWithdrawalHandlerTests
     [Theory]
     [InlineData(ItemCategory.Clothing)]
     [InlineData(ItemCategory.Footwear)]
-    public async Task Handle_DeCategoriaSemLimite_RegistraMesmoComOLimiteDeCestasEsgotado(ItemCategory category)
+    [InlineData(ItemCategory.Food)]
+    public async Task Handle_SemCesta_RegistraMesmoComOLimiteDeCestasEsgotadoENaoContaNoCiclo(ItemCategory category)
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
@@ -144,9 +177,8 @@ public class RegisterWithdrawalHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Categories.Should().Equal(category.ToString());
         _pointRepo.Verify(
-            r => r.CountBeneficiaryWithdrawalsAsync(
-                It.IsAny<BeneficiaryId>(), It.IsAny<ItemCategory>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                It.IsAny<CancellationToken>()),
+            r => r.CountBeneficiaryBasketWithdrawalsAsync(
+                It.IsAny<BeneficiaryId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -191,8 +223,8 @@ public class RegisterWithdrawalHandlerTests
             .ReturnsAsync(point);
 
         _pointRepo
-            .Setup(r => r.CountBeneficiaryWithdrawalsAsync(
-                beneficiary.Id, It.IsAny<ItemCategory>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.CountBeneficiaryBasketWithdrawalsAsync(
+                beneficiary.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(withdrawalsInCycle);
 
         _unitOfWork

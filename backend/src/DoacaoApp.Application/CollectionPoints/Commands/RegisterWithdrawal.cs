@@ -12,16 +12,19 @@ using MediatR;
 namespace DoacaoApp.Application.CollectionPoints.Commands;
 
 /// <summary>
-/// Registra uma retirada (uma visita, com um ou mais itens) em um ponto de coleta. Só as cestas básicas
-/// seguem a regra de equidade (limite do ponto no ciclo vigente, somando o histórico de TODOS os pontos
-/// do município); os demais itens não têm limite, mas ficam registrados no histórico do beneficiário.
+/// Registra uma retirada (uma visita, com um ou mais itens) em um ponto de coleta. Só a cesta básica
+/// segue a regra de equidade (limite do ponto no ciclo vigente, somando o histórico de TODOS os pontos
+/// do município, e baixa automática no estoque); os demais itens (categorias livres) não têm limite
+/// nem dão baixa, mas ficam registrados no histórico do beneficiário.
 /// </summary>
 public sealed record RegisterWithdrawalCommand(
     Guid PointId,
     Guid BeneficiaryId,
     IReadOnlyList<ItemCategory> Categories,
     DateTime? OccurredAtUtc,
-    string? Notes) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
+    string? Notes,
+    Guid? BasketTemplateId = null,
+    int? BasketQuantity = null) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
 {
     Guid IScopedToCollectionPoint.CollectionPointId => PointId;
 }
@@ -34,6 +37,10 @@ public sealed class RegisterWithdrawalValidator : AbstractValidator<RegisterWith
         RuleFor(x => x.BeneficiaryId).NotEmpty();
         RuleForEach(x => x.Categories).IsInEnum();
         RuleFor(x => x.Notes).MaximumLength(500);
+        RuleFor(x => x.BasketQuantity)
+            .GreaterThan(0)
+            .When(x => x.BasketTemplateId is not null)
+            .WithMessage("Informe a quantidade de cestas retiradas.");
     }
 }
 
@@ -65,13 +72,15 @@ public sealed class RegisterWithdrawalHandler(
 
         var (startUtc, endUtc) = point.WithdrawalRule.GetCurrentPeriod(occurredAt);
 
-        var alreadyInCycle = command.Categories.Any(category => category.CountsTowardsWithdrawalLimit())
-            ? await pointRepository.CountBeneficiaryWithdrawalsAsync(
-                beneficiary.Id, ItemCategoryExtensions.WithdrawalLimitedCategory, startUtc, endUtc, cancellationToken)
+        var alreadyInCycle = command.BasketTemplateId is not null
+            ? await pointRepository.CountBeneficiaryBasketWithdrawalsAsync(
+                beneficiary.Id, startUtc, endUtc, cancellationToken)
             : 0;
 
+        var basket = ToBasket(command.BasketTemplateId, command.BasketQuantity);
+
         var withdrawalResult = point.RegisterWithdrawal(
-            beneficiary, command.Categories, alreadyInCycle, occurredAt, command.Notes);
+            beneficiary, command.Categories, alreadyInCycle, occurredAt, command.Notes, basket);
 
         if (withdrawalResult.IsError)
         {
@@ -82,4 +91,7 @@ public sealed class RegisterWithdrawalHandler(
 
         return withdrawalResult.Value.ToResponse();
     }
+
+    private static (BasketTemplateId Id, int Quantity)? ToBasket(Guid? basketTemplateId, int? basketQuantity) =>
+        basketTemplateId is null ? null : (BasketTemplateId.From(basketTemplateId.Value), basketQuantity!.Value);
 }

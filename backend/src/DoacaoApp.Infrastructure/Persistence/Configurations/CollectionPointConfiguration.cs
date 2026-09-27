@@ -50,54 +50,6 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
             .FindProperty(nameof(CollectionPoint.Needs))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
-        var stockConverter = new ValueConverter<IReadOnlyDictionary<ItemCategory, int>, string>(
-            stock => JsonSerializer.Serialize(
-                stock.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), (JsonSerializerOptions?)null),
-            value => string.IsNullOrWhiteSpace(value)
-                ? new Dictionary<ItemCategory, int>()
-                : (JsonSerializer.Deserialize<Dictionary<string, int>>(value, (JsonSerializerOptions?)null)
-                        ?? new Dictionary<string, int>())
-                    .ToDictionary(kv => Enum.Parse<ItemCategory>(kv.Key), kv => kv.Value));
-
-        var stockComparer = new ValueComparer<IReadOnlyDictionary<ItemCategory, int>>(
-            (a, b) => a!.Count == b!.Count && !a.Except(b!).Any(),
-            stock => stock.Aggregate(0, (hash, kv) => HashCode.Combine(hash, (int)kv.Key, kv.Value)),
-            stock => (IReadOnlyDictionary<ItemCategory, int>)stock.ToDictionary(kv => kv.Key, kv => kv.Value));
-
-        builder.Property(p => p.Stock)
-            .HasColumnName("stock")
-            .HasConversion(stockConverter, stockComparer)
-            .HasColumnType("jsonb")
-            .IsRequired()
-            .HasDefaultValueSql("'{}'::jsonb");
-        builder.Metadata
-            .FindProperty(nameof(CollectionPoint.Stock))!
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
-
-        var stockSettingsConverter = new ValueConverter<IReadOnlyDictionary<ItemCategory, StockSetting>, string>(
-            settings => JsonSerializer.Serialize(
-                settings.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), (JsonSerializerOptions?)null),
-            value => string.IsNullOrWhiteSpace(value)
-                ? new Dictionary<ItemCategory, StockSetting>()
-                : (JsonSerializer.Deserialize<Dictionary<string, StockSetting>>(value, (JsonSerializerOptions?)null)
-                        ?? new Dictionary<string, StockSetting>())
-                    .ToDictionary(kv => Enum.Parse<ItemCategory>(kv.Key), kv => kv.Value));
-
-        var stockSettingsComparer = new ValueComparer<IReadOnlyDictionary<ItemCategory, StockSetting>>(
-            (a, b) => a!.Count == b!.Count && !a.Except(b!).Any(),
-            settings => settings.Aggregate(0, (hash, kv) => HashCode.Combine(hash, (int)kv.Key, kv.Value)),
-            settings => (IReadOnlyDictionary<ItemCategory, StockSetting>)settings.ToDictionary(kv => kv.Key, kv => kv.Value));
-
-        builder.Property(p => p.StockSettings)
-            .HasColumnName("stock_settings")
-            .HasConversion(stockSettingsConverter, stockSettingsComparer)
-            .HasColumnType("jsonb")
-            .IsRequired()
-            .HasDefaultValueSql("'{}'::jsonb");
-        builder.Metadata
-            .FindProperty(nameof(CollectionPoint.StockSettings))!
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
-
         var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
             items => string.Join(',', items.Select(static i => i.ToString())),
             value => value.Length == 0
@@ -157,6 +109,24 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
 
         builder.Metadata
             .FindNavigation(nameof(CollectionPoint.Withdrawals))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(p => p.StockItems)
+            .WithOne()
+            .HasForeignKey(i => i.PointId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata
+            .FindNavigation(nameof(CollectionPoint.StockItems))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(p => p.BasketTemplates)
+            .WithOne()
+            .HasForeignKey(t => t.PointId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata
+            .FindNavigation(nameof(CollectionPoint.BasketTemplates))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

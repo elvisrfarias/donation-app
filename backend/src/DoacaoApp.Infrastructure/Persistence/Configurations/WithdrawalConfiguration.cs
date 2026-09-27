@@ -25,6 +25,14 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);
 
+        builder.Property(w => w.BasketTemplateId).HasColumnName("basket_template_id");
+        builder.Property(w => w.BasketQuantity).HasColumnName("basket_quantity");
+
+        builder.HasOne<BasketTemplate>()
+            .WithMany()
+            .HasForeignKey(w => w.BasketTemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(w => new { w.BeneficiaryId, w.OccurredAtUtc });
         builder.HasIndex(w => w.PointId);
     }

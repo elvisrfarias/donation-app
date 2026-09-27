@@ -8,6 +8,8 @@ public sealed record WithdrawalResponse(
     Guid PointId,
     Guid BeneficiaryId,
     IReadOnlyList<string> Categories,
+    Guid? BasketTemplateId,
+    int? BasketQuantity,
     DateTime OccurredAtUtc,
     string? Notes);
 
@@ -19,6 +21,8 @@ public static class WithdrawalMappings
             withdrawal.PointId.Value,
             withdrawal.BeneficiaryId.Value,
             withdrawal.Categories.Select(category => category.ToString()).ToList(),
+            withdrawal.BasketTemplateId?.Value,
+            withdrawal.BasketQuantity,
             withdrawal.OccurredAtUtc,
             withdrawal.Notes);
 }

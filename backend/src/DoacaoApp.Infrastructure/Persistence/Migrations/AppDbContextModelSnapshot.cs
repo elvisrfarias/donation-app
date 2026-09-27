@@ -72,6 +72,29 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.ToTable("beneficiaries", (string)null);
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.BasketTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("PointId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PointId");
+
+                    b.ToTable("basket_templates", (string)null);
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
                     b.Property<Guid>("Id")
@@ -117,20 +140,6 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("opening_hours");
 
-                    b.Property<string>("Stock")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("stock")
-                        .HasDefaultValueSql("'{}'::jsonb");
-
-                    b.Property<string>("StockSettings")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("stock_settings")
-                        .HasDefaultValueSql("'{}'::jsonb");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -141,10 +150,61 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.ToTable("collection_points", (string)null);
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.StockItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AlertThreshold")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Goal")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsTracked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("PointId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PointId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("stock_items", (string)null);
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.Withdrawal", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("BasketQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("basket_quantity");
+
+                    b.Property<Guid?>("BasketTemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("basket_template_id");
 
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
@@ -165,6 +225,8 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BasketTemplateId");
 
                     b.HasIndex("PointId");
 
@@ -714,6 +776,46 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Navigation("PointLinks");
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.BasketTemplate", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
+                        .WithMany("BasketTemplates")
+                        .HasForeignKey("PointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("DoacaoApp.Domain.CollectionPoints.BasketTemplateItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("basket_template_id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("StockItemId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("stock_item_id");
+
+                            b1.Property<int>("Quantity")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity");
+
+                            b1.HasKey("basket_template_id", "StockItemId");
+
+                            b1.HasIndex("StockItemId");
+
+                            b1.ToTable("basket_template_items", (string)null);
+
+                            b1.HasOne("DoacaoApp.Domain.CollectionPoints.StockItem", null)
+                                .WithMany()
+                                .HasForeignKey("StockItemId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired();
+
+                            b1.WithOwner()
+                                .HasForeignKey("basket_template_id");
+                        });
+
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
                     b.OwnsOne("DoacaoApp.Domain.ValueObjects.Address", "Address", b1 =>
@@ -842,8 +944,22 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.StockItem", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
+                        .WithMany("StockItems")
+                        .HasForeignKey("PointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.Withdrawal", b =>
                 {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.BasketTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("BasketTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
                         .WithMany("Withdrawals")
                         .HasForeignKey("PointId")
@@ -922,6 +1038,10 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("DoacaoApp.Domain.CollectionPoints.CollectionPoint", b =>
                 {
+                    b.Navigation("BasketTemplates");
+
+                    b.Navigation("StockItems");
+
                     b.Navigation("Withdrawals");
                 });
 

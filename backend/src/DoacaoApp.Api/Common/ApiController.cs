@@ -37,8 +37,8 @@ public abstract class ApiController(ISender sender) : ControllerBase
 
         var first = errors[0];
         return Problem(
-            detail: first.Code,
+            detail: first.Description,
             statusCode: first.Type.ToStatusCode(),
-            title: first.Description);
+            title: first.Code);
     }
 }

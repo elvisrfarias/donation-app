@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils'
-import { itemCategoryLabels, type BeneficiaryWithdrawalHistory } from '@/models/types'
+import type { BeneficiaryWithdrawalHistory } from '@/models/types'
 import { Badge } from '@/views/components/ui'
 
 const MILLISECONDS_PER_DAY = 86_400_000
+const LIMITED_LABEL = 'Cestas básicas'
 
 const cycleDateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' })
 
@@ -25,7 +26,7 @@ function usagePercent(history: BeneficiaryWithdrawalHistory): number {
 
 export function CycleUsage({ history }: { history: BeneficiaryWithdrawalHistory }) {
   const limitReached = history.remainingInCurrentCycle === 0
-  const limitedLabel = itemCategoryLabels[history.limitedCategory]
+  const limitedLabel = LIMITED_LABEL
 
   return (
     <div className="space-y-3 rounded-2xl bg-stone-50 p-4">

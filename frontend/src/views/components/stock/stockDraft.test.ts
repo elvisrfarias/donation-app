@@ -1,48 +1,55 @@
 import { describe, expect, it } from 'vitest'
-import type { CollectionPoint } from '@/models/types'
+import type { BasketTemplate, CollectionPoint, StockItem } from '@/models/types'
 import {
   DEFAULT_ALERT_THRESHOLD,
   MAX_QUANTITY,
-  categoriesNeedingRestock,
-  countChangedCategories,
-  countChangedSettings,
+  changedSettingIds,
   countByStatus,
   goalProgress,
+  groupByCategory,
   isRuleChanged,
-  ruleError,
-  toWithdrawalRule,
+  itemsNeedingRestock,
   parseQuantity,
+  ruleError,
   settingError,
-  stockStatus,
   sumQuantities,
-  toStockItems,
-  toStockQuantities,
-  toStockSettingItems,
-  toStockSettings,
-  trackedCategories,
+  sumQuantitiesByCategory,
+  toSettingEntries,
+  toSettingsDraft,
+  totalCompleteBaskets,
+  toWithdrawalRule,
 } from './stockDraft'
 
-const pointWithStock = {
-  stock: [
-    { category: 'Food', quantity: 12 },
-    { category: 'Clothing', quantity: 3 },
-  ],
-  stockSettings: [
-    { category: 'Food', goal: 50, alertThreshold: 10, isTracked: true },
-    { category: 'Toys', goal: 0, alertThreshold: 5, isTracked: false },
-  ],
-  withdrawalRule: { type: 'Weekly', maxWithdrawalsPerCycle: 2 },
-} as CollectionPoint
+function stockItem(overrides: Partial<StockItem> & Pick<StockItem, 'id' | 'category'>): StockItem {
+  return {
+    name: 'Item',
+    unit: 'un',
+    quantity: 0,
+    goal: 0,
+    alertThreshold: DEFAULT_ALERT_THRESHOLD,
+    isTracked: true,
+    status: 'ok',
+    ...overrides,
+  }
+}
+
+const items: StockItem[] = [
+  stockItem({ id: 'food-1', category: 'Food', name: 'Arroz', quantity: 12, goal: 50, status: 'ok' }),
+  stockItem({ id: 'clothing-1', category: 'Clothing', name: 'Camiseta', quantity: 3, status: 'low' }),
+  stockItem({ id: 'footwear-1', category: 'Footwear', name: 'Tênis', quantity: 0, status: 'out' }),
+  stockItem({
+    id: 'toys-1',
+    category: 'Toys',
+    name: 'Boneca',
+    quantity: 40,
+    isTracked: false,
+    status: 'ok',
+  }),
+]
+
+const pointWithRule = { withdrawalRule: { type: 'Weekly', maxWithdrawalsPerCycle: 2 } } as CollectionPoint
 
 describe('stockDraft — quantidades', () => {
-  it('monta as quantidades de todas as categorias, com zero para as sem estoque', () => {
-    const quantities = toStockQuantities(pointWithStock)
-
-    expect(quantities.Food).toBe(12)
-    expect(quantities.Clothing).toBe(3)
-    expect(quantities.Books).toBe(0)
-  })
-
   it('interpreta o texto digitado como inteiro entre zero e o máximo', () => {
     expect(parseQuantity('')).toBe(0)
     expect(parseQuantity('abc')).toBe(0)
@@ -51,119 +58,82 @@ describe('stockDraft — quantidades', () => {
     expect(parseQuantity(String(MAX_QUANTITY + 500))).toBe(MAX_QUANTITY)
   })
 
-  it('conta apenas as categorias alteradas em relação ao estoque salvo', () => {
-    const saved = toStockQuantities(pointWithStock)
+  it('agrupa os itens por categoria, na ordem do app, ignorando categorias sem item', () => {
+    const groups = groupByCategory(items)
 
-    expect(countChangedCategories(saved, { ...saved, Food: 13, Toys: 2 })).toBe(2)
-    expect(countChangedCategories(saved, saved)).toBe(0)
+    expect(groups.map((g) => g.category)).toEqual(['Food', 'Clothing', 'Footwear', 'Toys'])
+    expect(groups[0].items).toEqual([items[0]])
   })
 
-  it('soma só os itens das categorias acompanhadas', () => {
-    const quantities = { ...toStockQuantities(pointWithStock), Toys: 40 }
-
-    expect(sumQuantities(quantities, toStockSettings(pointWithStock))).toBe(15)
+  it('soma todas as quantidades do catálogo', () => {
+    expect(sumQuantities(items)).toBe(55)
   })
 
-  it('converte as quantidades para o payload da API com todas as categorias', () => {
-    const items = toStockItems(toStockQuantities(pointWithStock))
+  it('soma as quantidades por categoria, zero para as sem item', () => {
+    const byCategory = sumQuantitiesByCategory(items)
 
-    expect(items).toHaveLength(11)
-    expect(items).toContainEqual({ category: 'Food', quantity: 12 })
+    expect(byCategory.Food).toBe(12)
+    expect(byCategory.Clothing).toBe(3)
+    expect(byCategory.Books).toBe(0)
+  })
+
+  it('conta os itens por status calculado pelo backend', () => {
+    expect(countByStatus(items, 'ok')).toBe(2)
+    expect(countByStatus(items, 'low')).toBe(1)
+    expect(countByStatus(items, 'out')).toBe(1)
+  })
+
+  it('lista os itens em falta ou com estoque baixo', () => {
+    const needing = itemsNeedingRestock(items)
+
+    expect(needing.map((i) => i.id)).toEqual(['clothing-1', 'footwear-1'])
+  })
+
+  it('calcula o progresso das metas: quantas foram atingidas entre as que têm meta', () => {
+    expect(goalProgress(items)).toEqual({ reached: 0, total: 1 })
+
+    const withReachedGoal = items.map((item) =>
+      item.id === 'food-1' ? { ...item, quantity: 50 } : item,
+    )
+    expect(goalProgress(withReachedGoal)).toEqual({ reached: 1, total: 1 })
+  })
+
+  it('soma as cestas completas só das receitas ativas', () => {
+    const templates = [
+      { id: 't1', name: 'Cesta 1', items: [], isActive: true, feasibility: { completeBaskets: 3, missing: [] } },
+      { id: 't2', name: 'Cesta 2', items: [], isActive: true, feasibility: { completeBaskets: 2, missing: [] } },
+      { id: 't3', name: 'Cesta 3', items: [], isActive: false, feasibility: { completeBaskets: 10, missing: [] } },
+    ] satisfies BasketTemplate[]
+
+    expect(totalCompleteBaskets(templates)).toBe(5)
   })
 })
 
 describe('stockDraft — configurações', () => {
-  it('acompanha por padrão só cestas básicas, roupas e calçados nas categorias sem configuração', () => {
-    const settings = toStockSettings({ ...pointWithStock, stockSettings: [] })
+  it('monta o draft de configurações a partir do catálogo', () => {
+    const draft = toSettingsDraft(items)
 
-    expect(settings.Clothing).toEqual({
-      goal: 0,
+    expect(draft['food-1']).toEqual({ goal: 50, alertThreshold: DEFAULT_ALERT_THRESHOLD, isTracked: true })
+    expect(draft['toys-1'].isTracked).toBe(false)
+  })
+
+  it('detecta só os itens com configuração alterada', () => {
+    const saved = toSettingsDraft(items)
+    const draft = { ...saved, 'food-1': { ...saved['food-1'], goal: 60 } }
+
+    expect(changedSettingIds(saved, draft)).toEqual(['food-1'])
+    expect(changedSettingIds(saved, saved)).toEqual([])
+  })
+
+  it('converte o draft de configurações para o payload da API', () => {
+    const entries = toSettingEntries(toSettingsDraft(items))
+
+    expect(entries).toContainEqual({
+      stockItemId: 'food-1',
+      goal: 50,
       alertThreshold: DEFAULT_ALERT_THRESHOLD,
       isTracked: true,
     })
-    expect(settings.Food.isTracked).toBe(true)
-    expect(settings.Footwear.isTracked).toBe(true)
-    expect(settings.Books).toEqual({
-      goal: 0,
-      alertThreshold: DEFAULT_ALERT_THRESHOLD,
-      isTracked: false,
-    })
-    expect(settings.Hygiene.isTracked).toBe(false)
-    expect(settings.Other.isTracked).toBe(false)
-  })
-
-  it('usa a configuração salva quando ela existe', () => {
-    const settings = toStockSettings(pointWithStock)
-
-    expect(settings.Food).toEqual({ goal: 50, alertThreshold: 10, isTracked: true })
-    expect(settings.Toys.isTracked).toBe(false)
-  })
-
-  it('classifica a quantidade em falta, baixa, disponível ou meta atingida', () => {
-    const setting = { goal: 50, alertThreshold: 10, isTracked: true }
-
-    expect(stockStatus(0, setting)).toBe('out')
-    expect(stockStatus(10, setting)).toBe('low')
-    expect(stockStatus(11, setting)).toBe('ok')
-    expect(stockStatus(50, setting)).toBe('goal')
-  })
-
-  it('sem meta, nunca marca a meta como atingida', () => {
-    const noGoal = { goal: 0, alertThreshold: 5, isTracked: true }
-
-    expect(stockStatus(1000, noGoal)).toBe('ok')
-  })
-
-  it('lista só as categorias acompanhadas', () => {
-    const settings = toStockSettings(pointWithStock)
-
-    expect(trackedCategories(settings)).toEqual(['Food', 'Clothing', 'Footwear'])
-  })
-
-  it('conta as categorias visíveis por situação', () => {
-    const quantities = toStockQuantities(pointWithStock)
-    const settings = toStockSettings(pointWithStock)
-
-    expect(countByStatus(quantities, settings, 'ok')).toBe(1)
-    expect(countByStatus(quantities, settings, 'low')).toBe(1)
-    expect(countByStatus(quantities, settings, 'out')).toBe(1)
-  })
-
-  it('lista as categorias que precisam de reposição (em falta ou baixas), só as acompanhadas', () => {
-    const quantities = toStockQuantities(pointWithStock)
-    const settings = toStockSettings(pointWithStock)
-
-    const needing = categoriesNeedingRestock(quantities, settings)
-
-    expect(needing).toContain('Clothing')
-    expect(needing).toContain('Footwear')
-    expect(needing).not.toContain('Books')
-    expect(needing).not.toContain('Food')
-    expect(needing).not.toContain('Toys')
-  })
-
-  it('calcula o progresso das metas: quantas foram atingidas entre as que têm meta', () => {
-    const quantities = { ...toStockQuantities(pointWithStock), Food: 50 }
-    const settings = toStockSettings(pointWithStock)
-
-    expect(goalProgress(quantities, settings)).toEqual({ reached: 1, total: 1 })
-    expect(goalProgress(toStockQuantities(pointWithStock), settings)).toEqual({
-      reached: 0,
-      total: 1,
-    })
-  })
-
-  it('conta apenas as categorias com configuração alterada', () => {
-    const saved = toStockSettings(pointWithStock)
-
-    expect(countChangedSettings(saved, saved)).toBe(0)
-    expect(
-      countChangedSettings(saved, {
-        ...saved,
-        Food: { ...saved.Food, goal: 60 },
-        Books: { ...saved.Books, isTracked: true },
-      }),
-    ).toBe(2)
   })
 
   it('valida a configuração: sem negativos e aviso não maior que a meta', () => {
@@ -172,23 +142,11 @@ describe('stockDraft — configurações', () => {
     expect(settingError({ goal: -1, alertThreshold: 0, isTracked: true })).toMatch(/negativ/i)
     expect(settingError({ goal: 10, alertThreshold: 11, isTracked: true })).toMatch(/aviso/i)
   })
-
-  it('converte as configurações para o payload da API com todas as categorias', () => {
-    const items = toStockSettingItems(toStockSettings(pointWithStock))
-
-    expect(items).toHaveLength(11)
-    expect(items).toContainEqual({
-      category: 'Food',
-      goal: 50,
-      alertThreshold: 10,
-      isTracked: true,
-    })
-  })
 })
 
 describe('stockDraft — regra de retirada', () => {
-  it('lê a regra do ponto e usa mensal / 1 quando o ponto não tem regra', () => {
-    expect(toWithdrawalRule(pointWithStock)).toEqual({
+  it('lê a regra do ponto e usa anual / 3 quando o ponto não tem regra', () => {
+    expect(toWithdrawalRule(pointWithRule)).toEqual({
       cycleType: 'Weekly',
       maxWithdrawalsPerCycle: 2,
     })
@@ -199,7 +157,7 @@ describe('stockDraft — regra de retirada', () => {
   })
 
   it('detecta alteração no ciclo ou no máximo', () => {
-    const saved = toWithdrawalRule(pointWithStock)
+    const saved = toWithdrawalRule(pointWithRule)
 
     expect(isRuleChanged(saved, saved)).toBe(false)
     expect(isRuleChanged(saved, { ...saved, cycleType: 'Monthly' })).toBe(true)
@@ -207,7 +165,7 @@ describe('stockDraft — regra de retirada', () => {
   })
 
   it('valida o máximo por ciclo entre 1 e 100', () => {
-    const rule = toWithdrawalRule(pointWithStock)
+    const rule = toWithdrawalRule(pointWithRule)
 
     expect(ruleError(rule)).toBeNull()
     expect(ruleError({ ...rule, maxWithdrawalsPerCycle: 0 })).toMatch(/pelo menos 1/)

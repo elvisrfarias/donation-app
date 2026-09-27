@@ -2,10 +2,15 @@ import { http } from '@/models/api/httpClient'
 import type {
   CollectionPoint,
   CollectionPointDashboard,
+  CreateBasketTemplateInput,
   CreateCollectionPointInput,
-  StockItem,
-  UpdateStockSettingsInput,
+  CreateStockItemInput,
+  UpdateBasketTemplateInput,
   UpdateCollectionPointInput,
+  UpdateStockItemInput,
+  UpdateStockItemSettingsInput,
+  UpdateStockQuantitiesInput,
+  UpdateWithdrawalRuleInput,
   UploadedImage,
 } from '@/models/types'
 
@@ -68,21 +73,90 @@ export const collectionPointService = {
     return data
   },
 
-  /** Redefine o estoque (itens disponíveis) do ponto (requer role Admin ou PointManager). */
-  async updateStock(id: string, items: StockItem[]): Promise<CollectionPoint> {
-    const { data } = await http.put<CollectionPoint>(`/collection-points/${id}/stock`, { items })
+  /** Cadastra um novo item no catálogo de estoque granular do ponto (requer role Admin ou PointManager). */
+  async createStockItem(id: string, input: CreateStockItemInput): Promise<CollectionPoint> {
+    const { data } = await http.post<CollectionPoint>(`/collection-points/${id}/stock-items`, input)
     return data
   },
 
-  /**
-   * Redefine metas, avisos e categorias acompanhadas do ponto e a regra de retirada dele
-   * (requer role Admin ou PointManager).
-   */
-  async updateStockSettings(id: string, input: UpdateStockSettingsInput): Promise<CollectionPoint> {
+  /** Atualiza nome, unidade, categoria e metas de um item de estoque (requer role Admin ou PointManager). */
+  async updateStockItem(
+    id: string,
+    stockItemId: string,
+    input: UpdateStockItemInput,
+  ): Promise<CollectionPoint> {
     const { data } = await http.put<CollectionPoint>(
-      `/collection-points/${id}/stock-settings`,
+      `/collection-points/${id}/stock-items/${stockItemId}`,
       input,
     )
     return data
+  },
+
+  /** Remove um item do catálogo de estoque do ponto (requer role Admin ou PointManager). */
+  async removeStockItem(id: string, stockItemId: string): Promise<void> {
+    await http.delete(`/collection-points/${id}/stock-items/${stockItemId}`)
+  },
+
+  /** Salva em bloco as quantidades de vários itens do ponto (aba "Estoque"). */
+  async updateStockQuantities(
+    id: string,
+    input: UpdateStockQuantitiesInput,
+  ): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/stock-items/quantities`,
+      input,
+    )
+    return data
+  },
+
+  /** Salva em bloco metas, avisos e acompanhamento de vários itens do ponto (aba "Metas e avisos"). */
+  async updateStockItemSettings(
+    id: string,
+    input: UpdateStockItemSettingsInput,
+  ): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/stock-items/settings`,
+      input,
+    )
+    return data
+  },
+
+  /** Atualiza a regra de retirada do ponto (ciclo + máximo por beneficiário em cada ciclo). */
+  async updateWithdrawalRule(id: string, input: UpdateWithdrawalRuleInput): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/withdrawal-rule`,
+      input,
+    )
+    return data
+  },
+
+  /** Cria uma nova receita de cesta básica para o ponto (requer role Admin ou PointManager). */
+  async createBasketTemplate(
+    id: string,
+    input: CreateBasketTemplateInput,
+  ): Promise<CollectionPoint> {
+    const { data } = await http.post<CollectionPoint>(
+      `/collection-points/${id}/basket-templates`,
+      input,
+    )
+    return data
+  },
+
+  /** Atualiza nome, itens e status de uma receita de cesta básica (requer role Admin ou PointManager). */
+  async updateBasketTemplate(
+    id: string,
+    templateId: string,
+    input: UpdateBasketTemplateInput,
+  ): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/basket-templates/${templateId}`,
+      input,
+    )
+    return data
+  },
+
+  /** Remove uma receita de cesta básica do ponto (requer role Admin ou PointManager). */
+  async removeBasketTemplate(id: string, templateId: string): Promise<void> {
+    await http.delete(`/collection-points/${id}/basket-templates/${templateId}`)
   },
 }

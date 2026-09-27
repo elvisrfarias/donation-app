@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Boxes, Store } from 'lucide-react'
 import type { ApiError } from '@/models/api/problemDetails'
 import type { CollectionPoint } from '@/models/types'
@@ -47,7 +48,8 @@ function AdminPointPicker({
 
 function AdminStock() {
   const { points, isLoading, error } = useCollectionPointsForManagement()
-  const [chosenId, setChosenId] = useState('')
+  const [searchParams] = useSearchParams()
+  const [chosenId, setChosenId] = useState(() => searchParams.get('pointId') ?? '')
   const selectedId = points.length === 1 ? points[0].id : chosenId
 
   return (

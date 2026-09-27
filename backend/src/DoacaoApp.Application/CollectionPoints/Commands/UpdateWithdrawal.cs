@@ -10,7 +10,7 @@ using MediatR;
 namespace DoacaoApp.Application.CollectionPoints.Commands;
 
 /// <summary>
-/// Corrige os itens/observações de uma retirada já registrada. Só a retirada mais recente do
+/// Corrige os itens/observações/cesta de uma retirada já registrada. Só a retirada mais recente do
 /// beneficiário (considerando TODOS os pontos do município) pode ser editada — um ajuste tardio
 /// poderia destoar do estoque e do histórico de ciclo já consolidados desde então.
 /// </summary>
@@ -18,7 +18,9 @@ public sealed record UpdateWithdrawalCommand(
     Guid PointId,
     Guid WithdrawalId,
     IReadOnlyList<ItemCategory> Categories,
-    string? Notes) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
+    string? Notes,
+    Guid? BasketTemplateId = null,
+    int? BasketQuantity = null) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
 {
     Guid IScopedToCollectionPoint.CollectionPointId => PointId;
 }
@@ -31,6 +33,10 @@ public sealed class UpdateWithdrawalValidator : AbstractValidator<UpdateWithdraw
         RuleFor(x => x.WithdrawalId).NotEmpty();
         RuleForEach(x => x.Categories).IsInEnum();
         RuleFor(x => x.Notes).MaximumLength(500);
+        RuleFor(x => x.BasketQuantity)
+            .GreaterThan(0)
+            .When(x => x.BasketTemplateId is not null)
+            .WithMessage("Informe a quantidade de cestas retiradas.");
     }
 }
 
@@ -61,12 +67,14 @@ public sealed class UpdateWithdrawalHandler(
         var isMostRecentForBeneficiary = beneficiaryHistory.Count > 0 && beneficiaryHistory[0].Id == existing.Id;
 
         var (startUtc, endUtc) = point.WithdrawalRule.GetCurrentPeriod(existing.OccurredAtUtc);
-        var totalInCycle = await pointRepository.CountBeneficiaryWithdrawalsAsync(
-            existing.BeneficiaryId, ItemCategoryExtensions.WithdrawalLimitedCategory, startUtc, endUtc, cancellationToken);
+        var totalInCycle = await pointRepository.CountBeneficiaryBasketWithdrawalsAsync(
+            existing.BeneficiaryId, startUtc, endUtc, cancellationToken);
         var othersInCycle = existing.CountsTowardsLimit ? Math.Max(0, totalInCycle - 1) : totalInCycle;
 
+        var basket = ToBasket(command.BasketTemplateId, command.BasketQuantity);
+
         var updated = point.UpdateWithdrawal(
-            withdrawalId, isMostRecentForBeneficiary, command.Categories, command.Notes, othersInCycle);
+            withdrawalId, isMostRecentForBeneficiary, command.Categories, command.Notes, othersInCycle, basket);
         if (updated.IsError)
         {
             return updated.Errors;
@@ -76,4 +84,7 @@ public sealed class UpdateWithdrawalHandler(
 
         return existing.ToResponse();
     }
+
+    private static (BasketTemplateId Id, int Quantity)? ToBasket(Guid? basketTemplateId, int? basketQuantity) =>
+        basketTemplateId is null ? null : (BasketTemplateId.From(basketTemplateId.Value), basketQuantity!.Value);
 }

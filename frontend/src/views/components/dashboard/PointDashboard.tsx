@@ -20,10 +20,11 @@ import { currentMonthPeriod, periodError } from '@/lib/dashboardPeriod'
 import { isoToBrazilian, isoToDate } from '@/lib/dateInput'
 import {
   cycleTypeLabels,
-  itemCategoryLabels,
   type CollectionPoint,
   type CollectionPointDashboard,
   type DashboardGranularity,
+  type StockItem,
+  type StockItemStatus,
   type WithdrawalsSeriesPoint,
 } from '@/models/types'
 import { useCollectionPoint, useCollectionPointDashboard } from '@/viewmodels'
@@ -31,14 +32,7 @@ import { StatCard } from '@/views/components/common/StatCard'
 import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
 import { DashboardHeader } from './DashboardHeader'
 import { PeriodFilter } from './PeriodFilter'
-import {
-  categoriesNeedingRestock,
-  stockStatus,
-  toStockQuantities,
-  toStockSettings,
-  trackedCategories,
-  type StockStatus,
-} from '@/views/components/stock/stockDraft'
+import { itemsNeedingRestock } from '@/views/components/stock/stockDraft'
 import { Alert, Badge, Card, CenteredSpinner, EmptyState } from '@/views/components/ui'
 
 const withdrawalsConfig: ChartConfig = {
@@ -46,7 +40,7 @@ const withdrawalsConfig: ChartConfig = {
 }
 
 const stockStatusPresentation: Record<
-  StockStatus,
+  StockItemStatus,
   { label: string; tone: 'red' | 'amber' | 'green' | 'brand' }
 > = {
   out: { label: 'Em falta', tone: 'red' },
@@ -83,9 +77,9 @@ function describeWithdrawalRule(point: CollectionPoint): string {
   return `${maxWithdrawalsPerCycle} ${times} por família · ciclo ${cycleTypeLabels[type].toLowerCase()}`
 }
 
-function describeRestockHint(trackedCount: number): string {
-  if (trackedCount === 0) return 'nenhuma categoria acompanhada'
-  return `de ${trackedCount} ${trackedCount === 1 ? 'categoria acompanhada' : 'categorias acompanhadas'}`
+function describeRestockHint(totalItems: number): string {
+  if (totalItems === 0) return 'nenhum item no catálogo'
+  return `de ${totalItems} ${totalItems === 1 ? 'item no catálogo' : 'itens no catálogo'}`
 }
 
 function PointSummary({
@@ -95,9 +89,7 @@ function PointSummary({
   point: CollectionPoint
   dashboard: CollectionPointDashboard
 }) {
-  const settings = toStockSettings(point)
-  const restockCount = categoriesNeedingRestock(toStockQuantities(point), settings).length
-  const trackedCount = trackedCategories(settings).length
+  const restockCount = itemsNeedingRestock(point.stockItems).length
   const rating = point.reviewCount > 0 ? point.averageRating.toFixed(1) : '—'
 
   return (
@@ -121,10 +113,10 @@ function PointSummary({
       <StatCard
         gradient
         accent="amber"
-        label="Categorias para repor"
+        label="Itens para repor"
         value={restockCount}
         icon={<Boxes className="size-5" />}
-        hint={`${describeRestockHint(trackedCount)} · situação atual`}
+        hint={`${describeRestockHint(point.stockItems.length)} · situação atual`}
       />
       <StatCard
         gradient
@@ -170,37 +162,38 @@ function WithdrawalsSeriesCard({ dashboard }: { dashboard: CollectionPointDashbo
   )
 }
 
+const MAX_RESTOCK_ITEMS_SHOWN = 6
+
 function StockOverviewCard({ point }: { point: CollectionPoint }) {
-  const quantities = toStockQuantities(point)
-  const settings = toStockSettings(point)
-  const categories = trackedCategories(settings)
+  const needingRestock = itemsNeedingRestock(point.stockItems)
+  const shown = needingRestock.slice(0, MAX_RESTOCK_ITEMS_SHOWN)
+  const hiddenCount = needingRestock.length - shown.length
 
   return (
     <Card className="p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-stone-900">Situação do estoque</h2>
-          <p className="mt-1 text-sm text-stone-500">Categorias que este ponto acompanha.</p>
+          <p className="mt-1 text-sm text-stone-500">Itens em falta ou com estoque baixo.</p>
         </div>
         <Link to="/app/stock" className="text-brand-700 text-sm font-semibold hover:underline">
           Gerenciar
         </Link>
       </div>
-      {categories.length === 0 ? (
-        <p className="mt-4 text-sm text-stone-500">Nenhuma categoria acompanhada.</p>
+      {shown.length === 0 ? (
+        <p className="mt-4 text-sm text-stone-500">Nenhum item precisa de reposição agora.</p>
       ) : (
         <ul className="mt-4 divide-y divide-stone-100">
-          {categories.map((category) => {
-            const presentation =
-              stockStatusPresentation[stockStatus(quantities[category], settings[category])]
+          {shown.map((item: StockItem) => {
+            const presentation = stockStatusPresentation[item.status]
             return (
-              <li key={category} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="text-sm font-medium text-stone-800">
-                  {itemCategoryLabels[category]}
+              <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0 truncate text-sm font-medium text-stone-800">
+                  {item.name}
                 </span>
-                <span className="flex items-center gap-3">
+                <span className="flex shrink-0 items-center gap-3">
                   <span className="text-sm font-semibold text-stone-900 tabular-nums">
-                    {quantities[category]}
+                    {item.quantity}
                   </span>
                   <Badge tone={presentation.tone}>{presentation.label}</Badge>
                 </span>
@@ -208,6 +201,9 @@ function StockOverviewCard({ point }: { point: CollectionPoint }) {
             )
           })}
         </ul>
+      )}
+      {hiddenCount > 0 && (
+        <p className="mt-2 text-xs text-stone-500">e mais {hiddenCount} itens…</p>
       )}
       <p className="mt-4 border-t border-stone-100 pt-3 text-xs text-stone-500">
         Regra de retirada: {describeWithdrawalRule(point)}

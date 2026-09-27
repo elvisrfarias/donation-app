@@ -1,11 +1,13 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { CheckCircle2, PackagePlus, PackageSearch, Pencil } from 'lucide-react'
+import { CheckCircle2, Minus, PackagePlus, PackageSearch, Pencil, Plus, ShoppingBasket } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { beneficiaryService } from '@/models/services'
 import {
   cycleTypeLabels,
   itemCategoryLabels,
   type Beneficiary,
+  type BasketTemplate,
   type CollectionPoint,
   type ItemCategory,
   type Withdrawal,
@@ -22,15 +24,16 @@ import {
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { ModalComponent } from '@/views/components/modal'
 import { categoryIcons } from '@/views/components/stock/categoryIcons'
-import { toStockQuantities } from '@/views/components/stock/stockDraft'
+import {
+  activeBasketTemplates,
+  insufficientItemsForQuantity,
+  unitsByItemId,
+} from '@/views/components/stock/basketDraft'
+import { clampQuantity, parseQuantity, sumQuantitiesByCategory } from '@/views/components/stock/stockDraft'
 import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
 import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
 import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
-import {
-  LIMITED_CATEGORY,
-  availableWithdrawalCategories,
-  isLimitedCategory,
-} from '@/views/components/withdrawal/withdrawalCategories'
+import { availableWithdrawalCategories } from '@/views/components/withdrawal/withdrawalCategories'
 import {
   Alert,
   Badge,
@@ -112,9 +115,7 @@ function categoryOptionsOf(
 function describeCategoriesHint(categories: ItemCategory[], hasAnyItem: boolean): string {
   if (!hasAnyItem) return 'Este ponto não tem nenhum item em estoque no momento.'
   if (categories.length === 0) return 'Escolha ao menos um item disponível.'
-  return categories.some(isLimitedCategory)
-    ? `${itemCategoryLabels[LIMITED_CATEGORY]} seguem o limite do ciclo; os demais itens não têm limite.`
-    : 'Sem limite por ciclo — a retirada fica registrada no histórico.'
+  return 'Sem limite por ciclo — a retirada fica registrada no histórico.'
 }
 
 const MAX_NOTES_LENGTH = 500
@@ -166,6 +167,160 @@ function PointSelector({
   )
 }
 
+export interface SelectedBasket {
+  templateId: string
+  quantity: number
+}
+
+function formatMissingAmount(amount: number, unit?: string): string {
+  if (!unit || unit.trim().toLowerCase() === 'un') return `${amount}`
+  return `${amount} ${unit}`
+}
+
+function BasketSection({
+  point,
+  cycleLimitReached,
+  isEditing,
+  basketTemplateId,
+  basketQuantity,
+  onChooseTemplate,
+  onChangeQuantity,
+}: {
+  point: CollectionPoint
+  cycleLimitReached: boolean
+  isEditing: boolean
+  basketTemplateId: string
+  basketQuantity: number
+  onChooseTemplate: (templateId: string) => void
+  onChangeQuantity: (quantity: number) => void
+}) {
+  const activeTemplates = useMemo(() => activeBasketTemplates(point.basketTemplates), [point])
+  const units = useMemo(() => unitsByItemId(point.stockItems), [point])
+  const selectedTemplate: BasketTemplate | null =
+    activeTemplates.find((template) => template.id === basketTemplateId) ?? null
+
+  if (activeTemplates.length === 0) {
+    return (
+      <p className="text-xs text-stone-500">
+        {point.basketTemplates.length === 0
+          ? 'Nenhuma receita de cesta cadastrada neste ponto.'
+          : 'Todas as receitas de cesta deste ponto estão desativadas.'}{' '}
+        <Link
+          to={`/app/stock?pointId=${point.id}`}
+          className="text-brand-700 font-semibold hover:underline"
+        >
+          Cadastrar/gerenciar na aba Cestas
+        </Link>
+        .
+      </p>
+    )
+  }
+
+  const insufficientItems = selectedTemplate
+    ? insufficientItemsForQuantity(selectedTemplate.feasibility.missing, basketQuantity, units)
+    : []
+  const blockedByCycleLimit = selectedTemplate !== null && cycleLimitReached
+  const blockedByStock = selectedTemplate !== null && insufficientItems.length > 0
+
+  return (
+    <div className="space-y-3 rounded-2xl bg-stone-50 p-4">
+      <div className="flex items-center gap-2">
+        <ShoppingBasket className="text-brand-600 size-4" />
+        <h4 className="text-sm font-bold text-stone-900">Cesta básica (opcional)</h4>
+      </div>
+
+      {isEditing && (
+        <p className="text-xs text-stone-500">
+          A cesta desta retirada já vem selecionada abaixo — trocar a receita ou a quantidade
+          substitui a cesta anterior; remover a seleção cancela a cesta desta retirada.
+        </p>
+      )}
+
+      <FormField label="Receita" htmlFor="withdrawal-basket-template">
+        <div className="flex items-center gap-2">
+          <Select
+            id="withdrawal-basket-template"
+            aria-label="Receita de cesta básica"
+            value={basketTemplateId}
+            placeholder="Nenhuma"
+            className="flex-1"
+            onValueChange={onChooseTemplate}
+          >
+            <option value="">Nenhuma</option>
+            {activeTemplates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name} ({template.feasibility.completeBaskets} disponíveis)
+              </option>
+            ))}
+          </Select>
+          {selectedTemplate && (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onChooseTemplate('')}>
+              Remover cesta
+            </Button>
+          )}
+        </div>
+      </FormField>
+
+      {selectedTemplate && (
+        <>
+          <FormField label="Quantidade de cestas" htmlFor="withdrawal-basket-quantity">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Diminuir quantidade de cestas"
+                disabled={basketQuantity <= 1}
+                onClick={() => onChangeQuantity(clampQuantity(basketQuantity - 1))}
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-stone-600 ring-1 ring-stone-200 ring-inset hover:bg-white disabled:opacity-40"
+              >
+                <Minus className="size-4" />
+              </button>
+              <input
+                id="withdrawal-basket-quantity"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={basketQuantity}
+                onFocus={(event) => event.target.select()}
+                onChange={(event) => onChangeQuantity(Math.max(1, parseQuantity(event.target.value)))}
+                className="h-10 w-16 [appearance:textfield] rounded-xl border border-stone-200 text-center text-sm font-semibold tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <button
+                type="button"
+                aria-label="Aumentar quantidade de cestas"
+                onClick={() => onChangeQuantity(clampQuantity(basketQuantity + 1))}
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-stone-600 ring-1 ring-stone-200 ring-inset hover:bg-white"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+          </FormField>
+
+          {blockedByCycleLimit && (
+            <Alert tone="warning">
+              Este beneficiário já atingiu o limite de cestas básicas do ciclo vigente neste ponto.
+              Remova a cesta para registrar só os demais itens.
+            </Alert>
+          )}
+          {!blockedByCycleLimit && blockedByStock && (
+            <Alert tone="warning" title="Estoque insuficiente para esta cesta">
+              <ul className="list-inside list-disc">
+                {insufficientItems.map((item) => (
+                  <li key={item.itemId}>
+                    Faltam {formatMissingAmount(item.missingAmount, item.unit)} de {item.itemName}
+                  </li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+          {!blockedByCycleLimit && !blockedByStock && (
+            <Alert tone="success">Estoque disponível para esta cesta.</Alert>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 interface WithdrawalFormModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -174,12 +329,15 @@ interface WithdrawalFormModalProps {
   point: CollectionPoint
   initialCategories: ItemCategory[]
   initialNotes: string
-  blockedByLimit: boolean
+  initialBasketTemplateId?: string | null
+  initialBasketQuantity?: number | null
+  isEditing: boolean
+  cycleLimitReached: boolean
   isPending: boolean
   errorMessage?: string
   isConflictError?: boolean
   onErrorReset: () => void
-  onSubmit: (categories: ItemCategory[], notes: string | null) => Promise<void>
+  onSubmit: (categories: ItemCategory[], notes: string | null, basket: SelectedBasket | null) => Promise<void>
 }
 
 function WithdrawalFormModal({
@@ -190,7 +348,10 @@ function WithdrawalFormModal({
   point,
   initialCategories,
   initialNotes,
-  blockedByLimit,
+  initialBasketTemplateId,
+  initialBasketQuantity,
+  isEditing,
+  cycleLimitReached,
   isPending,
   errorMessage,
   isConflictError,
@@ -198,31 +359,45 @@ function WithdrawalFormModal({
   onSubmit,
 }: WithdrawalFormModalProps) {
   const availableCategories = useMemo(() => availableWithdrawalCategories(point), [point])
-  const quantities = useMemo(() => toStockQuantities(point), [point])
+  const quantities = useMemo(() => sumQuantitiesByCategory(point.stockItems), [point])
   const hasAnyItemInStock = availableCategories.length > 0
 
   const [categories, setCategories] = useState<ItemCategory[]>(initialCategories)
   const [notes, setNotes] = useState(initialNotes)
+  const [basketTemplateId, setBasketTemplateId] = useState(initialBasketTemplateId ?? '')
+  const [basketQuantity, setBasketQuantity] = useState(initialBasketQuantity ?? 1)
 
   useEffect(() => {
     if (!open) return
+    // Reinicia o rascunho do formulário sempre que a modal reabre (para o mesmo componente
+    // persistente, não um remount) — reset intencional, não sincronização com uma fonte externa.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCategories(initialCategories)
     setNotes(initialNotes)
+    setBasketTemplateId(initialBasketTemplateId ?? '')
+    setBasketQuantity(initialBasketQuantity ?? 1)
     onErrorReset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const includesLimitedCategory = categories.some(isLimitedCategory)
-  const isBlocked = blockedByLimit && includesLimitedCategory
+  const activeTemplates = useMemo(() => activeBasketTemplates(point.basketTemplates), [point])
+  const units = useMemo(() => unitsByItemId(point.stockItems), [point])
+  const selectedTemplate = activeTemplates.find((template) => template.id === basketTemplateId) ?? null
+  const basketBlocked =
+    selectedTemplate !== null &&
+    (cycleLimitReached ||
+      insufficientItemsForQuantity(selectedTemplate.feasibility.missing, basketQuantity, units).length > 0)
+
   const notesTooLong = notes.length > MAX_NOTES_LENGTH
-  const canSubmit = categories.length > 0 && !isBlocked && !notesTooLong
+  const canSubmit = categories.length > 0 && !basketBlocked && !notesTooLong
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!canSubmit) return
     const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
     if (!parsed.success) return
-    await onSubmit(categories, parsed.data.notes || null)
+    const basket = selectedTemplate ? { templateId: selectedTemplate.id, quantity: basketQuantity } : null
+    await onSubmit(categories, parsed.data.notes || null, basket)
   }
 
   return (
@@ -246,14 +421,18 @@ function WithdrawalFormModal({
           />
         </FormField>
 
-        {isBlocked && (
-          <Alert tone="warning">
-            Este beneficiário atingiu o limite de{' '}
-            {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} do ciclo vigente neste ponto.
-            Remova as {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} da lista para registrar
-            os demais itens.
-          </Alert>
-        )}
+        <BasketSection
+          point={point}
+          cycleLimitReached={cycleLimitReached}
+          isEditing={isEditing}
+          basketTemplateId={basketTemplateId}
+          basketQuantity={basketQuantity}
+          onChooseTemplate={(templateId) => {
+            setBasketTemplateId(templateId)
+            setBasketQuantity(1)
+          }}
+          onChangeQuantity={setBasketQuantity}
+        />
 
         <FormField
           label="Observações (opcional)"
@@ -305,8 +484,8 @@ export function RegisterWithdrawalPage() {
   const [chosenPointId, setChosenPointId] = useState('')
   const pointId = availablePoints.length === 1 ? availablePoints[0].id : chosenPointId
   /**
-   * Consulta autenticada do ponto (não a listagem pública): é a única que traz `stockSettings`
-   * (quais categorias o ponto acompanha), então é a fonte de verdade do que pode ser retirado.
+   * Consulta autenticada do ponto (não a listagem pública): é a única que traz `stockItems`
+   * (o catálogo granular de estoque), então é a fonte de verdade do que pode ser retirado.
    * Refeita ao abrir cada modal para nunca oferecer um item que já não está mais em estoque.
    */
   const { point, refetch: refetchPoint } = useCollectionPoint(pointId || null)
@@ -317,6 +496,7 @@ export function RegisterWithdrawalPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingWithdrawal, setEditingWithdrawal] = useState<Withdrawal | null>(null)
   const [feedback, setFeedback] = useState<'registered' | 'updated' | null>(null)
+  const [feedbackBasketNote, setFeedbackBasketNote] = useState<string | null>(null)
   const {
     history,
     isLoading: isLoadingHistory,
@@ -330,6 +510,7 @@ export function RegisterWithdrawalPage() {
   async function searchByCpf(cpf: string) {
     setLookupError(null)
     setFeedback(null)
+    setFeedbackBasketNote(null)
     setIsSearching(true)
     try {
       setBeneficiary(await beneficiaryService.findByCpf(cpf))
@@ -343,6 +524,20 @@ export function RegisterWithdrawalPage() {
   function changeBeneficiary() {
     setBeneficiary(null)
     setFeedback(null)
+    setFeedbackBasketNote(null)
+  }
+
+  /**
+   * Depois de registrar/editar uma retirada com cesta, busca o ponto atualizado e monta a
+   * mensagem de quantas cestas completas restam — mais simples e seguro que recalcular no
+   * cliente, ao custo de uma requisição extra (só quando uma cesta foi de fato usada).
+   */
+  async function describeRemainingBaskets(templateId: string): Promise<string | null> {
+    const refreshed = await refetchPoint()
+    const template = refreshed.data?.basketTemplates.find((candidate) => candidate.id === templateId)
+    if (!template) return null
+    const count = template.feasibility.completeBaskets
+    return `Restam ${count} ${count === 1 ? 'cesta completa' : 'cestas completas'} de "${template.name}" neste ponto.`
   }
 
   function isEditable(withdrawal: Withdrawal): boolean {
@@ -416,11 +611,13 @@ export function RegisterWithdrawalPage() {
             {feedback === 'registered' && (
               <Alert tone="success" title="Retirada registrada!">
                 Já aparece na lista abaixo.
+                {feedbackBasketNote && <p className="mt-1">{feedbackBasketNote}</p>}
               </Alert>
             )}
             {feedback === 'updated' && (
               <Alert tone="success" title="Retirada atualizada!">
                 Já aparece na lista abaixo.
+                {feedbackBasketNote && <p className="mt-1">{feedbackBasketNote}</p>}
               </Alert>
             )}
 
@@ -467,24 +664,27 @@ export function RegisterWithdrawalPage() {
           point={point}
           initialCategories={[]}
           initialNotes=""
-          blockedByLimit={!!limitReached}
+          isEditing={false}
+          cycleLimitReached={!!limitReached}
           isPending={registerWithdrawal.isPending}
           errorMessage={registerWithdrawal.error?.displayMessage}
           isConflictError={registerWithdrawal.error?.isConflict}
           onErrorReset={registerWithdrawal.reset}
-          onSubmit={async (categories, notes) => {
+          onSubmit={async (categories, notes, basket) => {
             try {
               await registerWithdrawal.register({
                 pointId: point.id,
                 beneficiaryId: beneficiary.id,
                 categories,
                 notes,
+                ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
               })
             } catch {
               return
             }
             setAddModalOpen(false)
             setFeedback('registered')
+            setFeedbackBasketNote(basket ? await describeRemainingBaskets(basket.templateId) : null)
           }}
         />
       )}
@@ -498,22 +698,31 @@ export function RegisterWithdrawalPage() {
           point={point}
           initialCategories={editingWithdrawal.categories}
           initialNotes={editingWithdrawal.notes ?? ''}
-          blockedByLimit={false}
+          initialBasketTemplateId={editingWithdrawal.basketTemplateId}
+          initialBasketQuantity={editingWithdrawal.basketQuantity}
+          isEditing
+          cycleLimitReached={false}
           isPending={updateWithdrawal.isPending}
           errorMessage={updateWithdrawal.error?.displayMessage}
           isConflictError={updateWithdrawal.error?.isConflict}
           onErrorReset={updateWithdrawal.reset}
-          onSubmit={async (categories, notes) => {
+          onSubmit={async (categories, notes, basket) => {
             try {
               await updateWithdrawal.update({
                 withdrawalId: editingWithdrawal.id,
-                input: { pointId: point.id, categories, notes },
+                input: {
+                  pointId: point.id,
+                  categories,
+                  notes,
+                  ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
+                },
               })
             } catch {
               return
             }
             setEditingWithdrawal(null)
             setFeedback('updated')
+            setFeedbackBasketNote(basket ? await describeRemainingBaskets(basket.templateId) : null)
           }}
         />
       )}

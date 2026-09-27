@@ -15,7 +15,6 @@ import { pointDirectionsUrl } from '@/lib/pointActions'
 import {
   collectionPointTypeLabels,
   formatAddress,
-  itemCategoryLabels,
   type CollectionPoint,
   type Geocoded,
   type LatLng,
@@ -196,18 +195,18 @@ export function CollectionPointsMap({
                   </div>
                 </div>
               )}
-              {item.stock.length > 0 && (
+              {item.stockItems.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold tracking-wide text-emerald-600 uppercase">
                     Disponível agora
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {item.stock.map((s) => (
+                    {item.stockItems.map((s) => (
                       <span
-                        key={s.category}
+                        key={s.id}
                         className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 ring-inset"
                       >
-                        {itemCategoryLabels[s.category]}: {s.quantity}
+                        {s.name}: {s.quantity}
                       </span>
                     ))}
                   </div>

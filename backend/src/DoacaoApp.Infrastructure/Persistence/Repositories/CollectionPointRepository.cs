@@ -9,7 +9,11 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
     public void Add(CollectionPoint point) => context.CollectionPoints.Add(point);
 
     public async Task<CollectionPoint?> GetByIdAsync(CollectionPointId id, CancellationToken cancellationToken = default) =>
-        await context.CollectionPoints.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        await context.CollectionPoints
+            .Include(p => p.Withdrawals)
+            .Include(p => p.StockItems)
+            .Include(p => p.BasketTemplates)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<CollectionPoint>> ListActiveAsync(CancellationToken cancellationToken = default) =>
         await context.CollectionPoints
@@ -43,16 +47,15 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
         return stats.ToDictionary(s => s.PointId, s => s.BeneficiariesServed);
     }
 
-    public async Task<int> CountBeneficiaryWithdrawalsAsync(
+    public async Task<int> CountBeneficiaryBasketWithdrawalsAsync(
         BeneficiaryId beneficiaryId,
-        ItemCategory category,
         DateTime startInclusiveUtc,
         DateTime endExclusiveUtc,
         CancellationToken cancellationToken = default) =>
         await context.Withdrawals
             .CountAsync(
                 w => w.BeneficiaryId == beneficiaryId
-                     && w.Categories.Contains(category)
+                     && w.BasketTemplateId != null
                      && w.OccurredAtUtc >= startInclusiveUtc
                      && w.OccurredAtUtc < endExclusiveUtc,
                 cancellationToken);

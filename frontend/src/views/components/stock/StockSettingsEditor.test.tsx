@@ -9,8 +9,20 @@ import { StockSettingsEditor } from './StockSettingsEditor'
 const point = {
   id: 'point-1',
   name: 'Casa Solidária',
-  stock: [],
-  stockSettings: [{ category: 'Food', goal: 50, alertThreshold: 10, isTracked: true }],
+  basketTemplates: [],
+  stockItems: [
+    {
+      id: 'item-food',
+      name: 'Arroz 1kg',
+      unit: 'kg',
+      category: 'Food',
+      quantity: 12,
+      goal: 50,
+      alertThreshold: 10,
+      isTracked: true,
+      status: 'ok',
+    },
+  ],
   withdrawalRule: { type: 'Monthly', maxWithdrawalsPerCycle: 1 },
 } as unknown as CollectionPoint
 
@@ -32,15 +44,15 @@ describe('StockSettingsEditor', () => {
   it('mostra a meta e o aviso já configurados e não permite salvar sem alterações', () => {
     renderEditor()
 
-    expect(screen.getByLabelText('Meta de Cestas básicas')).toHaveValue(50)
-    expect(screen.getByLabelText('Aviso de Cestas básicas')).toHaveValue(10)
+    expect(screen.getByLabelText('Meta de Arroz 1kg')).toHaveValue(50)
+    expect(screen.getByLabelText('Aviso de Arroz 1kg')).toHaveValue(10)
     expect(screen.getByRole('button', { name: /salvar configurações/i })).toBeDisabled()
   })
 
   it('bloqueia o salvamento quando o aviso é maior que a meta', async () => {
     renderEditor()
 
-    const alert = screen.getByLabelText('Aviso de Cestas básicas')
+    const alert = screen.getByLabelText('Aviso de Arroz 1kg')
     await userEvent.clear(alert)
     await userEvent.type(alert, '60')
 
@@ -48,55 +60,43 @@ describe('StockSettingsEditor', () => {
     expect(screen.getByRole('button', { name: /salvar configurações/i })).toBeDisabled()
   })
 
-  it('envia todas as categorias ao salvar, incluindo a alteração', async () => {
-    const updateStockSettings = vi
-      .spyOn(collectionPointService, 'updateStockSettings')
+  it('envia só o item alterado ao salvar, sem mexer na regra de retirada', async () => {
+    const updateStockItemSettings = vi
+      .spyOn(collectionPointService, 'updateStockItemSettings')
       .mockResolvedValue(point)
+    const updateWithdrawalRule = vi.spyOn(collectionPointService, 'updateWithdrawalRule')
     renderEditor()
 
-    const goal = screen.getByLabelText('Meta de Cestas básicas')
+    const goal = screen.getByLabelText('Meta de Arroz 1kg')
     await userEvent.clear(goal)
     await userEvent.type(goal, '80')
     await userEvent.click(screen.getByRole('button', { name: /salvar configurações/i }))
 
-    await waitFor(() => expect(updateStockSettings).toHaveBeenCalledTimes(1))
-    const [pointId, input] = updateStockSettings.mock.calls[0]
+    await waitFor(() => expect(updateStockItemSettings).toHaveBeenCalledTimes(1))
+    const [pointId, input] = updateStockItemSettings.mock.calls[0]
     expect(pointId).toBe('point-1')
-    expect(input.items).toHaveLength(11)
     expect(input.items).toContainEqual({
-      category: 'Food',
+      stockItemId: 'item-food',
       goal: 80,
       alertThreshold: 10,
       isTracked: true,
     })
-    expect(input.cycleType).toBe('Monthly')
-    expect(input.maxWithdrawalsPerCycle).toBe(1)
+    expect(updateWithdrawalRule).not.toHaveBeenCalled()
   })
 
-  it('desabilita meta e aviso de uma categoria que deixou de ser acompanhada', async () => {
+  it('desabilita meta e aviso de um item que deixou de ser acompanhado', async () => {
     renderEditor()
 
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Acompanhar Cestas básicas' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Acompanhar Arroz 1kg' }))
 
-    expect(screen.getByLabelText('Meta de Cestas básicas')).toBeDisabled()
-    expect(screen.getByLabelText('Aviso de Cestas básicas')).toBeDisabled()
-  })
-
-  it('restaura os padrões e permite descartar a restauração', async () => {
-    renderEditor()
-
-    await userEvent.click(screen.getByRole('button', { name: /restaurar padrões/i }))
-    expect(screen.getByLabelText('Meta de Cestas básicas')).toHaveValue(0)
-    expect(screen.getByLabelText('Aviso de Cestas básicas')).toHaveValue(5)
-
-    await userEvent.click(screen.getByRole('button', { name: /^descartar$/i }))
-    expect(screen.getByLabelText('Meta de Cestas básicas')).toHaveValue(50)
+    expect(screen.getByLabelText('Meta de Arroz 1kg')).toBeDisabled()
+    expect(screen.getByLabelText('Aviso de Arroz 1kg')).toBeDisabled()
   })
 
   it('bloqueia a edição para quem não pode editar', () => {
     renderEditor(false)
 
-    expect(screen.getByLabelText('Meta de Cestas básicas')).toBeDisabled()
+    expect(screen.getByLabelText('Meta de Arroz 1kg')).toBeDisabled()
     expect(screen.queryByRole('button', { name: /salvar configurações/i })).not.toBeInTheDocument()
   })
 
@@ -107,10 +107,11 @@ describe('StockSettingsEditor', () => {
     expect(screen.getByRole('combobox', { name: /ciclo/i })).toHaveTextContent('Mensal')
   })
 
-  it('salva a regra de retirada junto com as configurações', async () => {
-    const updateStockSettings = vi
-      .spyOn(collectionPointService, 'updateStockSettings')
+  it('salva só a regra de retirada quando é a única coisa alterada', async () => {
+    const updateWithdrawalRule = vi
+      .spyOn(collectionPointService, 'updateWithdrawalRule')
       .mockResolvedValue(point)
+    const updateStockItemSettings = vi.spyOn(collectionPointService, 'updateStockItemSettings')
     renderEditor()
 
     const max = screen.getByLabelText('Máximo por família em cada ciclo')
@@ -119,8 +120,9 @@ describe('StockSettingsEditor', () => {
     expect(screen.getByText('regra de retirada alterada')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /salvar configurações/i }))
 
-    await waitFor(() => expect(updateStockSettings).toHaveBeenCalledTimes(1))
-    expect(updateStockSettings.mock.calls[0][1].maxWithdrawalsPerCycle).toBe(3)
+    await waitFor(() => expect(updateWithdrawalRule).toHaveBeenCalledTimes(1))
+    expect(updateWithdrawalRule.mock.calls[0][1].maxWithdrawalsPerCycle).toBe(3)
+    expect(updateStockItemSettings).not.toHaveBeenCalled()
   })
 
   it('bloqueia o salvamento quando o máximo por ciclo é zero', async () => {

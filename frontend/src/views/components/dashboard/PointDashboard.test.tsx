@@ -14,12 +14,24 @@ const point = {
   name: 'Casa Solidária',
   type: 'Association',
   address: { city: 'Concórdia', state: 'SC' },
-  stock: [{ category: 'Food', quantity: 12 }],
-  stockSettings: [{ category: 'Food', goal: 50, alertThreshold: 10, isTracked: true }],
+  basketTemplates: [],
+  stockItems: [
+    {
+      id: 'item-food',
+      name: 'Arroz 1kg',
+      unit: 'kg',
+      category: 'Food',
+      quantity: 12,
+      goal: 50,
+      alertThreshold: 10,
+      isTracked: true,
+      status: 'ok',
+    },
+  ],
   withdrawalRule: { type: 'Annual', maxWithdrawalsPerCycle: 3 },
   averageRating: 4.5,
   reviewCount: 2,
-} as CollectionPoint
+} as unknown as CollectionPoint
 
 const dashboard: CollectionPointDashboard = {
   pointId: 'point-1',

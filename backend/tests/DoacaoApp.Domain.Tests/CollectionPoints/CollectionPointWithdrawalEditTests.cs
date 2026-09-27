@@ -69,36 +69,25 @@ public class CollectionPointWithdrawalEditTests
     }
 
     [Fact]
-    public void UpdateWithdrawal_ComItemSemEstoque_DeveBloquearEManterAOriginal()
-    {
-        var beneficiary = TestData.Beneficiary();
-        var point = TestData.Point();
-        point.ReplaceStock(new Dictionary<ItemCategory, int> { [ItemCategory.Clothing] = 5 });
-        var withdrawal = point
-            .RegisterWithdrawal(beneficiary, [ItemCategory.Clothing], 0, TestData.Now, null)
-            .Value;
-
-        var result = point.UpdateWithdrawal(withdrawal.Id, true, [ItemCategory.Footwear], null, 0);
-
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("Withdrawal.ItemUnavailable");
-        withdrawal.Categories.Should().Equal(ItemCategory.Clothing);
-    }
-
-    [Fact]
-    public void UpdateWithdrawal_QuandoUltrapassaOLimiteDoCiclo_DeveBloquearEManterAOriginal()
+    public void UpdateWithdrawal_ComCestaUltrapassandoOLimiteDoCiclo_DeveBloquearEManterAOriginal()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
+        var riceId = TestData.AddStockItem(point, quantity: 10);
+        var basketId = TestData.CreateBasketTemplate(point, "Cesta básica", (riceId, 2));
         var withdrawal = point
             .RegisterWithdrawal(beneficiary, [ItemCategory.Clothing], 0, TestData.Now, null)
             .Value;
 
-        var result = point.UpdateWithdrawal(withdrawal.Id, true, [ItemCategory.Food], null, 1);
+        var result = point.UpdateWithdrawal(
+            withdrawal.Id, true, [ItemCategory.Food], null, beneficiaryWithdrawalsInCurrentCycleExcludingThis: 1,
+            basket: (basketId, 1));
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Withdrawal.CycleLimitReached");
         withdrawal.Categories.Should().Equal(ItemCategory.Clothing);
+        withdrawal.BasketTemplateId.Should().BeNull();
+        point.StockItems.Single(i => i.Id == riceId).Quantity.Should().Be(10);
     }
 
     [Fact]
@@ -106,15 +95,59 @@ public class CollectionPointWithdrawalEditTests
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
+        var riceId = TestData.AddStockItem(point, quantity: 10);
+        var basketId = TestData.CreateBasketTemplate(point, "Cesta básica", (riceId, 2));
         var withdrawal = point
-            .RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now, null)
+            .RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now, null, basket: (basketId, 1))
             .Value;
 
         var result = point.UpdateWithdrawal(
-            withdrawal.Id, true, [ItemCategory.Food, ItemCategory.Clothing], "Ajustado", 0);
+            withdrawal.Id, true, [ItemCategory.Food, ItemCategory.Clothing], "Ajustado",
+            beneficiaryWithdrawalsInCurrentCycleExcludingThis: 0, basket: (basketId, 1));
 
         result.IsError.Should().BeFalse();
         withdrawal.Categories.Should().Equal(ItemCategory.Food, ItemCategory.Clothing);
         withdrawal.Notes.Should().Be("Ajustado");
+        point.StockItems.Single(i => i.Id == riceId).Quantity.Should().Be(8);
+    }
+
+    [Fact]
+    public void UpdateWithdrawal_TrocandoDeCesta_DevolveOEstoqueDaAntigaAntesDeValidarANova()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point();
+        var riceId = TestData.AddStockItem(point, "Arroz", quantity: 10);
+        var smallBasketId = TestData.CreateBasketTemplate(point, "Cesta pequena", (riceId, 8));
+        var bigBasketId = TestData.CreateBasketTemplate(point, "Cesta grande", (riceId, 10));
+        var withdrawal = point
+            .RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now, null, basket: (smallBasketId, 1))
+            .Value;
+        point.StockItems.Single(i => i.Id == riceId).Quantity.Should().Be(2);
+
+        var result = point.UpdateWithdrawal(
+            withdrawal.Id, true, [ItemCategory.Food], null,
+            beneficiaryWithdrawalsInCurrentCycleExcludingThis: 0, basket: (bigBasketId, 1));
+
+        result.IsError.Should().BeFalse();
+        withdrawal.BasketTemplateId.Should().Be(bigBasketId);
+        point.StockItems.Single(i => i.Id == riceId).Quantity.Should().Be(0);
+    }
+
+    [Fact]
+    public void UpdateWithdrawal_RemovendoACesta_DevolveOEstoque()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point();
+        var riceId = TestData.AddStockItem(point, quantity: 10);
+        var basketId = TestData.CreateBasketTemplate(point, "Cesta básica", (riceId, 3));
+        var withdrawal = point
+            .RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now, null, basket: (basketId, 1))
+            .Value;
+
+        var result = point.UpdateWithdrawal(withdrawal.Id, true, [ItemCategory.Clothing], null, 0);
+
+        result.IsError.Should().BeFalse();
+        withdrawal.BasketTemplateId.Should().BeNull();
+        point.StockItems.Single(i => i.Id == riceId).Quantity.Should().Be(10);
     }
 }

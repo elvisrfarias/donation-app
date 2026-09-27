@@ -31,7 +31,7 @@ export const itemCategoryValues: ItemCategory[] = [
 ]
 
 export const itemCategoryLabels: Record<ItemCategory, string> = {
-  Food: 'Cestas básicas',
+  Food: 'Alimentos',
   Clothing: 'Roupas',
   Footwear: 'Calçados',
   Hygiene: 'Higiene',
@@ -63,28 +63,125 @@ export interface Contact {
   phone: string
 }
 
-/** Uma linha do estoque de um ponto: categoria e quantidade disponível. */
+/** Classificação de estoque de um item, computada pelo backend (ver `StatusOf` em `CollectionPointResponse`). */
+export type StockItemStatus = 'out' | 'low' | 'goal' | 'ok'
+
+/** Um item granular do catálogo de estoque de um ponto (ex.: "Arroz 1kg"). StockItemResponse do backend. */
 export interface StockItem {
+  id: string
+  name: string
+  unit: string
   category: ItemCategory
   quantity: number
+  /** Meta desejada (0 = sem meta). */
+  goal: number
+  /** Quantidade a partir da qual (ou abaixo) o item é considerado com estoque baixo. */
+  alertThreshold: number
+  /** Se o item é acompanhado pelo ponto (aparece na aba Estoque e conta nos indicadores). */
+  isTracked: boolean
+  /** Já vem calculado pelo backend — não recompute no front. */
+  status: StockItemStatus
 }
 
-/**
- * Configuração de estoque de uma categoria: meta desejada (0 = sem meta), quantidade a partir da qual
- * o estoque é considerado baixo (aviso) e se a categoria é acompanhada pelo ponto.
- */
-export interface StockSetting {
+/** Corpo do CreateStockItemCommand. */
+export interface CreateStockItemInput {
+  name: string
+  unit: string
+  category: ItemCategory
+  initialQuantity: number
+  goal: number
+  alertThreshold: number
+  isTracked: boolean
+}
+
+/** Corpo do UpdateStockItemCommand (não altera a quantidade). */
+export interface UpdateStockItemInput {
+  name: string
+  unit: string
   category: ItemCategory
   goal: number
   alertThreshold: number
   isTracked: boolean
 }
 
-/** Corpo do UpdateCollectionPointStockSettingsCommand. */
-export interface UpdateStockSettingsInput {
-  items: StockSetting[]
+/** Uma linha do UpdateStockQuantitiesCommand: item e nova quantidade disponível. */
+export interface StockQuantityEntry {
+  stockItemId: string
+  quantity: number
+}
+
+/** Corpo do UpdateStockQuantitiesCommand (aba "Estoque"). */
+export interface UpdateStockQuantitiesInput {
+  items: StockQuantityEntry[]
+}
+
+/** Uma linha do UpdateStockItemSettingsCommand: meta, aviso e acompanhamento de um item. */
+export interface StockItemSettingEntry {
+  stockItemId: string
+  goal: number
+  alertThreshold: number
+  isTracked: boolean
+}
+
+/** Corpo do UpdateStockItemSettingsCommand (aba "Metas e avisos"). */
+export interface UpdateStockItemSettingsInput {
+  items: StockItemSettingEntry[]
+}
+
+/** Corpo do UpdateWithdrawalRuleCommand: ciclo + máximo de cestas por beneficiário em cada ciclo. */
+export interface UpdateWithdrawalRuleInput {
   cycleType: CycleType
   maxWithdrawalsPerCycle: number
+}
+
+/** Um item de uma receita de cesta básica: item de estoque do ponto e quantidade necessária por cesta. */
+export interface BasketTemplateItem {
+  stockItemId: string
+  itemName: string
+  quantity: number
+}
+
+/** Um item faltante para completar mais uma cesta a partir de uma receita. */
+export interface BasketItemGap {
+  itemId: string
+  itemName: string
+  requiredPerBasket: number
+  currentQuantity: number
+  neededForNextBasket: number
+}
+
+/** Quantas cestas completas o estoque atual permite montar a partir de uma receita, e o que falta. */
+export interface BasketFeasibility {
+  completeBaskets: number
+  missing: BasketItemGap[]
+}
+
+/** Uma receita de cesta básica de um ponto. BasketTemplateResponse do backend. */
+export interface BasketTemplate {
+  id: string
+  name: string
+  isActive: boolean
+  items: BasketTemplateItem[]
+  feasibility: BasketFeasibility
+}
+
+/** Um item do corpo de Create/UpdateBasketTemplateCommand. */
+export interface BasketTemplateItemInput {
+  stockItemId: string
+  quantity: number
+}
+
+/** Corpo do CreateBasketTemplateCommand. */
+export interface CreateBasketTemplateInput {
+  name: string
+  items: BasketTemplateItemInput[]
+}
+
+/** Corpo do UpdateBasketTemplateCommand. */
+export interface UpdateBasketTemplateInput {
+  name: string
+  items: BasketTemplateItemInput[]
+  isActive: boolean
 }
 
 /** CollectionPointResponse do backend. */
@@ -98,10 +195,10 @@ export interface CollectionPoint {
   openingHours?: string | null
   /** Itens que o ponto precisa com urgência agora. */
   needs: string[]
-  /** Itens disponíveis no ponto agora (categoria → quantidade). */
-  stock: StockItem[]
-  /** Metas e avisos por categoria. Só vem nas consultas de gestão (vazio na lista pública). */
-  stockSettings: StockSetting[]
+  /** Catálogo de estoque granular do ponto. Só vem nas consultas de gestão (vazio na lista pública). */
+  stockItems: StockItem[]
+  /** Receitas de cesta básica do ponto. Só vem nas consultas de gestão (vazio na lista pública). */
+  basketTemplates: BasketTemplate[]
   /** Regra de retirada do ponto: ciclo + máximo por família em cada ciclo. */
   withdrawalRule: Cycle
   address: Address

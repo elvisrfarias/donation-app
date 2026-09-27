@@ -1,32 +1,32 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { RotateCcw, Save } from 'lucide-react'
+import { ChevronDown, Save } from 'lucide-react'
 import {
   cycleTypeLabels,
   itemCategoryLabels,
-  itemCategoryValues,
   type CollectionPoint,
   type CycleType,
-  type ItemCategory,
 } from '@/models/types'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useUpdateStockSettings } from '@/viewmodels'
+import { useUpdateStockItemSettings, useUpdateWithdrawalRule } from '@/viewmodels'
 import { Alert, Button, Card, FormField, Select } from '@/views/components/ui'
 import { categoryIcons } from './categoryIcons'
 import {
   MAX_QUANTITY,
-  DEFAULT_MAX_WITHDRAWALS_PER_CYCLE,
   MAX_WITHDRAWALS_PER_CYCLE,
-  countChangedSettings,
+  changedSettingIds,
+  groupByCategory,
   isRuleChanged,
+  mergeSettingsDraft,
   parseQuantity,
   ruleError,
   settingError,
-  toStockSettingItems,
-  toStockSettings,
+  toSettingEntries,
+  toSettingsDraft,
   toWithdrawalRule,
-  type ResolvedStockSetting,
-  type StockSettings,
+  type ItemSetting,
+  type SettingsDraft,
+  type StockItemCategoryGroup,
   type WithdrawalRuleDraft,
 } from './stockDraft'
 import { useWarnBeforeLeaving } from './useWarnBeforeLeaving'
@@ -41,12 +41,10 @@ const numberInput =
 
 const rowGrid = 'grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_7rem_7rem_7rem]'
 
-function describePendingChanges(changedCategories: number, ruleChanged: boolean): string {
+function describePendingChanges(changedItems: number, ruleChanged: boolean): string {
   const parts: string[] = []
-  if (changedCategories > 0) {
-    parts.push(
-      `${changedCategories} ${changedCategories === 1 ? 'categoria alterada' : 'categorias alteradas'}`,
-    )
+  if (changedItems > 0) {
+    parts.push(`${changedItems} ${changedItems === 1 ? 'item alterado' : 'itens alterados'}`)
   }
   if (ruleChanged) parts.push('regra de retirada alterada')
   return parts.join(' · ')
@@ -90,18 +88,16 @@ function NumberField({
 }
 
 function SettingRow({
-  category,
+  itemName,
   setting,
   disabled,
   onChange,
 }: {
-  category: ItemCategory
-  setting: ResolvedStockSetting
+  itemName: string
+  setting: ItemSetting
   disabled: boolean
-  onChange: (next: ResolvedStockSetting) => void
+  onChange: (next: ItemSetting) => void
 }) {
-  const label = itemCategoryLabels[category]
-  const Icon = categoryIcons[category]
   const error = settingError(setting)
   const numbersDisabled = disabled || !setting.isTracked
 
@@ -109,10 +105,7 @@ function SettingRow({
     <li className="border-t border-stone-100 py-3 first:border-t-0">
       <div className={rowGrid}>
         <div className="flex min-w-0 items-center gap-3 sm:order-1">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-100 text-stone-600">
-            <Icon className="size-5" />
-          </span>
-          <p className="truncate text-sm font-semibold text-stone-900">{label}</p>
+          <p className="truncate text-sm font-semibold text-stone-900">{itemName}</p>
         </div>
 
         <label className="flex items-center justify-end gap-2 text-xs font-medium text-stone-500 sm:order-4 sm:justify-center">
@@ -120,14 +113,14 @@ function SettingRow({
           <Checkbox
             checked={setting.isTracked}
             disabled={disabled}
-            aria-label={`Acompanhar ${label}`}
+            aria-label={`Acompanhar ${itemName}`}
             onCheckedChange={(checked) => onChange({ ...setting, isTracked: checked === true })}
           />
         </label>
 
         <NumberField
           label="Meta"
-          ariaLabel={`Meta de ${label}`}
+          ariaLabel={`Meta de ${itemName}`}
           value={setting.goal}
           disabled={numbersDisabled}
           invalid={!!error}
@@ -136,7 +129,7 @@ function SettingRow({
         />
         <NumberField
           label="Aviso"
-          ariaLabel={`Aviso de ${label}`}
+          ariaLabel={`Aviso de ${itemName}`}
           value={setting.alertThreshold}
           disabled={numbersDisabled}
           invalid={!!error}
@@ -149,60 +142,154 @@ function SettingRow({
   )
 }
 
+function SettingsCategorySection({
+  group,
+  draft,
+  disabled,
+  expanded,
+  onToggle,
+  onChange,
+}: {
+  group: StockItemCategoryGroup
+  draft: SettingsDraft
+  disabled: boolean
+  expanded: boolean
+  onToggle: () => void
+  onChange: (itemId: string, next: ItemSetting) => void
+}) {
+  const Icon = categoryIcons[group.category]
+
+  return (
+    <Card className="p-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-3 p-4 text-left"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-stone-100 text-stone-600">
+          <Icon className="size-4.5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-stone-900">
+            {itemCategoryLabels[group.category]}
+          </span>
+          <span className="block text-xs text-stone-500">
+            {group.items.length} {group.items.length === 1 ? 'item' : 'itens'}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn('size-4 shrink-0 text-stone-400 transition-transform', expanded && 'rotate-180')}
+        />
+      </button>
+      {expanded && (
+        <div className="border-t border-stone-100 p-4">
+          <div
+            className={cn(
+              rowGrid,
+              'hidden pb-2 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid',
+            )}
+          >
+            <span>Item</span>
+            <span className="text-center">Meta</span>
+            <span className="text-center">Aviso</span>
+            <span className="text-center">Acompanhar</span>
+          </div>
+          <ul>
+            {group.items.map((item) => (
+              <SettingRow
+                key={item.id}
+                itemName={item.name}
+                setting={draft[item.id]}
+                disabled={disabled}
+                onChange={(next) => onChange(item.id, next)}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps) {
-  const { updateStockSettings, isPending, error, reset } = useUpdateStockSettings()
-  const savedSettings = useMemo(() => toStockSettings(point), [point])
+  const {
+    updateStockItemSettings,
+    isPending: isSavingSettings,
+    error: settingsError,
+    reset: resetSettings,
+  } = useUpdateStockItemSettings()
+  const {
+    updateWithdrawalRule,
+    isPending: isSavingRule,
+    error: withdrawalRuleError,
+    reset: resetRule,
+  } = useUpdateWithdrawalRule()
+
+  const items = point.stockItems
+  const savedSettings = useMemo(() => toSettingsDraft(items), [items])
   const savedRule = useMemo(() => toWithdrawalRule(point), [point])
-  const [draft, setDraft] = useState<StockSettings>(savedSettings)
+  const [draft, setDraft] = useState<SettingsDraft>(savedSettings)
   const [ruleDraft, setRuleDraft] = useState<WithdrawalRuleDraft>(savedRule)
   const [justSaved, setJustSaved] = useState(false)
+  const [collapsedOverrides, setCollapsedOverrides] = useState<Record<string, boolean>>({})
 
-  const changedCount = countChangedSettings(savedSettings, draft)
+  const isPending = isSavingSettings || isSavingRule
+  const error = settingsError ?? withdrawalRuleError
+
+  const visibleSettings = useMemo(() => mergeSettingsDraft(draft, items), [draft, items])
+  const changedIds = changedSettingIds(savedSettings, visibleSettings)
   const ruleChanged = isRuleChanged(savedRule, ruleDraft)
-  const isDirty = changedCount > 0 || ruleChanged
+  const isDirty = changedIds.length > 0 || ruleChanged
   const currentRuleError = ruleError(ruleDraft)
   const hasInvalidSetting =
     currentRuleError !== null ||
-    itemCategoryValues.some((category) => settingError(draft[category]) !== null)
+    items.some((item) => settingError(visibleSettings[item.id]) !== null)
   useWarnBeforeLeaving(isDirty)
 
-  function changeSetting(category: ItemCategory, next: ResolvedStockSetting) {
+  const groups = useMemo(() => groupByCategory(items), [items])
+
+  function isExpanded(category: string): boolean {
+    return collapsedOverrides[category] !== true
+  }
+
+  function toggleCategory(category: string) {
+    setCollapsedOverrides((previous) => ({ ...previous, [category]: isExpanded(category) }))
+  }
+
+  function changeSetting(itemId: string, next: ItemSetting) {
     setJustSaved(false)
-    reset()
-    setDraft((previous) => ({ ...previous, [category]: next }))
+    resetSettings()
+    setDraft((previous) => ({ ...previous, [itemId]: next }))
   }
 
   function changeRule(next: WithdrawalRuleDraft) {
     setJustSaved(false)
-    reset()
+    resetRule()
     setRuleDraft(next)
   }
 
   function discardChanges() {
     setJustSaved(false)
-    reset()
+    resetSettings()
+    resetRule()
     setDraft(savedSettings)
     setRuleDraft(savedRule)
-  }
-
-  function restoreDefaults() {
-    setJustSaved(false)
-    reset()
-    setDraft(toStockSettings({ ...point, stockSettings: [] }))
-    setRuleDraft({ cycleType: 'Annual', maxWithdrawalsPerCycle: DEFAULT_MAX_WITHDRAWALS_PER_CYCLE })
   }
 
   async function save(event: FormEvent) {
     event.preventDefault()
     if (!isDirty || hasInvalidSetting || isPending) return
-    await updateStockSettings({
-      id: point.id,
-      input: {
-        items: toStockSettingItems(draft),
-        cycleType: ruleDraft.cycleType,
-        maxWithdrawalsPerCycle: ruleDraft.maxWithdrawalsPerCycle,
-      },
-    })
+
+    if (changedIds.length > 0) {
+      await updateStockItemSettings({
+        pointId: point.id,
+        input: { items: toSettingEntries(visibleSettings) },
+      })
+    }
+    if (ruleChanged) {
+      await updateWithdrawalRule({ pointId: point.id, input: ruleDraft })
+    }
     setJustSaved(true)
   }
 
@@ -212,9 +299,9 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
         <div>
           <h3 className="text-base font-bold text-stone-900">Regra de retirada</h3>
           <p className="mt-1 text-sm text-stone-500">
-            Quantas vezes cada família pode retirar neste ponto em cada ciclo. O histórico é somado
-            entre todos os pontos do município, mas o limite aplicado é o do ponto onde a retirada
-            acontece.
+            Quantas vezes cada família pode retirar cesta básica neste ponto em cada ciclo. O
+            histórico é somado entre todos os pontos do município, mas o limite aplicado é o do
+            ponto onde a retirada acontece.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -265,17 +352,15 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
         <ul className="space-y-1 text-sm text-stone-500">
           <li>
             <strong className="font-semibold text-stone-700">Meta:</strong> quantidade que o ponto
-            quer manter. Use 0 para não ter meta.
+            quer manter deste item. Use 0 para não ter meta.
           </li>
           <li>
             <strong className="font-semibold text-stone-700">Aviso:</strong> a partir dessa
-            quantidade (ou menos) a categoria aparece como “Estoque baixo” e entra na lista de
-            reposição.
+            quantidade (ou menos) o item aparece como “Estoque baixo” e entra na lista de reposição.
           </li>
           <li>
-            <strong className="font-semibold text-stone-700">Acompanhar:</strong> desmarque as
-            categorias que o ponto não trabalha; elas somem da aba Estoque enquanto estiverem
-            zeradas.
+            <strong className="font-semibold text-stone-700">Acompanhar:</strong> desmarque itens
+            que o ponto não quer que contem nos indicadores de meta/aviso.
           </li>
         </ul>
       </Card>
@@ -283,49 +368,34 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
       {error && <Alert tone="error">{error.displayMessage}</Alert>}
       {justSaved && !isDirty && <Alert tone="success">Configurações de estoque salvas.</Alert>}
 
-      <Card className="p-5">
-        <div
-          className={cn(
-            rowGrid,
-            'hidden pb-2 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid',
-          )}
-        >
-          <span>Categoria</span>
-          <span className="text-center">Meta</span>
-          <span className="text-center">Aviso</span>
-          <span className="text-center">Acompanhar</span>
-        </div>
-        <ul>
-          {itemCategoryValues.map((category) => (
-            <SettingRow
-              key={category}
-              category={category}
-              setting={draft[category]}
+      {items.length === 0 ? (
+        <Alert tone="info" title="Catálogo vazio">
+          Adicione itens ao catálogo na aba Estoque para configurar metas e avisos.
+        </Alert>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((group) => (
+            <SettingsCategorySection
+              key={group.category}
+              group={group}
+              draft={visibleSettings}
               disabled={!canEdit || isPending}
-              onChange={(next) => changeSetting(category, next)}
+              expanded={isExpanded(group.category)}
+              onToggle={() => toggleCategory(group.category)}
+              onChange={changeSetting}
             />
           ))}
-        </ul>
-      </Card>
+        </div>
+      )}
 
       {canEdit ? (
         <div className="shadow-lift sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white/95 p-3 backdrop-blur-md lg:bottom-4">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            leftIcon={<RotateCcw className="size-4" />}
-            onClick={restoreDefaults}
-            disabled={isPending}
-          >
-            Restaurar padrões
-          </Button>
+          <p className="pl-2 text-sm font-medium text-stone-600">
+            {isDirty
+              ? describePendingChanges(changedIds.length, ruleChanged)
+              : 'Nenhuma alteração pendente'}
+          </p>
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-stone-600">
-              {isDirty
-                ? describePendingChanges(changedCount, ruleChanged)
-                : 'Nenhuma alteração pendente'}
-            </p>
             <Button
               type="button"
               variant="ghost"

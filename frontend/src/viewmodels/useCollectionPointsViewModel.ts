@@ -9,9 +9,14 @@ import {
   type Address,
   type CollectionPoint,
   type CollectionPointDashboard,
+  type CreateBasketTemplateInput,
+  type CreateStockItemInput,
   type LatLng,
-  type StockItem,
-  type UpdateStockSettingsInput,
+  type UpdateBasketTemplateInput,
+  type UpdateStockItemInput,
+  type UpdateStockItemSettingsInput,
+  type UpdateStockQuantitiesInput,
+  type UpdateWithdrawalRuleInput,
 } from '@/models/types'
 import type { CreateCollectionPointForm, UpdateCollectionPointForm } from '@/viewmodels/schemas'
 
@@ -162,34 +167,154 @@ export function useUpdateCollectionPoint() {
   return { update: mutate, updatedPoint: data, ...rest }
 }
 
-/** Mutação de atualização do estoque de um ponto (Admin ou PointManager). */
-export function useUpdateStock() {
-  const queryClient = useQueryClient()
-
-  const { mutate, ...rest } = useApiMutation<CollectionPoint, { id: string; items: StockItem[] }>({
-    mutationFn: ({ id, items }) => collectionPointService.updateStock(id, items),
-    onSuccess: (updatedPoint) => {
-      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
-      invalidateCollectionPointLists(queryClient)
-    },
-  })
-
-  return { updateStock: mutate, ...rest }
-}
-
-/** Mutação das metas, avisos, categorias acompanhadas e regra de retirada do ponto (Admin ou PointManager). */
-export function useUpdateStockSettings() {
+/** Mutação de criação de um item no catálogo de estoque granular do ponto (Admin ou PointManager). */
+export function useCreateStockItem() {
   const queryClient = useQueryClient()
 
   const { mutate, ...rest } = useApiMutation<
     CollectionPoint,
-    { id: string; input: UpdateStockSettingsInput }
+    { pointId: string; input: CreateStockItemInput }
   >({
-    mutationFn: ({ id, input }) => collectionPointService.updateStockSettings(id, input),
+    mutationFn: ({ pointId, input }) => collectionPointService.createStockItem(pointId, input),
     onSuccess: (updatedPoint) => {
       queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
     },
   })
 
-  return { updateStockSettings: mutate, ...rest }
+  return { createStockItem: mutate, ...rest }
+}
+
+/** Mutação de atualização de nome, unidade, categoria e metas de um item de estoque (não a quantidade). */
+export function useUpdateStockItem() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; stockItemId: string; input: UpdateStockItemInput }
+  >({
+    mutationFn: ({ pointId, stockItemId, input }) =>
+      collectionPointService.updateStockItem(pointId, stockItemId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateStockItem: mutate, ...rest }
+}
+
+/** Mutação de remoção de um item de estoque (falha se ele estiver em uso em alguma receita de cesta). */
+export function useRemoveStockItem() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<void, { pointId: string; stockItemId: string }>({
+    mutationFn: ({ pointId, stockItemId }) =>
+      collectionPointService.removeStockItem(pointId, stockItemId),
+    onSuccess: (_, { pointId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.detail(pointId) })
+    },
+  })
+
+  return { removeStockItem: mutate, ...rest }
+}
+
+/** Mutação de salvamento em bloco das quantidades de vários itens do ponto (aba "Estoque"). */
+export function useUpdateStockQuantities() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; input: UpdateStockQuantitiesInput }
+  >({
+    mutationFn: ({ pointId, input }) => collectionPointService.updateStockQuantities(pointId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateStockQuantities: mutate, ...rest }
+}
+
+/** Mutação de salvamento em bloco de metas, avisos e acompanhamento de vários itens (aba "Metas e avisos"). */
+export function useUpdateStockItemSettings() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; input: UpdateStockItemSettingsInput }
+  >({
+    mutationFn: ({ pointId, input }) =>
+      collectionPointService.updateStockItemSettings(pointId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateStockItemSettings: mutate, ...rest }
+}
+
+/** Mutação de atualização da regra de retirada do ponto (ciclo + máximo por ciclo), à parte das metas. */
+export function useUpdateWithdrawalRule() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; input: UpdateWithdrawalRuleInput }
+  >({
+    mutationFn: ({ pointId, input }) => collectionPointService.updateWithdrawalRule(pointId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateWithdrawalRule: mutate, ...rest }
+}
+
+/** Mutação de criação de uma receita de cesta básica para o ponto (ativa por padrão). */
+export function useCreateBasketTemplate() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; input: CreateBasketTemplateInput }
+  >({
+    mutationFn: ({ pointId, input }) => collectionPointService.createBasketTemplate(pointId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { createBasketTemplate: mutate, ...rest }
+}
+
+/** Mutação de atualização de nome, itens e status (ativa/inativa) de uma receita de cesta básica. */
+export function useUpdateBasketTemplate() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; templateId: string; input: UpdateBasketTemplateInput }
+  >({
+    mutationFn: ({ pointId, templateId, input }) =>
+      collectionPointService.updateBasketTemplate(pointId, templateId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateBasketTemplate: mutate, ...rest }
+}
+
+/** Mutação de remoção de uma receita de cesta básica (falha se ela já foi usada em alguma retirada). */
+export function useRemoveBasketTemplate() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<void, { pointId: string; templateId: string }>({
+    mutationFn: ({ pointId, templateId }) =>
+      collectionPointService.removeBasketTemplate(pointId, templateId),
+    onSuccess: (_, { pointId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.detail(pointId) })
+    },
+  })
+
+  return { removeBasketTemplate: mutate, ...rest }
 }

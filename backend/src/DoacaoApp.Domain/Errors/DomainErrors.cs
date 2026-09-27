@@ -46,6 +46,50 @@ public static class DomainErrors
         public static Error NameRequired => Error.Validation("CollectionPoint.NameRequired", "O nome do ponto de coleta é obrigatório.");
         public static Error Inactive => Error.Conflict("CollectionPoint.Inactive", "O ponto de coleta está inativo e não pode registrar retiradas.");
         public static Error NotFound => Error.NotFound("CollectionPoint.NotFound", "Ponto de coleta não encontrado.");
+
+        public static Error StockItemNameRequired =>
+            Error.Validation("CollectionPoint.StockItemNameRequired", "O nome do item de estoque é obrigatório.");
+
+        public static Error StockItemUnitRequired =>
+            Error.Validation("CollectionPoint.StockItemUnitRequired", "A unidade do item de estoque é obrigatória.");
+
+        public static Error NegativeQuantity =>
+            Error.Validation("CollectionPoint.NegativeQuantity", "A quantidade não pode ser negativa.");
+
+        public static Error DuplicateStockItemName =>
+            Error.Conflict("CollectionPoint.DuplicateStockItemName", "Já existe um item de estoque com este nome neste ponto.");
+
+        public static Error StockItemNotFound =>
+            Error.NotFound("CollectionPoint.StockItemNotFound", "Item de estoque não encontrado neste ponto.");
+
+        public static Error StockItemInUseByBasketTemplate =>
+            Error.Conflict(
+                "CollectionPoint.StockItemInUseByBasketTemplate",
+                "Este item está em uso em uma receita de cesta e não pode ser removido.");
+
+        public static Error BasketTemplateNotFound =>
+            Error.NotFound("CollectionPoint.BasketTemplateNotFound", "Receita de cesta não encontrada neste ponto.");
+
+        public static Error BasketTemplateNameRequired =>
+            Error.Validation("CollectionPoint.BasketTemplateNameRequired", "O nome da receita de cesta é obrigatório.");
+
+        public static Error BasketTemplateItemsRequired =>
+            Error.Validation("CollectionPoint.BasketTemplateItemsRequired", "Informe ao menos um item na receita de cesta.");
+
+        public static Error BasketTemplateDuplicateItem =>
+            Error.Validation(
+                "CollectionPoint.BasketTemplateDuplicateItem",
+                "Um item não pode aparecer mais de uma vez na mesma receita de cesta.");
+
+        public static Error BasketTemplateInvalidQuantity =>
+            Error.Validation(
+                "CollectionPoint.BasketTemplateInvalidQuantity",
+                "A quantidade de cada item da receita deve ser maior que zero.");
+
+        public static Error BasketTemplateInUseByWithdrawal =>
+            Error.Conflict(
+                "CollectionPoint.BasketTemplateInUseByWithdrawal",
+                "Esta receita já foi usada em alguma retirada e não pode ser removida. Desative-a em vez de remover.");
     }
 
     public static class StockSetting
@@ -134,5 +178,16 @@ public static class DomainErrors
             Error.Conflict(
                 "Withdrawal.OnlyMostRecentIsEditable",
                 "Só é possível editar a retirada mais recente do beneficiário.");
+
+        public static Error InsufficientStock =>
+            Error.Conflict(
+                "Withdrawal.InsufficientStock",
+                "Não há estoque suficiente para montar a(s) cesta(s) selecionada(s).");
+
+        public static Error BasketTemplateNotFound =>
+            Error.NotFound("Withdrawal.BasketTemplateNotFound", "A receita de cesta selecionada não foi encontrada neste ponto.");
+
+        public static Error BasketTemplateInactive =>
+            Error.Conflict("Withdrawal.BasketTemplateInactive", "A receita de cesta selecionada está inativa.");
     }
 }

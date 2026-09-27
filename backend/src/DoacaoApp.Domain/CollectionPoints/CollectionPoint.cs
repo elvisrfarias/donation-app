@@ -17,8 +17,8 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     private readonly List<Withdrawal> _withdrawals = [];
     private readonly List<ItemCategory> _acceptedItems = [];
     private List<string> _needs = [];
-    private Dictionary<ItemCategory, int> _stock = [];
-    private Dictionary<ItemCategory, StockSetting> _stockSettings = [];
+    private readonly List<StockItem> _stockItems = [];
+    private readonly List<BasketTemplate> _basketTemplates = [];
 
     private CollectionPoint()
     {
@@ -89,18 +89,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public IReadOnlyList<string> Needs => _needs.AsReadOnly();
 
     /// <summary>
-    /// Quantidade disponível por categoria de item (estoque). Categorias ausentes ou zeradas
-    /// significam "sem disponibilidade". Ajuda as famílias a saber o que há antes de irem ao ponto.
-    /// </summary>
-    public IReadOnlyDictionary<ItemCategory, int> Stock => _stock;
-
-    /// <summary>
-    /// Metas, avisos de estoque baixo e categorias acompanhadas, por categoria. Categorias sem
-    /// entrada usam o padrão (sem meta, aviso padrão, acompanhada).
-    /// </summary>
-    public IReadOnlyDictionary<ItemCategory, StockSetting> StockSettings => _stockSettings;
-
-    /// <summary>
     /// Imagem (foto) do ponto de coleta no storage. Obrigatória para pontos cadastrados pela
     /// aplicação a partir de agora; nula nos pontos antigos e nos de seed (a UI cai no ícone).
     /// </summary>
@@ -113,6 +101,12 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     /// <summary>Categorias de itens que o ponto recebe/disponibiliza (ex.: comida, roupas).</summary>
     public IReadOnlyList<ItemCategory> AcceptedItems => _acceptedItems.AsReadOnly();
+
+    /// <summary>Catálogo de itens de estoque granular deste ponto (ex.: "Arroz 1kg", "Açúcar").</summary>
+    public IReadOnlyList<StockItem> StockItems => _stockItems.AsReadOnly();
+
+    /// <summary>Receitas de cesta básica configuradas neste ponto.</summary>
+    public IReadOnlyList<BasketTemplate> BasketTemplates => _basketTemplates.AsReadOnly();
 
     public static ErrorOr<CollectionPoint> Create(
         string? name,
@@ -168,40 +162,301 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// <summary>Redefine a lista de necessidades atuais do ponto (substitui a lista).</summary>
     public void UpdateNeeds(IEnumerable<string>? needs) => _needs = NormalizeNeeds(needs);
 
-    /// <summary>
-    /// Redefine o estoque do ponto (substitui o mapa atual). Quantidades ≤ 0 são descartadas;
-    /// quando há entradas repetidas da mesma categoria, prevalece a última.
-    /// </summary>
-    public void ReplaceStock(IEnumerable<KeyValuePair<ItemCategory, int>>? stock) =>
-        _stock = stock is null
-            ? []
-            : stock
-                .Where(kv => kv.Value > 0)
-                .GroupBy(kv => kv.Key)
-                .ToDictionary(g => g.Key, g => g.Last().Value);
-
-    /// <summary>
-    /// Redefine as configurações de estoque (substitui o mapa atual). Quando há entradas repetidas
-    /// da mesma categoria, prevalece a última. Valores negativos, ou um aviso acima da meta (quando
-    /// há meta), são recusados e o mapa anterior é mantido.
-    /// </summary>
-    public ErrorOr<Success> ReplaceStockSettings(IEnumerable<KeyValuePair<ItemCategory, StockSetting>>? settings)
+    /// <summary>Cadastra um novo item de estoque granular para este ponto (nome único, sem diferenciar maiúsculas/minúsculas).</summary>
+    public ErrorOr<StockItemId> AddStockItem(
+        string? name, string? unit, ItemCategory category, int initialQuantity, int goal, int alertThreshold, bool isTracked)
     {
-        var next = (settings ?? [])
-            .GroupBy(kv => kv.Key)
-            .ToDictionary(g => g.Key, g => g.Last().Value);
+        var nameValidation = ValidateStockItemName(name, excludingItemId: null);
+        if (nameValidation.IsError)
+        {
+            return nameValidation.FirstError;
+        }
 
-        if (next.Values.Any(setting => setting.Goal < 0 || setting.AlertThreshold < 0))
+        if (string.IsNullOrWhiteSpace(unit))
+        {
+            return DomainErrors.CollectionPoint.StockItemUnitRequired;
+        }
+
+        if (initialQuantity < 0)
+        {
+            return DomainErrors.CollectionPoint.NegativeQuantity;
+        }
+
+        var goalValidation = ValidateStockItemGoalAndAlert(goal, alertThreshold);
+        if (goalValidation.IsError)
+        {
+            return goalValidation.FirstError;
+        }
+
+        var item = StockItem.Create(Id, name!.Trim(), unit!.Trim(), category, initialQuantity, goal, alertThreshold, isTracked);
+        _stockItems.Add(item);
+
+        return item.Id;
+    }
+
+    /// <summary>Atualiza metadados de um item de estoque existente. Não altera a quantidade (ver <see cref="ReplaceStockQuantities"/>).</summary>
+    public ErrorOr<Success> UpdateStockItem(
+        StockItemId itemId, string? name, string? unit, ItemCategory category, int goal, int alertThreshold, bool isTracked)
+    {
+        var item = _stockItems.SingleOrDefault(i => i.Id == itemId);
+        if (item is null)
+        {
+            return DomainErrors.CollectionPoint.StockItemNotFound;
+        }
+
+        var nameValidation = ValidateStockItemName(name, excludingItemId: itemId);
+        if (nameValidation.IsError)
+        {
+            return nameValidation.FirstError;
+        }
+
+        if (string.IsNullOrWhiteSpace(unit))
+        {
+            return DomainErrors.CollectionPoint.StockItemUnitRequired;
+        }
+
+        var goalValidation = ValidateStockItemGoalAndAlert(goal, alertThreshold);
+        if (goalValidation.IsError)
+        {
+            return goalValidation.FirstError;
+        }
+
+        item.UpdateDetails(name!.Trim(), unit!.Trim(), category, goal, alertThreshold, isTracked);
+        return Result.Success;
+    }
+
+    /// <summary>Remove um item de estoque. Falha se ele estiver em uso em alguma receita de cesta.</summary>
+    public ErrorOr<Success> RemoveStockItem(StockItemId itemId)
+    {
+        var item = _stockItems.SingleOrDefault(i => i.Id == itemId);
+        if (item is null)
+        {
+            return DomainErrors.CollectionPoint.StockItemNotFound;
+        }
+
+        var isReferencedByBasketTemplate = _basketTemplates
+            .Any(template => template.Items.Any(templateItem => templateItem.StockItemId == itemId));
+        if (isReferencedByBasketTemplate)
+        {
+            return DomainErrors.CollectionPoint.StockItemInUseByBasketTemplate;
+        }
+
+        _stockItems.Remove(item);
+        return Result.Success;
+    }
+
+    /// <summary>Substitui em bloco as quantidades de vários itens (aba "Estoque"). Aplica tudo ou nada.</summary>
+    public ErrorOr<Success> ReplaceStockQuantities(IReadOnlyDictionary<StockItemId, int> quantities)
+    {
+        foreach (var (itemId, quantity) in quantities)
+        {
+            if (_stockItems.All(item => item.Id != itemId))
+            {
+                return DomainErrors.CollectionPoint.StockItemNotFound;
+            }
+
+            if (quantity < 0)
+            {
+                return DomainErrors.CollectionPoint.NegativeQuantity;
+            }
+        }
+
+        foreach (var (itemId, quantity) in quantities)
+        {
+            _stockItems.Single(item => item.Id == itemId).ReplaceQuantity(quantity);
+        }
+
+        return Result.Success;
+    }
+
+    /// <summary>Substitui em bloco meta/aviso/monitoramento de vários itens (aba "Metas e avisos"). Aplica tudo ou nada.</summary>
+    public ErrorOr<Success> ReplaceStockItemSettings(
+        IReadOnlyDictionary<StockItemId, (int Goal, int AlertThreshold, bool IsTracked)> settings)
+    {
+        foreach (var (itemId, setting) in settings)
+        {
+            if (_stockItems.All(item => item.Id != itemId))
+            {
+                return DomainErrors.CollectionPoint.StockItemNotFound;
+            }
+
+            var goalValidation = ValidateStockItemGoalAndAlert(setting.Goal, setting.AlertThreshold);
+            if (goalValidation.IsError)
+            {
+                return goalValidation.FirstError;
+            }
+        }
+
+        foreach (var (itemId, setting) in settings)
+        {
+            var item = _stockItems.Single(i => i.Id == itemId);
+            item.UpdateDetails(item.Name, item.Unit, item.Category, setting.Goal, setting.AlertThreshold, setting.IsTracked);
+        }
+
+        return Result.Success;
+    }
+
+    /// <summary>Cria uma nova receita de cesta básica, ativa por padrão.</summary>
+    public ErrorOr<BasketTemplateId> CreateBasketTemplate(
+        string? name, IReadOnlyList<(StockItemId StockItemId, int Quantity)> items)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateNameRequired;
+        }
+
+        var itemsValidation = ValidateBasketTemplateItems(items);
+        if (itemsValidation.IsError)
+        {
+            return itemsValidation.FirstError;
+        }
+
+        var template = BasketTemplate.Create(Id, name.Trim(), ToTemplateItems(items));
+        _basketTemplates.Add(template);
+
+        return template.Id;
+    }
+
+    /// <summary>Atualiza nome, itens e status (ativa/inativa) de uma receita de cesta existente.</summary>
+    public ErrorOr<Success> UpdateBasketTemplate(
+        BasketTemplateId templateId, string? name, IReadOnlyList<(StockItemId StockItemId, int Quantity)> items, bool isActive)
+    {
+        var template = _basketTemplates.SingleOrDefault(t => t.Id == templateId);
+        if (template is null)
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateNotFound;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateNameRequired;
+        }
+
+        var itemsValidation = ValidateBasketTemplateItems(items);
+        if (itemsValidation.IsError)
+        {
+            return itemsValidation.FirstError;
+        }
+
+        template.UpdateDetails(name.Trim(), ToTemplateItems(items), isActive);
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Remove uma receita de cesta. Falha se ela já foi usada em alguma retirada deste ponto — o
+    /// histórico de retiradas é uma entidade filha do mesmo agregado, então essa checagem não
+    /// precisa de I/O extra (a integridade referencial na Infrastructure, via
+    /// <c>DeleteBehavior.Restrict</c>, é só um cinto de segurança adicional).
+    /// </summary>
+    public ErrorOr<Success> RemoveBasketTemplate(BasketTemplateId templateId)
+    {
+        var template = _basketTemplates.SingleOrDefault(t => t.Id == templateId);
+        if (template is null)
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateNotFound;
+        }
+
+        if (_withdrawals.Any(w => w.BasketTemplateId == templateId))
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateInUseByWithdrawal;
+        }
+
+        _basketTemplates.Remove(template);
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Calcula quantas cestas completas dá para montar agora com o estoque atual, e o que falta para
+    /// montar mais uma. Cálculo puro, sem I/O. Retorna zero cestas e nenhum item se a receita não existir.
+    /// </summary>
+    public BasketFeasibility CalculateBasketFeasibility(BasketTemplateId templateId)
+    {
+        var template = _basketTemplates.SingleOrDefault(t => t.Id == templateId);
+        if (template is null || template.Items.Count == 0)
+        {
+            return new BasketFeasibility(0, []);
+        }
+
+        var completeBaskets = template.Items.Min(PossibleBasketsFor);
+        var missing = template.Items.Select(item => BuildGap(item, completeBaskets)).ToList();
+
+        return new BasketFeasibility(completeBaskets, missing);
+    }
+
+    private int PossibleBasketsFor(BasketTemplateItem item)
+    {
+        if (item.Quantity == 0)
+        {
+            return int.MaxValue;
+        }
+
+        var stockItem = _stockItems.Single(i => i.Id == item.StockItemId);
+        return stockItem.Quantity / item.Quantity;
+    }
+
+    private BasketItemGap BuildGap(BasketTemplateItem item, int completeBaskets)
+    {
+        var stockItem = _stockItems.Single(i => i.Id == item.StockItemId);
+        var neededForNextBasket = Math.Max(0, (item.Quantity * (completeBaskets + 1)) - stockItem.Quantity);
+
+        return new BasketItemGap(item.StockItemId, stockItem.Name, item.Quantity, stockItem.Quantity, neededForNextBasket);
+    }
+
+    private static IEnumerable<BasketTemplateItem> ToTemplateItems(
+        IReadOnlyList<(StockItemId StockItemId, int Quantity)> items) =>
+        items.Select(i => new BasketTemplateItem(i.StockItemId, i.Quantity));
+
+    private ErrorOr<Success> ValidateBasketTemplateItems(IReadOnlyList<(StockItemId StockItemId, int Quantity)> items)
+    {
+        if (items.Count == 0)
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateItemsRequired;
+        }
+
+        if (items.Any(item => item.Quantity <= 0))
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateInvalidQuantity;
+        }
+
+        if (items.Select(item => item.StockItemId).Distinct().Count() != items.Count)
+        {
+            return DomainErrors.CollectionPoint.BasketTemplateDuplicateItem;
+        }
+
+        if (items.Any(item => _stockItems.All(stockItem => stockItem.Id != item.StockItemId)))
+        {
+            return DomainErrors.CollectionPoint.StockItemNotFound;
+        }
+
+        return Result.Success;
+    }
+
+    private ErrorOr<Success> ValidateStockItemName(string? name, StockItemId? excludingItemId)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.CollectionPoint.StockItemNameRequired;
+        }
+
+        var trimmedName = name.Trim();
+        var isDuplicate = _stockItems.Any(item =>
+            item.Id != excludingItemId && string.Equals(item.Name, trimmedName, StringComparison.OrdinalIgnoreCase));
+
+        return isDuplicate ? DomainErrors.CollectionPoint.DuplicateStockItemName : Result.Success;
+    }
+
+    private static ErrorOr<Success> ValidateStockItemGoalAndAlert(int goal, int alertThreshold)
+    {
+        if (goal < 0 || alertThreshold < 0)
         {
             return DomainErrors.StockSetting.NegativeValue;
         }
 
-        if (next.Values.Any(setting => setting.Goal > 0 && setting.AlertThreshold > setting.Goal))
+        if (goal > 0 && alertThreshold > goal)
         {
             return DomainErrors.StockSetting.AlertAboveGoal;
         }
 
-        _stockSettings = next;
         return Result.Success;
     }
 
@@ -238,24 +493,26 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public void UpdateAddress(Address address) => Address = address;
 
     /// <summary>
-    /// Registra uma retirada aplicando a regra de equidade. O número de retiradas já
+    /// Registra uma retirada aplicando a regra de equidade. O número de retiradas com cesta básica já
     /// feitas pelo beneficiário NO CICLO VIGENTE deste ponto (considerando o histórico de TODOS os
     /// pontos do município) é calculado fora do agregado e injetado aqui — o domínio só decide com
     /// base nele e na <see cref="WithdrawalRule"/> deste ponto.
     /// </summary>
     /// <param name="beneficiary">Beneficiário que está retirando.</param>
-    /// <param name="categories">Itens retirados na visita; só as cestas básicas estão sujeitas ao limite do ciclo.</param>
+    /// <param name="categories">Itens livres retirados na visita (roupas, calçados…) — não sujeitos ao limite do ciclo nem dão baixa em estoque.</param>
     /// <param name="beneficiaryWithdrawalsInCurrentCycle">
     /// Total de retiradas com cesta básica pelo beneficiário dentro do ciclo vigente, somando todos os pontos.
     /// </param>
     /// <param name="occurredAtUtc">Instante da retirada (UTC).</param>
     /// <param name="notes">Observações opcionais (ex.: itens retirados).</param>
+    /// <param name="basket">Receita de cesta básica retirada nesta visita, se houver, e a quantidade de cestas.</param>
     public ErrorOr<Withdrawal> RegisterWithdrawal(
         Beneficiary beneficiary,
         IReadOnlyCollection<ItemCategory> categories,
         int beneficiaryWithdrawalsInCurrentCycle,
         DateTime occurredAtUtc,
-        string? notes)
+        string? notes,
+        (BasketTemplateId Id, int Quantity)? basket = null)
     {
         if (!IsActive)
         {
@@ -268,18 +525,23 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.CategoriesRequired;
         }
 
-        if (distinctCategories.Any(category => _stock.GetValueOrDefault(category) <= 0))
+        var basketValidation = ValidateBasketForWithdrawal(basket);
+        if (basketValidation.IsError)
         {
-            return DomainErrors.Withdrawal.ItemUnavailable;
+            return basketValidation.FirstError;
         }
 
-        if (distinctCategories.Any(category => category.CountsTowardsWithdrawalLimit())
-            && beneficiaryWithdrawalsInCurrentCycle >= WithdrawalRule.MaxWithdrawalsPerCycle)
+        if (basket is not null && beneficiaryWithdrawalsInCurrentCycle >= WithdrawalRule.MaxWithdrawalsPerCycle)
         {
             return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
-        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategories, occurredAtUtc, notes);
+        if (basket is not null)
+        {
+            ApplyBasketConsumption(basket.Value);
+        }
+
+        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategories, occurredAtUtc, notes, basket);
         _withdrawals.Add(withdrawal);
 
         RaiseDomainEvent(new WithdrawalRegistered(
@@ -289,18 +551,21 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     }
 
     /// <summary>
-    /// Corrige os itens/observações de uma retirada já registrada. Só a retirada mais recente do
+    /// Corrige os itens/observações/cesta de uma retirada já registrada. Só a retirada mais recente do
     /// beneficiário pode ser editada — evita que um ajuste tardio destoe do estoque e do histórico
     /// de ciclo já consolidados desde então. Quem determina isso (o histórico é municipal, fora
     /// deste agregado) é o Handler, que injeta o resultado em <paramref name="isMostRecentForBeneficiary"/>,
-    /// assim como injeta <paramref name="beneficiaryWithdrawalsInCurrentCycleExcludingThis"/>.
+    /// assim como injeta <paramref name="beneficiaryWithdrawalsInCurrentCycleExcludingThis"/>. Trocar de
+    /// cesta (ou de quantidade) numa edição devolve o estoque reservado pela cesta antiga antes de validar
+    /// e aplicar a nova, para não bloquear a troca por falta de estoque que na prática já está livre.
     /// </summary>
     public ErrorOr<Success> UpdateWithdrawal(
         WithdrawalId withdrawalId,
         bool isMostRecentForBeneficiary,
         IReadOnlyCollection<ItemCategory> categories,
         string? notes,
-        int beneficiaryWithdrawalsInCurrentCycleExcludingThis)
+        int beneficiaryWithdrawalsInCurrentCycleExcludingThis,
+        (BasketTemplateId Id, int Quantity)? basket = null)
     {
         var withdrawal = _withdrawals.SingleOrDefault(w => w.Id == withdrawalId);
         if (withdrawal is null)
@@ -319,18 +584,96 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.CategoriesRequired;
         }
 
-        if (distinctCategories.Any(category => _stock.GetValueOrDefault(category) <= 0))
+        var basketValidation = ValidateBasketForWithdrawal(basket, withdrawal.BasketTemplateId, withdrawal.BasketQuantity);
+        if (basketValidation.IsError)
         {
-            return DomainErrors.Withdrawal.ItemUnavailable;
+            return basketValidation.FirstError;
         }
 
-        if (distinctCategories.Any(category => category.CountsTowardsWithdrawalLimit())
-            && beneficiaryWithdrawalsInCurrentCycleExcludingThis >= WithdrawalRule.MaxWithdrawalsPerCycle)
+        if (basket is not null && beneficiaryWithdrawalsInCurrentCycleExcludingThis >= WithdrawalRule.MaxWithdrawalsPerCycle)
         {
             return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
-        withdrawal.UpdateDetails(distinctCategories, notes);
+        RevertBasketConsumption(withdrawal.BasketTemplateId, withdrawal.BasketQuantity);
+        if (basket is not null)
+        {
+            ApplyBasketConsumption(basket.Value);
+        }
+
+        withdrawal.UpdateDetails(distinctCategories, notes, basket);
         return Result.Success;
+    }
+
+    private ErrorOr<Success> ValidateBasketForWithdrawal(
+        (BasketTemplateId Id, int Quantity)? basket,
+        BasketTemplateId? previousTemplateId = null,
+        int? previousQuantity = null)
+    {
+        if (basket is null)
+        {
+            return Result.Success;
+        }
+
+        var template = _basketTemplates.SingleOrDefault(t => t.Id == basket.Value.Id);
+        if (template is null)
+        {
+            return DomainErrors.Withdrawal.BasketTemplateNotFound;
+        }
+
+        if (!template.IsActive)
+        {
+            return DomainErrors.Withdrawal.BasketTemplateInactive;
+        }
+
+        var hasEnoughStock = template.Items.All(item =>
+            AvailableQuantityFor(item.StockItemId, previousTemplateId, previousQuantity) >= item.Quantity * basket.Value.Quantity);
+
+        return hasEnoughStock ? Result.Success : DomainErrors.Withdrawal.InsufficientStock;
+    }
+
+    private int AvailableQuantityFor(StockItemId stockItemId, BasketTemplateId? previousTemplateId, int? previousQuantity)
+    {
+        var currentQuantity = _stockItems.Single(item => item.Id == stockItemId).Quantity;
+        if (previousTemplateId is null || previousQuantity is null)
+        {
+            return currentQuantity;
+        }
+
+        var previousTemplate = _basketTemplates.SingleOrDefault(t => t.Id == previousTemplateId.Value);
+        var previousItem = previousTemplate?.Items.SingleOrDefault(i => i.StockItemId == stockItemId);
+
+        return previousItem is null
+            ? currentQuantity
+            : currentQuantity + (previousItem.Quantity * previousQuantity.Value);
+    }
+
+    private void ApplyBasketConsumption((BasketTemplateId Id, int Quantity) basket)
+    {
+        var template = _basketTemplates.Single(t => t.Id == basket.Id);
+        foreach (var item in template.Items)
+        {
+            _stockItems.Single(stockItem => stockItem.Id == item.StockItemId).Decrease(item.Quantity * basket.Quantity);
+        }
+    }
+
+    private void RevertBasketConsumption(BasketTemplateId? templateId, int? quantity)
+    {
+        if (templateId is null || quantity is null)
+        {
+            return;
+        }
+
+        var template = _basketTemplates.SingleOrDefault(t => t.Id == templateId.Value);
+        if (template is null)
+        {
+            return;
+        }
+
+        foreach (var item in template.Items)
+        {
+            var stockItem = _stockItems.SingleOrDefault(s => s.Id == item.StockItemId);
+            stockItem?.Increase(item.Quantity * quantity.Value);
+        }
     }
 }

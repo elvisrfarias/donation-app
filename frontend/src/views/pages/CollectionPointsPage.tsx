@@ -12,8 +12,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { downloadCsv } from '@/lib/csv'
-import { StockEditorModal } from '@/views/components/collection-points/StockEditorModal'
 import {
   collectionPointTypeLabels,
   itemCategoryLabels,
@@ -238,13 +238,13 @@ const collectionPointDefaults: CreateCollectionPointForm = {
 
 export function CollectionPointsPage() {
   const { isAdmin, isManager } = useAuth()
+  const navigate = useNavigate()
   const { points, isLoading, isError, error } = useCollectionPointsForManagement()
   const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
   const { update, error: updateError, reset: resetUpdate } = useUpdateCollectionPoint()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editingPoint, setEditingPoint] = useState<CollectionPoint | null>(null)
-  const [stockPoint, setStockPoint] = useState<CollectionPoint | null>(null)
 
   function openCreate() {
     reset()
@@ -299,7 +299,7 @@ export function CollectionPointsPage() {
     {
       label: 'Estoque',
       icon: <Boxes className="size-4" />,
-      onClick: (point) => setStockPoint(point),
+      onClick: (point) => navigate(`/app/stock?pointId=${point.id}`),
     },
     {
       label: 'Remover',
@@ -433,8 +433,6 @@ export function CollectionPointsPage() {
           />
         </ModalComponent>
       )}
-
-      {isManager && <StockEditorModal point={stockPoint} onClose={() => setStockPoint(null)} />}
     </div>
   )
 }

@@ -24,3 +24,9 @@ public sealed class StoredFileIdConverter()
 
 public sealed class ReviewIdConverter()
     : ValueConverter<ReviewId, Guid>(id => id.Value, value => ReviewId.From(value));
+
+public sealed class StockItemIdConverter()
+    : ValueConverter<StockItemId, Guid>(id => id.Value, value => StockItemId.From(value));
+
+public sealed class BasketTemplateIdConverter()
+    : ValueConverter<BasketTemplateId, Guid>(id => id.Value, value => BasketTemplateId.From(value));

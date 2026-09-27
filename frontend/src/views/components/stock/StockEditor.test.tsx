@@ -11,12 +11,32 @@ const point = {
   name: 'Casa Solidária',
   type: 'Association',
   address: { city: 'Concórdia', state: 'SC' },
-  stock: [{ category: 'Food', quantity: 12 }],
-  stockSettings: [
-    { category: 'Food', goal: 50, alertThreshold: 10, isTracked: true },
-    { category: 'Toys', goal: 0, alertThreshold: 5, isTracked: false },
+  basketTemplates: [],
+  stockItems: [
+    {
+      id: 'item-food',
+      name: 'Arroz 1kg',
+      unit: 'kg',
+      category: 'Food',
+      quantity: 12,
+      goal: 50,
+      alertThreshold: 10,
+      isTracked: true,
+      status: 'ok',
+    },
+    {
+      id: 'item-clothing',
+      name: 'Camiseta',
+      unit: 'un',
+      category: 'Clothing',
+      quantity: 3,
+      goal: 0,
+      alertThreshold: 5,
+      isTracked: true,
+      status: 'low',
+    },
   ],
-} as CollectionPoint
+} as unknown as CollectionPoint
 
 afterEach(() => {
   cleanup()
@@ -33,100 +53,93 @@ function renderEditor(canEdit = true) {
 }
 
 describe('StockEditor', () => {
-  it('mostra o ponto e não permite salvar sem alterações', () => {
+  it('mostra o ponto de coleta', () => {
     renderEditor()
 
     expect(screen.getByText('Casa Solidária')).toBeInTheDocument()
-    expect(screen.getByText('Nenhuma alteração pendente')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /salvar estoque/i })).toBeDisabled()
   })
 
-  it('conta as categorias alteradas e permite descartar', async () => {
+  it('ajusta a quantidade na hora e salva sozinho, sem precisar de um botão salvar', async () => {
+    const updateStockQuantities = vi
+      .spyOn(collectionPointService, 'updateStockQuantities')
+      .mockResolvedValue({
+        ...point,
+        stockItems: [{ ...point.stockItems[0], quantity: 13 }, point.stockItems[1]],
+      })
     renderEditor()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Aumentar Cestas básicas' }))
+    expect(screen.queryByRole('button', { name: /salvar estoque/i })).not.toBeInTheDocument()
 
-    expect(screen.getByText('1 categoria alterada')).toBeInTheDocument()
-    expect(screen.getByLabelText('Quantidade de Cestas básicas')).toHaveValue(13)
-    expect(screen.getByText('era 12')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Aumentar Arroz 1kg' }))
 
-    await userEvent.click(screen.getByRole('button', { name: /descartar/i }))
-
-    expect(screen.getByLabelText('Quantidade de Cestas básicas')).toHaveValue(12)
-    expect(screen.getByText('Nenhuma alteração pendente')).toBeInTheDocument()
-  })
-
-  it('envia todas as categorias ao salvar', async () => {
-    const updateStock = vi
-      .spyOn(collectionPointService, 'updateStock')
-      .mockResolvedValue({ ...point, stock: [{ category: 'Food', quantity: 13 }] })
-    renderEditor()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Aumentar Cestas básicas' }))
-    await userEvent.click(screen.getByRole('button', { name: /salvar estoque/i }))
-
-    await waitFor(() => expect(updateStock).toHaveBeenCalledTimes(1))
-    const [pointId, items] = updateStock.mock.calls[0]
-    expect(pointId).toBe('point-1')
-    expect(items).toHaveLength(11)
-    expect(items).toContainEqual({ category: 'Food', quantity: 13 })
+    expect(screen.getByLabelText('Quantidade de Arroz 1kg')).toHaveValue(13)
+    await waitFor(() => expect(updateStockQuantities).toHaveBeenCalledTimes(1))
+    expect(updateStockQuantities).toHaveBeenCalledWith('point-1', {
+      items: [{ stockItemId: 'item-food', quantity: 13 }],
+    })
+    await waitFor(() => expect(screen.getByText('Tudo salvo')).toBeInTheDocument())
   })
 
   it('bloqueia a edição para quem não pode editar', () => {
     renderEditor(false)
 
-    expect(screen.getByLabelText('Quantidade de Cestas básicas')).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /salvar estoque/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Quantidade de Arroz 1kg')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Adicionar item' })).not.toBeInTheDocument()
   })
 
-  it('mostra o progresso da meta na categoria que tem meta', () => {
+  it('mostra o progresso da meta no item que tem meta', () => {
     renderEditor()
 
-    expect(screen.getByText('12 / 50')).toBeInTheDocument()
+    expect(screen.getByText('meta 50')).toBeInTheDocument()
     expect(
-      screen.getByRole('progressbar', { name: 'Progresso da meta de Cestas básicas' }),
+      screen.getByRole('progressbar', { name: 'Progresso da meta de Arroz 1kg' }),
     ).toBeInTheDocument()
   })
 
-  it('esconde a categoria que não é acompanhada e está zerada', () => {
+  it('agrupa os itens em seções por categoria', () => {
     renderEditor()
 
-    expect(screen.queryByLabelText('Quantidade de Brinquedos')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Quantidade de Roupas')).toBeInTheDocument()
+    expect(screen.getByText('Alimentos')).toBeInTheDocument()
+    expect(screen.getByText('Roupas')).toBeInTheDocument()
   })
 
-  it('esconde a categoria não acompanhada mesmo com estoque, sem avisos extras', () => {
-    const pointWithHiddenStock = {
-      ...point,
-      stock: [
-        { category: 'Food', quantity: 12 },
-        { category: 'Toys', quantity: 7 },
-      ],
-    } as CollectionPoint
-    const client = new QueryClient()
-    render(
-      <QueryClientProvider client={client}>
-        <StockEditor point={pointWithHiddenStock} canEdit />
-      </QueryClientProvider>,
-    )
-
-    expect(screen.queryByLabelText('Quantidade de Brinquedos')).not.toBeInTheDocument()
-    expect(screen.queryByText(/ficam ocultas/)).not.toBeInTheDocument()
-  })
-
-  it('deixa claro no resumo que os números contam categorias, não itens', () => {
+  it('filtra os itens pela busca e mostra a contagem de resultados', async () => {
     renderEditor()
 
-    expect(screen.getByText('Categorias com estoque baixo')).toBeInTheDocument()
-    expect(screen.getByText('Categorias em falta')).toBeInTheDocument()
-    expect(screen.getByText('Unidades em estoque')).toBeInTheDocument()
-    expect(screen.getByText('2 de 3', { selector: 'p' })).toBeInTheDocument()
-    expect(screen.getByText('0 de 3', { selector: 'p' })).toBeInTheDocument()
+    await userEvent.type(screen.getByPlaceholderText('Buscar item por nome…'), 'camiseta')
+
+    expect(screen.getByText('1 resultado')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Quantidade de Arroz 1kg')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Quantidade de Camiseta')).toBeInTheDocument()
   })
 
-  it('não mostra o aviso de reposição no topo da tela', () => {
+  it('mostra o resumo com a contagem de itens do catálogo', () => {
     renderEditor()
 
-    expect(screen.queryByText('Reposição necessária')).not.toBeInTheDocument()
+    expect(screen.getByText('Itens no catálogo')).toBeInTheDocument()
+    expect(screen.getByText('Itens em falta')).toBeInTheDocument()
+    expect(screen.getByText('Itens com estoque baixo')).toBeInTheDocument()
+  })
+
+  it('abre o formulário de edição preenchido ao clicar em editar', async () => {
+    renderEditor()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Arroz 1kg' }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome')).toHaveValue('Arroz 1kg')
+  })
+
+  it('confirma antes de remover um item e chama o serviço', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const removeStockItem = vi
+      .spyOn(collectionPointService, 'removeStockItem')
+      .mockResolvedValue(undefined)
+    renderEditor()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Camiseta' }))
+
+    expect(window.confirm).toHaveBeenCalled()
+    await waitFor(() => expect(removeStockItem).toHaveBeenCalledWith('point-1', 'item-clothing'))
   })
 })

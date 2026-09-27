@@ -25,7 +25,6 @@ public static class TestData
     {
         var point = CollectionPoint.Create("Paróquia São José", type, Address(), Contact(), Now).Value;
         point.UpdateWithdrawalRule(Cycle(maxPerCycle));
-        point.ReplaceStock(Enum.GetValues<ItemCategory>().Select(category => new KeyValuePair<ItemCategory, int>(category, 999)));
         return point;
     }
 
@@ -39,4 +38,16 @@ public static class TestData
             new DateOnly(1990, 5, 20),
             pointId ?? CollectionPointId.New(),
             Now).Value;
+
+    public static StockItemId AddStockItem(
+        CollectionPoint point,
+        string name = "Arroz",
+        string unit = "kg",
+        int quantity = 10,
+        ItemCategory category = ItemCategory.Food) =>
+        point.AddStockItem(name, unit, category, quantity, goal: 0, alertThreshold: 0, isTracked: true).Value;
+
+    public static BasketTemplateId CreateBasketTemplate(
+        CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>
+        point.CreateBasketTemplate(name, items).Value;
 }

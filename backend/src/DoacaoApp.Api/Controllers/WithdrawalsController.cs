@@ -13,7 +13,9 @@ namespace DoacaoApp.Api.Controllers;
 public sealed record UpdateWithdrawalRequest(
     Guid PointId,
     IReadOnlyList<ItemCategory> Categories,
-    string? Notes);
+    string? Notes,
+    Guid? BasketTemplateId = null,
+    int? BasketQuantity = null);
 
 /// <summary>Registro de retiradas (área privada). Aplica a regra de equidade municipal.</summary>
 [Route("api/withdrawals")]
@@ -61,7 +63,9 @@ public sealed class WithdrawalsController(ISender sender) : ApiController(sender
         [FromBody] UpdateWithdrawalRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateWithdrawalCommand(request.PointId, withdrawalId, request.Categories, request.Notes);
+        var command = new UpdateWithdrawalCommand(
+            request.PointId, withdrawalId, request.Categories, request.Notes,
+            request.BasketTemplateId, request.BasketQuantity);
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, Ok);
     }

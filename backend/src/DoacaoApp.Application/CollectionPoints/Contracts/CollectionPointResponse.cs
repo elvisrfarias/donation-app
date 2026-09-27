@@ -2,7 +2,11 @@ using DoacaoApp.Domain.CollectionPoints;
 
 namespace DoacaoApp.Application.CollectionPoints.Contracts;
 
-/// <summary>Representação pública de um ponto de coleta (endereço + contato + avaliações).</summary>
+/// <summary>
+/// Representação pública de um ponto de coleta (endereço + contato + avaliações).
+/// <see cref="StockItems"/> e <see cref="BasketTemplates"/> só vêm preenchidos na visão de gestão
+/// (<c>includeManagementDetails: true</c>) — a listagem pública devolve as duas listas vazias.
+/// </summary>
 public sealed record CollectionPointResponse(
     Guid Id,
     string Name,
@@ -10,8 +14,8 @@ public sealed record CollectionPointResponse(
     string? Description,
     string? OpeningHours,
     IReadOnlyList<string> Needs,
-    IReadOnlyList<StockItemResponse> Stock,
-    IReadOnlyList<StockSettingResponse> StockSettings,
+    IReadOnlyList<StockItemResponse> StockItems,
+    IReadOnlyList<BasketTemplateResponse> BasketTemplates,
     WithdrawalRuleResponse WithdrawalRule,
     AddressResponse Address,
     ContactResponse Contact,
@@ -23,11 +27,33 @@ public sealed record CollectionPointResponse(
     int ReviewCount,
     int BeneficiariesServed);
 
-public sealed record StockItemResponse(string Category, int Quantity);
+/// <summary>Classificação do estoque de um item: "out" (em falta), "low" (baixo), "goal" (meta atingida) ou "ok".</summary>
+public sealed record StockItemResponse(
+    Guid Id,
+    string Name,
+    string Unit,
+    string Category,
+    int Quantity,
+    int Goal,
+    int AlertThreshold,
+    bool IsTracked,
+    string Status);
+
+public sealed record BasketTemplateResponse(
+    Guid Id,
+    string Name,
+    bool IsActive,
+    IReadOnlyList<BasketTemplateItemResponse> Items,
+    BasketFeasibilityResponse Feasibility);
+
+public sealed record BasketTemplateItemResponse(Guid StockItemId, string ItemName, int Quantity);
+
+public sealed record BasketFeasibilityResponse(int CompleteBaskets, IReadOnlyList<BasketItemGapResponse> Missing);
+
+public sealed record BasketItemGapResponse(
+    Guid ItemId, string ItemName, int RequiredPerBasket, int CurrentQuantity, int NeededForNextBasket);
 
 public sealed record WithdrawalRuleResponse(string Type, int MaxWithdrawalsPerCycle);
-
-public sealed record StockSettingResponse(string Category, int Goal, int AlertThreshold, bool IsTracked);
 
 public sealed record AddressResponse(
     string Street,
@@ -44,13 +70,18 @@ public sealed record ContactResponse(string ResponsibleName, string Email, strin
 
 public static class CollectionPointMappings
 {
+    private const string StockStatusOut = "out";
+    private const string StockStatusLow = "low";
+    private const string StockStatusGoalReached = "goal";
+    private const string StockStatusOk = "ok";
+
     public static CollectionPointResponse ToResponse(
         this CollectionPoint point,
         string? imageUrl = null,
         double averageRating = 0,
         int reviewCount = 0,
         int beneficiariesServed = 0,
-        bool includeStockSettings = false) =>
+        bool includeManagementDetails = false) =>
         new(
             point.Id.Value,
             point.Name,
@@ -58,13 +89,8 @@ public static class CollectionPointMappings
             point.Description,
             point.OpeningHours,
             [.. point.Needs],
-            [.. point.Stock.OrderBy(kv => (int)kv.Key).Select(kv => new StockItemResponse(kv.Key.ToString(), kv.Value))],
-            includeStockSettings
-                ? [.. point.StockSettings
-                    .OrderBy(kv => (int)kv.Key)
-                    .Select(kv => new StockSettingResponse(
-                        kv.Key.ToString(), kv.Value.Goal, kv.Value.AlertThreshold, kv.Value.IsTracked))]
-                : [],
+            includeManagementDetails ? point.StockItems.Select(ToResponse).ToList() : [],
+            includeManagementDetails ? point.BasketTemplates.Select(template => template.ToResponse(point)).ToList() : [],
             new WithdrawalRuleResponse(point.WithdrawalRule.Type.ToString(), point.WithdrawalRule.MaxWithdrawalsPerCycle),
             new AddressResponse(
                 point.Address.Street,
@@ -87,4 +113,61 @@ public static class CollectionPointMappings
             averageRating,
             reviewCount,
             beneficiariesServed);
+
+    private static StockItemResponse ToResponse(StockItem item) =>
+        new(
+            item.Id.Value,
+            item.Name,
+            item.Unit,
+            item.Category.ToString(),
+            item.Quantity,
+            item.Goal,
+            item.AlertThreshold,
+            item.IsTracked,
+            StatusOf(item.Quantity, item.Goal, item.AlertThreshold));
+
+    private static BasketTemplateResponse ToResponse(this BasketTemplate template, CollectionPoint point)
+    {
+        var feasibility = point.CalculateBasketFeasibility(template.Id);
+
+        return new BasketTemplateResponse(
+            template.Id.Value,
+            template.Name,
+            template.IsActive,
+            [.. template.Items.Select(item => item.ToResponse(point))],
+            feasibility.ToResponse());
+    }
+
+    private static BasketTemplateItemResponse ToResponse(this BasketTemplateItem item, CollectionPoint point)
+    {
+        var stockItem = point.StockItems.Single(candidate => candidate.Id == item.StockItemId);
+        return new BasketTemplateItemResponse(item.StockItemId.Value, stockItem.Name, item.Quantity);
+    }
+
+    private static BasketFeasibilityResponse ToResponse(this BasketFeasibility feasibility) =>
+        new(
+            feasibility.CompleteBaskets,
+            [.. feasibility.Missing.Select(ToResponse)]);
+
+    private static BasketItemGapResponse ToResponse(BasketItemGap gap) =>
+        new(gap.ItemId.Value, gap.ItemName, gap.RequiredPerBasket, gap.CurrentQuantity, gap.NeededForNextBasket);
+
+    /// <summary>
+    /// Mesma classificação que hoje o front deriva de goal/alerta (ver <c>stockStatus</c> em
+    /// <c>stockDraft.ts</c>): sem estoque, baixo (abaixo ou igual ao aviso), meta atingida, ou ok.
+    /// </summary>
+    private static string StatusOf(int quantity, int goal, int alertThreshold)
+    {
+        if (quantity <= 0)
+        {
+            return StockStatusOut;
+        }
+
+        if (quantity <= alertThreshold)
+        {
+            return StockStatusLow;
+        }
+
+        return goal > 0 && quantity >= goal ? StockStatusGoalReached : StockStatusOk;
+    }
 }

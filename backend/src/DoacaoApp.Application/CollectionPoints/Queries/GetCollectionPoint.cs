@@ -27,6 +27,6 @@ public sealed class GetCollectionPointHandler(ICollectionPointRepository reposit
     {
         var point = await repository.GetByIdAsync(CollectionPointId.From(query.PointId), cancellationToken);
 
-        return point is null ? DomainErrors.CollectionPoint.NotFound : point.ToResponse(includeStockSettings: true);
+        return point is null ? DomainErrors.CollectionPoint.NotFound : point.ToResponse(includeManagementDetails: true);
     }
 }

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { beneficiaryService, collectionPointService, withdrawalService } from '@/models/services'
 import type {
+  BasketTemplate,
   Beneficiary,
   BeneficiaryWithdrawalHistory,
   CollectionPoint,
@@ -17,12 +19,64 @@ const point = {
   name: 'Casa Solidária',
   address: { city: 'Concórdia', state: 'SC' },
   withdrawalRule: { type: 'Annual', maxWithdrawalsPerCycle: 3 },
-  stock: [
-    { category: 'Food', quantity: 5 },
-    { category: 'Clothing', quantity: 6 },
-    { category: 'Footwear', quantity: 4 },
+  basketTemplates: [],
+  stockItems: [
+    {
+      id: 'item-food',
+      name: 'Cesta básica',
+      unit: 'un',
+      category: 'Food',
+      quantity: 5,
+      goal: 0,
+      alertThreshold: 5,
+      isTracked: true,
+      status: 'ok',
+    },
+    {
+      id: 'item-clothing',
+      name: 'Roupas variadas',
+      unit: 'un',
+      category: 'Clothing',
+      quantity: 6,
+      goal: 0,
+      alertThreshold: 5,
+      isTracked: true,
+      status: 'ok',
+    },
+    {
+      id: 'item-footwear',
+      name: 'Calçados variados',
+      unit: 'un',
+      category: 'Footwear',
+      quantity: 4,
+      goal: 0,
+      alertThreshold: 5,
+      isTracked: true,
+      status: 'ok',
+    },
   ],
-} as CollectionPoint
+} as unknown as CollectionPoint
+
+const basicBasket: BasketTemplate = {
+  id: 'basket-1',
+  name: 'Cesta básica padrão',
+  isActive: true,
+  items: [{ stockItemId: 'item-food', itemName: 'Cesta básica', quantity: 1 }],
+  feasibility: {
+    completeBaskets: 5,
+    missing: [
+      {
+        itemId: 'item-food',
+        itemName: 'Cesta básica',
+        requiredPerBasket: 1,
+        currentQuantity: 5,
+        neededForNextBasket: 0,
+      },
+    ],
+  },
+}
+
+const pointWithBasket: CollectionPoint = { ...point, basketTemplates: [basicBasket] }
 
 const maria: Beneficiary = {
   id: 'ben-1',
@@ -77,7 +131,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <RegisterWithdrawalPage />
+      <MemoryRouter>
+        <RegisterWithdrawalPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -172,7 +228,7 @@ describe('RegisterWithdrawalPage', () => {
     const table = await screen.findByRole('table')
     expect(table).toHaveTextContent('Roupas')
     expect(table).toHaveTextContent('Calçados')
-    expect(table).toHaveTextContent('Cestas básicas')
+    expect(table).toHaveTextContent('Alimentos')
     expect(table).toHaveTextContent('Duas camisetas')
     expect(table).toHaveTextContent('Neste ponto')
     expect(table).toHaveTextContent('Em outro ponto')
@@ -191,7 +247,7 @@ describe('RegisterWithdrawalPage', () => {
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
   })
 
-  it('bloqueia o registro ao escolher cesta básica com o limite do ciclo atingido', async () => {
+  it('itens livres (roupas, calçados…) nunca são bloqueados pelo limite do ciclo', async () => {
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
     renderPage()
@@ -201,11 +257,38 @@ describe('RegisterWithdrawalPage', () => {
 
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Cestas básicas (5)' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
     await userEvent.keyboard('{Escape}')
 
-    expect(within(dialog).getByText(/atingiu o limite de cestas básicas/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Sem limite por ciclo/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeEnabled()
+  })
+
+  it('bloqueia o registro ao escolher uma cesta básica com o limite do ciclo atingido', async () => {
+    vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
+    renderPage()
+
+    await searchMaria()
+    expect(screen.getByText('Limite atingido')).toBeInTheDocument()
+
+    const dialog = await openAddWithdrawalModal()
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
+
+    expect(
+      within(dialog).getByText(/já atingiu o limite de cestas básicas do ciclo vigente/),
+    ).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remover cesta' }))
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeEnabled()
   })
 
   it('registra pela modal, fecha ao concluir e mantém o beneficiário para a próxima retirada', async () => {
@@ -223,7 +306,7 @@ describe('RegisterWithdrawalPage', () => {
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Cestas básicas (5)' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
     await userEvent.keyboard('{Escape}')
     await userEvent.type(within(dialog).getByLabelText(/Observações/), 'Uma cesta')
     await userEvent.click(within(dialog).getByRole('button', { name: /registrar retirada/i }))
@@ -257,7 +340,7 @@ describe('RegisterWithdrawalPage', () => {
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Cestas básicas (5)' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Calçados (4)' }))
     await userEvent.keyboard('{Escape}')
@@ -273,7 +356,8 @@ describe('RegisterWithdrawalPage', () => {
     )
   })
 
-  it('com o limite de cestas esgotado, bloqueia enquanto houver cestas na lista e libera sem elas', async () => {
+  it('com o limite de cestas esgotado, bloqueia enquanto a cesta estiver selecionada e libera ao remover', async () => {
+    vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
@@ -288,16 +372,14 @@ describe('RegisterWithdrawalPage', () => {
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Cestas básicas (5)' }))
-    await userEvent.keyboard('{Escape}')
-    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
-
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
     await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
     await userEvent.keyboard('{Escape}')
-    await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Remover Cestas básicas (5)' }),
-    )
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remover cesta' }))
 
     const button = within(dialog).getByRole('button', { name: /registrar retirada/i })
     expect(button).toBeEnabled()
@@ -314,8 +396,85 @@ describe('RegisterWithdrawalPage', () => {
     )
   })
 
+  it('registra retirada com cesta básica, envia basketTemplateId/basketQuantity e mostra as cestas restantes', async () => {
+    vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
+    const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
+      id: 'w-10',
+      pointId: 'point-1',
+      beneficiaryId: 'ben-1',
+      categories: ['Clothing'],
+      occurredAtUtc: '2026-09-26T15:00:00Z',
+    } as Withdrawal)
+    renderPage()
+
+    await searchMaria()
+    const dialog = await openAddWithdrawalModal()
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
+    expect(within(dialog).getByText('Estoque disponível para esta cesta.')).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /registrar retirada/i }))
+
+    await waitFor(() =>
+      expect(register).toHaveBeenCalledWith({
+        pointId: 'point-1',
+        beneficiaryId: 'ben-1',
+        categories: ['Clothing'],
+        notes: null,
+        basketTemplateId: 'basket-1',
+        basketQuantity: 1,
+      }),
+    )
+    expect(await screen.findByText(/Restam 5 cestas completas de "Cesta básica padrão"/)).toBeInTheDocument()
+  })
+
+  it('bloqueia o registro quando o estoque não é suficiente para a quantidade de cestas escolhida', async () => {
+    const scarceBasket: BasketTemplate = {
+      ...basicBasket,
+      feasibility: {
+        completeBaskets: 1,
+        missing: [
+          {
+            itemId: 'item-food',
+            itemName: 'Cesta básica',
+            requiredPerBasket: 1,
+            currentQuantity: 1,
+            neededForNextBasket: 0,
+          },
+        ],
+      },
+    }
+    vi.spyOn(collectionPointService, 'getById').mockResolvedValue({
+      ...point,
+      basketTemplates: [scarceBasket],
+    } as CollectionPoint)
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
+    renderPage()
+
+    await searchMaria()
+    const dialog = await openAddWithdrawalModal()
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Aumentar quantidade de cestas' }))
+
+    expect(within(dialog).getByText('Estoque insuficiente para esta cesta')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Faltam 1 de Cesta básica/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
+  })
+
   it('quando o ponto não tem nenhum item em estoque, bloqueia o registro na modal', async () => {
-    const emptyPoint = { ...point, stock: [] } as CollectionPoint
+    const emptyPoint = { ...point, stockItems: [] } as CollectionPoint
     vi.spyOn(collectionPointService, 'listPublic').mockResolvedValue([emptyPoint])
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(emptyPoint)
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
@@ -351,11 +510,9 @@ describe('RegisterWithdrawalPage', () => {
   it('não lista uma categoria com estoque se o ponto não a está acompanhando', async () => {
     const pointNotTrackingFootwear = {
       ...point,
-      stockSettings: [
-        { category: 'Food', goal: 0, alertThreshold: 5, isTracked: true },
-        { category: 'Clothing', goal: 0, alertThreshold: 5, isTracked: true },
-        { category: 'Footwear', goal: 0, alertThreshold: 5, isTracked: false },
-      ],
+      stockItems: point.stockItems.map((item) =>
+        item.category === 'Footwear' ? { ...item, isTracked: false } : item,
+      ),
     } as CollectionPoint
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointNotTrackingFootwear)
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
@@ -366,7 +523,7 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
 
-    expect(screen.getByRole('option', { name: 'Cestas básicas (5)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Alimentos (5)' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Roupas (6)' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /Calçados/ })).not.toBeInTheDocument()
   })

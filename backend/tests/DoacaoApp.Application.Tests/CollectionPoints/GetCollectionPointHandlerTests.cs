@@ -17,10 +17,13 @@ public class GetCollectionPointHandlerTests
     private GetCollectionPointHandler CreateSut() => new(_repository.Object);
 
     [Fact]
-    public async Task Handle_QuandoOPontoExiste_RetornaOPontoComOEstoque()
+    public async Task Handle_QuandoOPontoExiste_RetornaOCatalogoDeEstoqueComOStatusCalculado()
     {
         var point = BuildPoint();
-        point.ReplaceStock([new KeyValuePair<ItemCategory, int>(ItemCategory.Food, 12)]);
+        point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, initialQuantity: 0, goal: 0, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Feijão 1kg", "kg", ItemCategory.Food, initialQuantity: 3, goal: 0, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Óleo", "L", ItemCategory.Food, initialQuantity: 50, goal: 50, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Açúcar", "kg", ItemCategory.Food, initialQuantity: 20, goal: 50, alertThreshold: 5, isTracked: true);
         _repository
             .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(point);
@@ -28,25 +31,33 @@ public class GetCollectionPointHandlerTests
         var result = await CreateSut().Handle(new GetCollectionPointQuery(point.Id.Value), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.Id.Should().Be(point.Id.Value);
-        result.Value.Stock.Should().ContainSingle(entry => entry.Quantity == 12);
+        result.Value.StockItems.Should().HaveCount(4);
+        result.Value.StockItems.Single(i => i.Name == "Arroz 1kg").Status.Should().Be("out");
+        result.Value.StockItems.Single(i => i.Name == "Feijão 1kg").Status.Should().Be("low");
+        result.Value.StockItems.Single(i => i.Name == "Óleo").Status.Should().Be("goal");
+        result.Value.StockItems.Single(i => i.Name == "Açúcar").Status.Should().Be("ok");
     }
 
     [Fact]
-    public async Task Handle_DeveIncluirAsConfiguracoesDeEstoqueDoPonto()
+    public async Task Handle_DeveIncluirAsReceitasDeCestaComAFeasibilidadeCalculada()
     {
         var point = BuildPoint();
-        point.ReplaceStockSettings([
-            new KeyValuePair<ItemCategory, StockSetting>(ItemCategory.Food, new StockSetting(50, 10, true)),
-        ]);
+        var rice = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var beans = point.AddStockItem("Feijão 1kg", "kg", ItemCategory.Food, 4, 0, 5, true).Value;
+        var template = point.CreateBasketTemplate("Cesta básica", [(rice, 2), (beans, 1)]).Value;
         _repository
             .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(point);
 
         var result = await CreateSut().Handle(new GetCollectionPointQuery(point.Id.Value), CancellationToken.None);
 
-        var setting = result.Value.StockSettings.Should().ContainSingle().Subject;
-        (setting.Category, setting.Goal, setting.AlertThreshold, setting.IsTracked).Should().Be(("Food", 50, 10, true));
+        var response = result.Value.BasketTemplates.Should().ContainSingle().Subject;
+        response.Id.Should().Be(template.Value);
+        response.Name.Should().Be("Cesta básica");
+        response.IsActive.Should().BeTrue();
+        response.Items.Should().HaveCount(2);
+        response.Feasibility.CompleteBaskets.Should().Be(4);
+        response.Feasibility.Missing.Should().Contain(gap => gap.ItemName == "Feijão 1kg" && gap.NeededForNextBasket == 1);
     }
 
     [Fact]
