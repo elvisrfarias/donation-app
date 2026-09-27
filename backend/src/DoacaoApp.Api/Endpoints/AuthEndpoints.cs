@@ -28,9 +28,9 @@ public static class AuthEndpoints
 
         group.MapPost("/register", async (RegisterUserCommand command, ISender sender, CancellationToken ct) =>
                 (await sender.Send(command, ct)).Match(value => Results.Ok(value)))
-            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces<AuthResult>()
-            .WithSummary("Cria um novo usuário gerencial (somente Admin).");
+            .WithSummary("Cria um novo usuário gerencial (Admin cria qualquer papel; PointManager cria PointManager/Viewer no seu próprio ponto).");
 
         group.MapPost("/refresh", async (RefreshTokenCommand command, ISender sender, CancellationToken ct) =>
                 (await sender.Send(command, ct)).Match(value => Results.Ok(value)))
@@ -47,23 +47,23 @@ public static class AuthEndpoints
 
         group.MapGet("/users", async (ISender sender, CancellationToken ct) =>
                 (await sender.Send(new ListUsersQuery(), ct)).Match(value => Results.Ok(value)))
-            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces<IReadOnlyList<UserResponse>>()
-            .WithSummary("Lista todos os usuários gerenciais (somente Admin).");
+            .WithSummary("Lista os usuários gerenciais (Admin vê todos; PointManager só vê os do seu próprio ponto).");
 
         group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequestBody body, ISender sender, CancellationToken ct) =>
                 (await sender.Send(new UpdateUserCommand(id, body.FullName, body.Role, body.CollectionPointId), ct))
                     .Match(value => Results.Ok(value)))
-            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces<UserResponse>()
             .ProducesValidationProblem()
-            .WithSummary("Atualiza nome, papel e ponto de coleta de um usuário (somente Admin).");
+            .WithSummary("Atualiza nome, papel e ponto de coleta de um usuário (Admin edita qualquer um; PointManager só o seu próprio ponto).");
 
         group.MapPost("/users/{id:guid}/deactivate", async (Guid id, ISender sender, CancellationToken ct) =>
                 (await sender.Send(new DeactivateUserCommand(id), ct)).Match(_ => Results.NoContent()))
-            .RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin })
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces(StatusCodes.Status204NoContent)
-            .WithSummary("Desativa um usuário, bloqueando novos logins (somente Admin).");
+            .WithSummary("Desativa um usuário, bloqueando novos logins (Admin qualquer um; PointManager só do seu próprio ponto).");
 
         return app;
     }

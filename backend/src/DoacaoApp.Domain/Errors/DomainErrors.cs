@@ -127,5 +127,12 @@ public static class DomainErrors
             Error.Conflict(
                 "Withdrawal.CycleLimitReached",
                 $"O beneficiário já atingiu o limite de {max} retirada(s) no ciclo vigente (considerando todos os pontos do município).");
+
+        public static Error NotFound => Error.NotFound("Withdrawal.NotFound", "Retirada não encontrada.");
+
+        public static Error OnlyMostRecentIsEditable =>
+            Error.Conflict(
+                "Withdrawal.OnlyMostRecentIsEditable",
+                "Só é possível editar a retirada mais recente do beneficiário.");
     }
 }

@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { CenteredSpinner } from '@/views/components/ui'
+import { AdminIndexRedirect } from './AdminIndexRedirect'
 import { lazyWithReload } from './lazyWithReload'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RouteError } from './RouteError'
@@ -64,13 +65,18 @@ export const router = createBrowserRouter([
       {
         path: 'admin',
         element: (
-          <ProtectedRoute roles={['Admin']}>
+          <ProtectedRoute roles={['Admin', 'PointManager']}>
             <Outlet />
           </ProtectedRoute>
         ),
         children: [
-          { index: true, element: <Navigate to="collection-points" replace /> },
-          { path: 'collection-points', element: withSuspense(<CollectionPointsPage />) },
+          { index: true, element: <AdminIndexRedirect /> },
+          {
+            path: 'collection-points',
+            element: (
+              <ProtectedRoute roles={['Admin']}>{withSuspense(<CollectionPointsPage />)}</ProtectedRoute>
+            ),
+          },
           { path: 'users', element: withSuspense(<UsersPage />) },
         ],
       },

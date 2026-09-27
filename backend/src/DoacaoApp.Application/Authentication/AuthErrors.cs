@@ -23,6 +23,9 @@ public static class AuthErrors
     public static Error UserNotFound =>
         Error.NotFound("Auth.UserNotFound", "Usuário não encontrado.");
 
+    public static Error InsufficientPermissionsToAssignRole =>
+        Error.Forbidden("Auth.InsufficientPermissionsToAssignRole", "Você não tem permissão para atribuir este papel.");
+
     public static Error RegistrationFailed(string detail) =>
         Error.Validation("Auth.RegistrationFailed", detail);
 }

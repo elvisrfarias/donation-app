@@ -33,15 +33,19 @@ const mainNavItems: NavItem[] = [
   { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },
 ]
 
-const adminNavItems: NavItem[] = [
-  {
-    to: `${ADMIN_ROUTE_PREFIX}/collection-points`,
-    label: 'Pontos de Coleta',
-    icon: MapPin,
-    end: false,
-  },
-  { to: `${ADMIN_ROUTE_PREFIX}/users`, label: 'Usuários', icon: ShieldUser, end: false },
-]
+const collectionPointsNavItem: NavItem = {
+  to: `${ADMIN_ROUTE_PREFIX}/collection-points`,
+  label: 'Pontos de Coleta',
+  icon: MapPin,
+  end: false,
+}
+
+const usersNavItem: NavItem = {
+  to: `${ADMIN_ROUTE_PREFIX}/users`,
+  label: 'Usuários',
+  icon: ShieldUser,
+  end: false,
+}
 
 const adminMobileNavItem: NavItem = {
   to: ADMIN_ROUTE_PREFIX,
@@ -81,7 +85,7 @@ function SidebarLink({ item, nested = false }: { item: NavItem; nested?: boolean
   )
 }
 
-function AdminMenu() {
+function AdminMenu({ items }: { items: NavItem[] }) {
   const { pathname } = useLocation()
   const isOnAdminRoute = pathname.startsWith(ADMIN_ROUTE_PREFIX)
   const [isOpen, setIsOpen] = useState(isOnAdminRoute)
@@ -106,7 +110,7 @@ function AdminMenu() {
       </button>
       {isExpanded && (
         <div className="ml-3 flex flex-col gap-1 border-l border-white/15 pl-2">
-          {adminNavItems.map((item) => (
+          {items.map((item) => (
             <SidebarLink key={item.to} item={item} nested />
           ))}
         </div>
@@ -116,9 +120,10 @@ function AdminMenu() {
 }
 
 export function AppLayout() {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
-  const mobileNavItems: NavItem[] = isAdmin ? [...mainNavItems, adminMobileNavItem] : mainNavItems
+  const adminNavItems: NavItem[] = isAdmin ? [collectionPointsNavItem, usersNavItem] : [usersNavItem]
+  const mobileNavItems: NavItem[] = isManager ? [...mainNavItems, adminMobileNavItem] : mainNavItems
 
   const handleLogout = async () => {
     await logout()
@@ -134,7 +139,7 @@ export function AppLayout() {
           {mainNavItems.map((item) => (
             <SidebarLink key={item.to} item={item} />
           ))}
-          {isAdmin && <AdminMenu />}
+          {isManager && <AdminMenu items={adminNavItems} />}
 
           <NavLink
             to="/"

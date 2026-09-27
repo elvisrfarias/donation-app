@@ -127,8 +127,11 @@ original, e a visibilidade/edição de um gestor vale para quem está vinculado 
 `ItemCategoryExtensions.CountsTowardsWithdrawalLimit`) estão sujeitas ao limite por ciclo — as demais
 (roupas, calçados…) são livres, mas ficam no histórico do beneficiário. Só é possível retirar categorias
 com quantidade positiva no `CollectionPoint.Stock` do próprio ponto no momento do registro — é o mesmo
-agregado que decide isso, sem I/O extra (`RegisterWithdrawal` verifica antes do limite de ciclo). Não
-existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
+agregado que decide isso, sem I/O extra (`RegisterWithdrawal` verifica antes do limite de ciclo). Uma
+retirada já registrada pode ser corrigida (`CollectionPoint.UpdateWithdrawal`), mas só a mais recente do
+beneficiário (em qualquer ponto do município) — o Handler descobre isso consultando
+`GetBeneficiaryWithdrawalHistoryAsync` e injeta o resultado no agregado, do mesmo jeito que injeta a
+contagem do ciclo (excluindo a própria retirada editada). Não existe o conceito de "família": o `Beneficiary` é o Aggregate Root e não guarda limite algum. A regra
 de retirada (`WithdrawalCycle`: tipo do ciclo + máximo por família; padrão: 3 por ano) é do **ponto**
 (`CollectionPoint.WithdrawalRule`, configurada na aba "Metas e avisos" do estoque): o histórico é somado entre
 todos os pontos, mas o limite aplicado é o do ponto onde a retirada acontece. Vínculos de parentesco

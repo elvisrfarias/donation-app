@@ -287,4 +287,50 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
         return withdrawal;
     }
+
+    /// <summary>
+    /// Corrige os itens/observações de uma retirada já registrada. Só a retirada mais recente do
+    /// beneficiário pode ser editada — evita que um ajuste tardio destoe do estoque e do histórico
+    /// de ciclo já consolidados desde então. Quem determina isso (o histórico é municipal, fora
+    /// deste agregado) é o Handler, que injeta o resultado em <paramref name="isMostRecentForBeneficiary"/>,
+    /// assim como injeta <paramref name="beneficiaryWithdrawalsInCurrentCycleExcludingThis"/>.
+    /// </summary>
+    public ErrorOr<Success> UpdateWithdrawal(
+        WithdrawalId withdrawalId,
+        bool isMostRecentForBeneficiary,
+        IReadOnlyCollection<ItemCategory> categories,
+        string? notes,
+        int beneficiaryWithdrawalsInCurrentCycleExcludingThis)
+    {
+        var withdrawal = _withdrawals.SingleOrDefault(w => w.Id == withdrawalId);
+        if (withdrawal is null)
+        {
+            return DomainErrors.Withdrawal.NotFound;
+        }
+
+        if (!isMostRecentForBeneficiary)
+        {
+            return DomainErrors.Withdrawal.OnlyMostRecentIsEditable;
+        }
+
+        var distinctCategories = categories.Distinct().ToList();
+        if (distinctCategories.Count == 0)
+        {
+            return DomainErrors.Withdrawal.CategoriesRequired;
+        }
+
+        if (distinctCategories.Any(category => _stock.GetValueOrDefault(category) <= 0))
+        {
+            return DomainErrors.Withdrawal.ItemUnavailable;
+        }
+
+        if (distinctCategories.Any(category => category.CountsTowardsWithdrawalLimit())
+            && beneficiaryWithdrawalsInCurrentCycleExcludingThis >= WithdrawalRule.MaxWithdrawalsPerCycle)
+        {
+            return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
+        }
+
+        withdrawal.UpdateDetails(distinctCategories, notes);
+        return Result.Success;
+    }
 }

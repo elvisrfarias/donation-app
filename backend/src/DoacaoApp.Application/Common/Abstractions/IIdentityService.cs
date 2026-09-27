@@ -54,6 +54,8 @@ public interface IIdentityService
 
     Task<ErrorOr<IReadOnlyList<UserResponse>>> ListUsersAsync(CancellationToken cancellationToken = default);
 
+    Task<ErrorOr<UserResponse>> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<ErrorOr<UserResponse>> UpdateUserAsync(UpdateUserRequest request, CancellationToken cancellationToken = default);
 
     Task<ErrorOr<Success>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default);

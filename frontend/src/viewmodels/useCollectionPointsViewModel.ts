@@ -67,10 +67,11 @@ export function useCollectionPoints() {
 }
 
 /** Lista administrativa (todos os pontos, ativos e inativos) — só para telas Admin-only. */
-export function useCollectionPointsForManagement() {
+export function useCollectionPointsForManagement(options?: { enabled?: boolean }) {
   const { items, ...rest } = useApiList<CollectionPoint>({
     queryKey: queryKeys.collectionPoints.management,
     queryFn: ({ signal }) => collectionPointService.listForManagement(signal),
+    enabled: options?.enabled ?? true,
   })
 
   return { points: items, ...rest }

@@ -1,5 +1,6 @@
-import { CheckCircle2, PackageCheck, UserCog } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CheckCircle2, PackagePlus, PackageSearch, Pencil } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { beneficiaryService } from '@/models/services'
 import {
   cycleTypeLabels,
@@ -7,16 +8,22 @@ import {
   type Beneficiary,
   type CollectionPoint,
   type ItemCategory,
+  type Withdrawal,
 } from '@/models/types'
 import {
   registerWithdrawalSchema,
   useAuth,
   useBeneficiaryWithdrawalHistory,
+  useCollectionPoint,
   useCollectionPoints,
   useRegisterWithdrawal,
+  useUpdateWithdrawal,
 } from '@/viewmodels'
+import { DataTable, type RowAction } from '@/views/components/data-table'
+import { ModalComponent } from '@/views/components/modal'
 import { categoryIcons } from '@/views/components/stock/categoryIcons'
 import { toStockQuantities } from '@/views/components/stock/stockDraft'
+import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
 import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
 import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
 import {
@@ -24,7 +31,6 @@ import {
   availableWithdrawalCategories,
   isLimitedCategory,
 } from '@/views/components/withdrawal/withdrawalCategories'
-import { WithdrawalHistoryList } from '@/views/components/withdrawal/WithdrawalHistoryList'
 import {
   Alert,
   Badge,
@@ -33,15 +39,60 @@ import {
   FormField,
   SectionTitle,
   Select,
-  Spinner,
   TagBox,
   Textarea,
   type TagBoxOption,
 } from '@/views/components/ui'
 
-function defaultCategoriesFor(availableCategories: ItemCategory[]): ItemCategory[] {
-  if (availableCategories.includes(LIMITED_CATEGORY)) return [LIMITED_CATEGORY]
-  return availableCategories.slice(0, 1)
+const withdrawalDateFormatter = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
+
+function withdrawalColumns(currentPointId: string): ColumnDef<Withdrawal>[] {
+  return [
+    {
+      accessorKey: 'occurredAtUtc',
+      header: 'Data',
+      meta: { label: 'Data' },
+      cell: ({ getValue }) => (
+        <time dateTime={getValue<string>()} className="text-sm whitespace-nowrap tabular-nums">
+          {withdrawalDateFormatter.format(new Date(getValue<string>()))}
+        </time>
+      ),
+    },
+    {
+      id: 'categories',
+      header: 'Itens',
+      accessorFn: (withdrawal) =>
+        withdrawal.categories.map((category) => itemCategoryLabels[category]).join(', '),
+      meta: { label: 'Itens', filterPlaceholder: 'Filtrar item…' },
+      cell: ({ row }) => <CategoryBadges categories={row.original.categories} />,
+    },
+    {
+      id: 'point',
+      header: 'Ponto',
+      accessorFn: (withdrawal) =>
+        withdrawal.pointId === currentPointId ? 'Neste ponto' : 'Em outro ponto',
+      meta: { label: 'Ponto' },
+    },
+    {
+      accessorKey: 'notes',
+      header: 'Observações',
+      enableColumnFilter: false,
+      meta: { label: 'Observações' },
+      cell: ({ getValue }) => {
+        const notes = getValue<string | null | undefined>()
+        return notes ? (
+          <span className="block max-w-xs truncate text-stone-600" title={notes}>
+            {notes}
+          </span>
+        ) : (
+          <span className="text-stone-400">—</span>
+        )
+      },
+    },
+  ]
 }
 
 function categoryOptionsOf(
@@ -115,56 +166,170 @@ function PointSelector({
   )
 }
 
+interface WithdrawalFormModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description: string
+  point: CollectionPoint
+  initialCategories: ItemCategory[]
+  initialNotes: string
+  blockedByLimit: boolean
+  isPending: boolean
+  errorMessage?: string
+  isConflictError?: boolean
+  onErrorReset: () => void
+  onSubmit: (categories: ItemCategory[], notes: string | null) => Promise<void>
+}
+
+function WithdrawalFormModal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  point,
+  initialCategories,
+  initialNotes,
+  blockedByLimit,
+  isPending,
+  errorMessage,
+  isConflictError,
+  onErrorReset,
+  onSubmit,
+}: WithdrawalFormModalProps) {
+  const availableCategories = useMemo(() => availableWithdrawalCategories(point), [point])
+  const quantities = useMemo(() => toStockQuantities(point), [point])
+  const hasAnyItemInStock = availableCategories.length > 0
+
+  const [categories, setCategories] = useState<ItemCategory[]>(initialCategories)
+  const [notes, setNotes] = useState(initialNotes)
+
+  useEffect(() => {
+    if (!open) return
+    setCategories(initialCategories)
+    setNotes(initialNotes)
+    onErrorReset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const includesLimitedCategory = categories.some(isLimitedCategory)
+  const isBlocked = blockedByLimit && includesLimitedCategory
+  const notesTooLong = notes.length > MAX_NOTES_LENGTH
+  const canSubmit = categories.length > 0 && !isBlocked && !notesTooLong
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!canSubmit) return
+    const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
+    if (!parsed.success) return
+    await onSubmit(categories, parsed.data.notes || null)
+  }
+
+  return (
+    <ModalComponent open={open} onOpenChange={onOpenChange} title={title} description={description}>
+      <form onSubmit={submit} className="space-y-4">
+        <FormField
+          label="Itens da retirada"
+          htmlFor="withdrawal-categories"
+          required
+          hint={describeCategoriesHint(categories, hasAnyItemInStock)}
+        >
+          <TagBox
+            id="withdrawal-categories"
+            aria-label="Itens da retirada"
+            options={categoryOptionsOf(availableCategories, quantities)}
+            value={categories}
+            placeholder="Selecione os itens retirados…"
+            disabled={!hasAnyItemInStock}
+            invalid={categories.length === 0}
+            onValueChange={(value) => setCategories(value as ItemCategory[])}
+          />
+        </FormField>
+
+        {isBlocked && (
+          <Alert tone="warning">
+            Este beneficiário atingiu o limite de{' '}
+            {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} do ciclo vigente neste ponto.
+            Remova as {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} da lista para registrar
+            os demais itens.
+          </Alert>
+        )}
+
+        <FormField
+          label="Observações (opcional)"
+          htmlFor="withdrawal-notes"
+          error={notesTooLong ? NOTES_ERROR_MESSAGE : undefined}
+          hint={`${notes.length}/${MAX_NOTES_LENGTH} · itens retirados, observações…`}
+        >
+          <Textarea
+            id="withdrawal-notes"
+            rows={2}
+            invalid={notesTooLong}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+          />
+        </FormField>
+
+        {errorMessage && (
+          <Alert
+            tone={isConflictError ? 'warning' : 'error'}
+            title={isConflictError ? 'Não permitido' : undefined}
+          >
+            {errorMessage}
+          </Alert>
+        )}
+
+        <Button
+          type="submit"
+          variant="brand"
+          size="lg"
+          className="w-full"
+          leftIcon={<CheckCircle2 className="size-5" />}
+          loading={isPending}
+          disabled={!canSubmit}
+        >
+          {title}
+        </Button>
+      </form>
+    </ModalComponent>
+  )
+}
+
 export function RegisterWithdrawalPage() {
   const { user, isAdmin } = useAuth()
   const { points } = useCollectionPoints()
-  const withdrawal = useRegisterWithdrawal()
+  const registerWithdrawal = useRegisterWithdrawal()
+  const updateWithdrawal = useUpdateWithdrawal()
 
   const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
   const [chosenPointId, setChosenPointId] = useState('')
   const pointId = availablePoints.length === 1 ? availablePoints[0].id : chosenPointId
-  const point = availablePoints.find((p) => p.id === pointId) ?? null
+  /**
+   * Consulta autenticada do ponto (não a listagem pública): é a única que traz `stockSettings`
+   * (quais categorias o ponto acompanha), então é a fonte de verdade do que pode ser retirado.
+   * Refeita ao abrir cada modal para nunca oferecer um item que já não está mais em estoque.
+   */
+  const { point, refetch: refetchPoint } = useCollectionPoint(pointId || null)
 
   const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
-  const [notes, setNotes] = useState('')
-  const [categories, setCategories] = useState<ItemCategory[]>([])
-  const [registeredFor, setRegisteredFor] = useState<{
-    name: string
-    categories: ItemCategory[]
-    at: string
-  } | null>(null)
-  const { history, isLoading: isLoadingHistory } = useBeneficiaryWithdrawalHistory(
-    beneficiary?.id ?? null,
-    pointId || null,
-  )
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editingWithdrawal, setEditingWithdrawal] = useState<Withdrawal | null>(null)
+  const [feedback, setFeedback] = useState<'registered' | 'updated' | null>(null)
+  const {
+    history,
+    isLoading: isLoadingHistory,
+    error: historyError,
+  } = useBeneficiaryWithdrawalHistory(beneficiary?.id ?? null, pointId || null)
 
-  const quantities = point ? toStockQuantities(point) : ({} as Record<ItemCategory, number>)
-  const availableCategories = point ? availableWithdrawalCategories(point) : []
-  const hasAnyItemInStock = availableCategories.length > 0
-
-  useEffect(() => {
-    setCategories(defaultCategoriesFor(availableCategories))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [point?.id])
-
-  const includesLimitedCategory = categories.some(isLimitedCategory)
   const limitReached = history?.remainingInCurrentCycle === 0
-  const isBlockedByLimit = limitReached && includesLimitedCategory
   const isInactive = beneficiary !== null && !beneficiary.isActive
-  const notesTooLong = notes.length > MAX_NOTES_LENGTH
-  const canRegister =
-    !!point &&
-    !!history &&
-    categories.length > 0 &&
-    !isBlockedByLimit &&
-    !isInactive &&
-    !notesTooLong
+  const mostRecentWithdrawalId = history?.withdrawals[0]?.id
 
   async function searchByCpf(cpf: string) {
     setLookupError(null)
-    setRegisteredFor(null)
+    setFeedback(null)
     setIsSearching(true)
     try {
       setBeneficiary(await beneficiaryService.findByCpf(cpf))
@@ -176,46 +341,41 @@ export function RegisterWithdrawalPage() {
   }
 
   function changeBeneficiary() {
-    withdrawal.reset()
     setBeneficiary(null)
-    setNotes('')
-    setCategories(defaultCategoriesFor(availableCategories))
+    setFeedback(null)
   }
 
-  async function register(event: FormEvent) {
-    event.preventDefault()
-    if (!canRegister || !beneficiary || !point) return
-    const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
-    if (!parsed.success) return
-    try {
-      const registered = await withdrawal.register({
-        pointId: point.id,
-        beneficiaryId: beneficiary.id,
-        categories,
-        notes: parsed.data.notes || null,
-      })
-      setRegisteredFor({ name: beneficiary.name, categories, at: registered.occurredAtUtc })
-      changeBeneficiary()
-    } catch {
-      return
-    }
+  function isEditable(withdrawal: Withdrawal): boolean {
+    return withdrawal.id === mostRecentWithdrawalId && withdrawal.pointId === point?.id
   }
+
+  async function openAddModal() {
+    await refetchPoint()
+    setAddModalOpen(true)
+  }
+
+  async function openEditModal(withdrawal: Withdrawal) {
+    await refetchPoint()
+    setEditingWithdrawal(withdrawal)
+  }
+
+  const columns = useMemo(() => withdrawalColumns(point?.id ?? ''), [point?.id])
+  const rowActions: RowAction<Withdrawal>[] = [
+    {
+      icon: <Pencil className="size-4" />,
+      label: 'Editar retirada',
+      onClick: (withdrawal) => void openEditModal(withdrawal),
+      hidden: (withdrawal) => !isEditable(withdrawal),
+    },
+  ]
 
   return (
-    <div className="mx-auto w-[90%] max-w-3xl space-y-4">
+    <div className="mx-auto w-[90%] space-y-4">
       <SectionTitle
-        icon={<PackageCheck className="size-5" />}
+        icon={<PackageSearch className="size-5" />}
         title="Registrar Retirada"
-        description="Busque o beneficiário pelo CPF, confira o saldo do ciclo e registre."
+        description="Busque o beneficiário pelo CPF para ver o histórico e registrar uma nova retirada."
       />
-
-      {registeredFor && (
-        <Alert tone="success" title="Retirada registrada!">
-          {registeredFor.categories.map((item) => itemCategoryLabels[item]).join(', ')} para{' '}
-          {registeredFor.name} · {new Date(registeredFor.at).toLocaleString('pt-BR')}. Já pode
-          buscar o próximo beneficiário.
-        </Alert>
-      )}
 
       <PointSelector
         points={availablePoints}
@@ -236,19 +396,13 @@ export function RegisterWithdrawalPage() {
             onSearch={searchByCpf}
           />
         ) : (
-          <form onSubmit={register} className="space-y-4">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-lg font-bold text-stone-900">{beneficiary.name}</p>
                 <p className="mt-0.5 text-sm text-stone-500 tabular-nums">CPF {beneficiary.cpf}</p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                leftIcon={<UserCog className="size-4" />}
-                onClick={changeBeneficiary}
-              >
+              <Button variant="ghost" size="sm" onClick={changeBeneficiary}>
                 Trocar beneficiário
               </Button>
             </div>
@@ -259,76 +413,110 @@ export function RegisterWithdrawalPage() {
               </Alert>
             )}
 
-            {isLoadingHistory && <Spinner />}
+            {feedback === 'registered' && (
+              <Alert tone="success" title="Retirada registrada!">
+                Já aparece na lista abaixo.
+              </Alert>
+            )}
+            {feedback === 'updated' && (
+              <Alert tone="success" title="Retirada atualizada!">
+                Já aparece na lista abaixo.
+              </Alert>
+            )}
+
             {history && <CycleUsage history={history} />}
-            {history && point && (
-              <WithdrawalHistoryList withdrawals={history.withdrawals} currentPointId={point.id} />
-            )}
+            {historyError && <Alert tone="error">{historyError.displayMessage}</Alert>}
 
-            <FormField
-              label="Itens da retirada"
-              htmlFor="withdrawal-categories"
-              required
-              hint={describeCategoriesHint(categories, hasAnyItemInStock)}
-            >
-              <TagBox
-                id="withdrawal-categories"
-                aria-label="Itens da retirada"
-                options={categoryOptionsOf(availableCategories, quantities)}
-                value={categories}
-                placeholder="Selecione os itens retirados…"
-                disabled={!hasAnyItemInStock}
-                invalid={categories.length === 0}
-                onValueChange={(value) => setCategories(value as ItemCategory[])}
-              />
-            </FormField>
-            {isBlockedByLimit && (
-              <Alert tone="warning">
-                Este beneficiário atingiu o limite de{' '}
-                {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} do ciclo vigente neste ponto.
-                Remova as {itemCategoryLabels[LIMITED_CATEGORY].toLowerCase()} da lista para
-                registrar os demais itens.
-              </Alert>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-stone-800">Retiradas deste beneficiário</h3>
+              {point && (
+                <Button
+                  variant="brand"
+                  size="sm"
+                  leftIcon={<PackagePlus className="size-4" />}
+                  disabled={isInactive}
+                  onClick={() => void openAddModal()}
+                >
+                  Adicionar retirada
+                </Button>
+              )}
+            </div>
 
-            <FormField
-              label="Observações (opcional)"
-              htmlFor="withdrawal-notes"
-              error={notesTooLong ? NOTES_ERROR_MESSAGE : undefined}
-              hint={`${notes.length}/${MAX_NOTES_LENGTH} · itens retirados, observações…`}
-            >
-              <Textarea
-                id="withdrawal-notes"
-                rows={2}
-                invalid={notesTooLong}
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-              />
-            </FormField>
-
-            {withdrawal.error && (
-              <Alert
-                tone={withdrawal.error.isConflict ? 'warning' : 'error'}
-                title={withdrawal.error.isConflict ? 'Não permitido' : undefined}
-              >
-                {withdrawal.error.displayMessage}
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              variant="brand"
-              size="lg"
-              className="w-full"
-              leftIcon={<CheckCircle2 className="size-5" />}
-              loading={withdrawal.isPending}
-              disabled={!canRegister}
-            >
-              Registrar retirada
-            </Button>
-          </form>
+            <DataTable
+              columns={columns}
+              data={history?.withdrawals ?? []}
+              isLoading={isLoadingHistory}
+              actions={rowActions}
+              searchPlaceholder="Buscar retirada…"
+              emptyMessage="Este beneficiário ainda não fez nenhuma retirada."
+            />
+            <p className="text-xs text-stone-500">
+              Só é possível editar a retirada mais recente do beneficiário, e apenas quando ela foi
+              feita neste ponto.
+            </p>
+          </div>
         )}
       </Card>
+
+      {beneficiary && point && (
+        <WithdrawalFormModal
+          open={addModalOpen}
+          onOpenChange={setAddModalOpen}
+          title="Registrar retirada"
+          description={`${beneficiary.name} · ${point.name}`}
+          point={point}
+          initialCategories={[]}
+          initialNotes=""
+          blockedByLimit={!!limitReached}
+          isPending={registerWithdrawal.isPending}
+          errorMessage={registerWithdrawal.error?.displayMessage}
+          isConflictError={registerWithdrawal.error?.isConflict}
+          onErrorReset={registerWithdrawal.reset}
+          onSubmit={async (categories, notes) => {
+            try {
+              await registerWithdrawal.register({
+                pointId: point.id,
+                beneficiaryId: beneficiary.id,
+                categories,
+                notes,
+              })
+            } catch {
+              return
+            }
+            setAddModalOpen(false)
+            setFeedback('registered')
+          }}
+        />
+      )}
+
+      {editingWithdrawal && point && (
+        <WithdrawalFormModal
+          open
+          onOpenChange={(open) => !open && setEditingWithdrawal(null)}
+          title="Editar retirada"
+          description={`${beneficiary?.name ?? ''} · ${point.name}`}
+          point={point}
+          initialCategories={editingWithdrawal.categories}
+          initialNotes={editingWithdrawal.notes ?? ''}
+          blockedByLimit={false}
+          isPending={updateWithdrawal.isPending}
+          errorMessage={updateWithdrawal.error?.displayMessage}
+          isConflictError={updateWithdrawal.error?.isConflict}
+          onErrorReset={updateWithdrawal.reset}
+          onSubmit={async (categories, notes) => {
+            try {
+              await updateWithdrawal.update({
+                withdrawalId: editingWithdrawal.id,
+                input: { pointId: point.id, categories, notes },
+              })
+            } catch {
+              return
+            }
+            setEditingWithdrawal(null)
+            setFeedback('updated')
+          }}
+        />
+      )}
     </div>
   )
 }

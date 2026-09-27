@@ -88,7 +88,7 @@ export function StockPage() {
   const { user, isAdmin, isManager } = useAuth()
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <SectionTitle
         icon={<Boxes className="size-5" />}
         title="Estoque"

@@ -20,6 +20,13 @@ export interface RegisterWithdrawalInput {
   notes?: string | null
 }
 
+/** Corpo do UpdateWithdrawalCommand. Só a retirada mais recente do beneficiário pode ser editada. */
+export interface UpdateWithdrawalInput {
+  pointId: string
+  categories: ItemCategory[]
+  notes?: string | null
+}
+
 /** BeneficiaryWithdrawalHistoryResponse — histórico municipal + saldo do ciclo vigente. */
 export interface BeneficiaryWithdrawalHistory {
   beneficiaryId: string

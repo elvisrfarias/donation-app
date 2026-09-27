@@ -1,11 +1,15 @@
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using ErrorOr;
 using FluentValidation;
 using MediatR;
 
 namespace DoacaoApp.Application.Authentication.Commands;
 
-/// <summary>Registra um novo usuário gerencial (operação restrita a administradores).</summary>
+/// <summary>
+/// Registra um novo usuário gerencial. Admin cria qualquer papel em qualquer ponto; um PointManager só
+/// pode criar PointManager/Viewer no seu próprio ponto de coleta.
+/// </summary>
 public sealed record RegisterUserCommand(
     string Email,
     string Password,
@@ -34,11 +38,26 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
     }
 }
 
-public sealed class RegisterUserHandler(IIdentityService identityService)
+public sealed class RegisterUserHandler(IIdentityService identityService, ICurrentUser currentUser)
     : IRequestHandler<RegisterUserCommand, ErrorOr<AuthResult>>
 {
-    public Task<ErrorOr<AuthResult>> Handle(RegisterUserCommand command, CancellationToken cancellationToken) =>
-        identityService.RegisterAsync(
+    public Task<ErrorOr<AuthResult>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
+    {
+        if (!currentUser.IsAdmin)
+        {
+            if (command.Role is not (Roles.PointManager or Roles.Viewer))
+            {
+                return Task.FromResult<ErrorOr<AuthResult>>(AuthErrors.InsufficientPermissionsToAssignRole);
+            }
+
+            if (command.CollectionPointId != currentUser.CollectionPointId)
+            {
+                return Task.FromResult<ErrorOr<AuthResult>>(ScopeErrors.CollectionPointForbidden);
+            }
+        }
+
+        return identityService.RegisterAsync(
             new RegisterRequest(command.Email, command.Password, command.FullName, command.Role, command.CollectionPointId),
             cancellationToken);
+    }
 }

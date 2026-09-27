@@ -13,6 +13,12 @@ public class AuthenticationHandlersTests
 {
     private static readonly DateTime Now = new(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
     private readonly Mock<IIdentityService> _identityService = new();
+    private readonly Mock<ICurrentUser> _currentUser = new();
+
+    public AuthenticationHandlersTests()
+    {
+        _currentUser.Setup(u => u.IsAdmin).Returns(true);
+    }
 
     private static AuthResult BuildAuthResult() => new(
         Guid.NewGuid(),
@@ -64,7 +70,7 @@ public class AuthenticationHandlersTests
             .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(BuildAuthResult());
 
-        var handler = new RegisterUserHandler(_identityService.Object);
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
         var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "PointManager", pointId);
 
         await handler.Handle(command, CancellationToken.None);
@@ -77,6 +83,56 @@ public class AuthenticationHandlersTests
                 r.Role == "PointManager" &&
                 r.CollectionPointId == pointId),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterUserHandler_QuandoPointManagerTentaCriarAdmin_DeveBloquear()
+    {
+        var ownPointId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "Admin", null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Auth.InsufficientPermissionsToAssignRole");
+        _identityService.Verify(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterUserHandler_QuandoPointManagerCriaUsuarioParaOutroPonto_DeveBloquear()
+    {
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(Guid.NewGuid());
+
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "Viewer", Guid.NewGuid());
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Scope.CollectionPointForbidden");
+        _identityService.Verify(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterUserHandler_QuandoPointManagerCriaViewerNoProprioPonto_DevePermitir()
+    {
+        var ownPointId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+        _identityService
+            .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildAuthResult());
+
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "Viewer", ownPointId);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _identityService.Verify(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -113,10 +169,30 @@ public class AuthenticationHandlersTests
         var users = new List<UserResponse> { new(Guid.NewGuid(), "a@x.com", "Fulano", ["Admin"], null, true) };
         _identityService.Setup(s => s.ListUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(users);
 
-        var handler = new ListUsersHandler(_identityService.Object);
+        var handler = new ListUsersHandler(_identityService.Object, _currentUser.Object);
         var result = await handler.Handle(new ListUsersQuery(), CancellationToken.None);
 
         result.Value.Should().BeEquivalentTo(users);
+    }
+
+    [Fact]
+    public async Task ListUsersHandler_QuandoPointManager_DeveFiltrarPeloProprioPonto()
+    {
+        var ownPointId = Guid.NewGuid();
+        var users = new List<UserResponse>
+        {
+            new(Guid.NewGuid(), "admin@x.com", "Admin", ["Admin"], null, true),
+            new(Guid.NewGuid(), "mesmoponto@x.com", "Do Meu Ponto", ["Viewer"], ownPointId, true),
+            new(Guid.NewGuid(), "outroponto@x.com", "De Outro Ponto", ["PointManager"], Guid.NewGuid(), true),
+        };
+        _identityService.Setup(s => s.ListUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(users);
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+
+        var handler = new ListUsersHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ListUsersQuery(), CancellationToken.None);
+
+        result.Value.Should().ContainSingle().Which.Email.Should().Be("mesmoponto@x.com");
     }
 
     [Fact]
@@ -128,7 +204,7 @@ public class AuthenticationHandlersTests
             .Setup(s => s.UpdateUserAsync(It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["PointManager"], pointId, true));
 
-        var handler = new UpdateUserHandler(_identityService.Object);
+        var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
         var command = new UpdateUserCommand(userId, "Fulano", "PointManager", pointId);
 
         await handler.Handle(command, CancellationToken.None);
@@ -140,12 +216,84 @@ public class AuthenticationHandlersTests
     }
 
     [Fact]
+    public async Task UpdateUserHandler_QuandoPointManagerEditaUsuarioDeOutroPonto_DeveBloquear()
+    {
+        var userId = Guid.NewGuid();
+        var ownPointId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+        _identityService
+            .Setup(s => s.GetUserByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["Viewer"], Guid.NewGuid(), true));
+
+        var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new UpdateUserCommand(userId, "Fulano", "Viewer", ownPointId);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Scope.CollectionPointForbidden");
+        _identityService.Verify(s => s.UpdateUserAsync(It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateUserHandler_QuandoPointManagerTentaPromoverAAdmin_DeveBloquear()
+    {
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(Guid.NewGuid());
+
+        var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new UpdateUserCommand(Guid.NewGuid(), "Fulano", "Admin", null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Auth.InsufficientPermissionsToAssignRole");
+        _identityService.Verify(s => s.UpdateUserAsync(It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task DeactivateUserHandler_RepassaOUserIdERetornaSucesso()
     {
         var userId = Guid.NewGuid();
         _identityService.Setup(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success);
 
-        var handler = new DeactivateUserHandler(_identityService.Object);
+        var handler = new DeactivateUserHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new DeactivateUserCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _identityService.Verify(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeactivateUserHandler_QuandoPointManagerDesativaUsuarioDeOutroPonto_DeveBloquear()
+    {
+        var userId = Guid.NewGuid();
+        var ownPointId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+        _identityService
+            .Setup(s => s.GetUserByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["PointManager"], Guid.NewGuid(), true));
+
+        var handler = new DeactivateUserHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new DeactivateUserCommand(userId), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Scope.CollectionPointForbidden");
+        _identityService.Verify(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeactivateUserHandler_QuandoPointManagerDesativaUsuarioDoProprioPonto_DevePermitir()
+    {
+        var userId = Guid.NewGuid();
+        var ownPointId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+        _identityService
+            .Setup(s => s.GetUserByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["Viewer"], ownPointId, true));
+        _identityService.Setup(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success);
+
+        var handler = new DeactivateUserHandler(_identityService.Object, _currentUser.Object);
         var result = await handler.Handle(new DeactivateUserCommand(userId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();

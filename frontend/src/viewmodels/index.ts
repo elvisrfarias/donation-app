@@ -20,7 +20,7 @@ export {
   useRegisterBeneficiary,
   useUpdateBeneficiary,
 } from './useBeneficiariesViewModel'
-export { useRegisterWithdrawal } from './useRegisterWithdrawalViewModel'
+export { useRegisterWithdrawal, useUpdateWithdrawal } from './useRegisterWithdrawalViewModel'
 export { useCreateUser, useDeactivateUser, useUpdateUser, useUsers } from './useUsersViewModel'
 export { useReviewsViewModel } from './useReviewsViewModel'
 export * from './schemas'

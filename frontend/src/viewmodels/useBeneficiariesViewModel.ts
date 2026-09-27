@@ -46,7 +46,7 @@ export function useBeneficiaryWithdrawalHistory(
     retry: false,
   })
 
-  return { history: query.data ?? null, isLoading: query.isLoading }
+  return { history: query.data ?? null, isLoading: query.isLoading, error: query.error }
 }
 
 export function useRegisterBeneficiary() {

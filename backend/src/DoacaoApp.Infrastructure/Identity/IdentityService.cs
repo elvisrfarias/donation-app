@@ -131,6 +131,17 @@ public sealed class IdentityService(
         return ErrorOrFactory.From<IReadOnlyList<UserResponse>>(responses);
     }
 
+    public async Task<ErrorOr<UserResponse>> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return AuthErrors.UserNotFound;
+        }
+
+        return await ToUserResponseAsync(user);
+    }
+
     public async Task<ErrorOr<UserResponse>> UpdateUserAsync(UpdateUserRequest request, CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(request.UserId.ToString());

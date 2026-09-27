@@ -1,10 +1,12 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Pencil, UserPlus, Users as UsersIcon } from 'lucide-react'
 import { useState } from 'react'
-import { roleLabels, type UserAccount } from '@/models/types'
+import { roleLabels, type Role, type UserAccount } from '@/models/types'
 import {
   createUserSchema,
   updateUserSchema,
+  useAuth,
+  useCollectionPoint,
   useCollectionPointsForManagement,
   useCreateUser,
   useDeactivateUser,
@@ -18,11 +20,14 @@ import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
-const roleOptions: SelectOption[] = Object.entries(roleLabels).map(([value, label]) => ({ value, label }))
+const assignableRolesByPointManager: Role[] = ['PointManager', 'Viewer']
 
 export function UsersPage() {
+  const { user, isAdmin } = useAuth()
+  const ownPointId = user?.collectionPointId ?? ''
   const { users, isLoading, isError, error } = useUsers()
-  const { points } = useCollectionPointsForManagement()
+  const { points: allPoints } = useCollectionPointsForManagement({ enabled: isAdmin })
+  const { point: ownPoint } = useCollectionPoint(isAdmin ? null : ownPointId)
   const { create, error: createError, reset: resetCreate } = useCreateUser()
   const { update, error: updateError, reset: resetUpdate } = useUpdateUser()
   const { deactivate } = useDeactivateUser()
@@ -30,6 +35,10 @@ export function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null)
 
+  const points = isAdmin ? allPoints : ownPoint ? [ownPoint] : []
+  const roleOptions: SelectOption[] = Object.entries(roleLabels)
+    .filter(([value]) => isAdmin || assignableRolesByPointManager.includes(value as Role))
+    .map(([value, label]) => ({ value, label }))
   const pointOptions: SelectOption[] = points.map((p) => ({ value: p.id, label: p.name }))
   const pointNameById = new Map(points.map((p) => [p.id, p.name]))
 
@@ -42,6 +51,7 @@ export function UsersPage() {
       label: 'Ponto de coleta',
       options: pointOptions,
       placeholder: 'Nenhum (só para Admin)',
+      disabled: !isAdmin,
     },
   ]
 
@@ -56,7 +66,7 @@ export function UsersPage() {
     password: '',
     fullName: '',
     role: 'PointManager',
-    collectionPointId: '',
+    collectionPointId: isAdmin ? '' : ownPointId,
   }
 
   function openCreate() {
@@ -136,7 +146,11 @@ export function UsersPage() {
       <SectionTitle
         icon={<UsersIcon className="size-5" />}
         title="Usuários"
-        description="Contas gerenciais: administradores, gestores de ponto e ajudantes."
+        description={
+          isAdmin
+            ? 'Contas gerenciais: administradores, gestores de ponto e ajudantes.'
+            : 'Gestores de ponto e ajudantes vinculados ao seu ponto de coleta.'
+        }
       />
 
       <div className="space-y-3">

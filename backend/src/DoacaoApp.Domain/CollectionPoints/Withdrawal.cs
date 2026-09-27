@@ -48,6 +48,15 @@ public sealed class Withdrawal : Entity<WithdrawalId>
         IEnumerable<ItemCategory> categories,
         DateTime occurredAtUtc,
         string? notes) =>
-        new(WithdrawalId.New(), pointId, beneficiaryId, categories, occurredAtUtc,
-            string.IsNullOrWhiteSpace(notes) ? null : notes.Trim());
+        new(WithdrawalId.New(), pointId, beneficiaryId, categories, occurredAtUtc, NormalizeNotes(notes));
+
+    internal void UpdateDetails(IEnumerable<ItemCategory> categories, string? notes)
+    {
+        _categories.Clear();
+        _categories.AddRange(categories);
+        Notes = NormalizeNotes(notes);
+    }
+
+    private static string? NormalizeNotes(string? notes) =>
+        string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
 }
