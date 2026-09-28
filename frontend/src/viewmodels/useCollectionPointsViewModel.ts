@@ -10,9 +10,11 @@ import {
   type CollectionPoint,
   type CollectionPointDashboard,
   type CreateBasketTemplateInput,
+  type CreateCategoryInput,
   type CreateStockItemInput,
   type LatLng,
   type UpdateBasketTemplateInput,
+  type UpdateCategoryInput,
   type UpdateStockItemInput,
   type UpdateStockItemSettingsInput,
   type UpdateStockQuantitiesInput,
@@ -317,4 +319,54 @@ export function useRemoveBasketTemplate() {
   })
 
   return { removeBasketTemplate: mutate, ...rest }
+}
+
+/** Mutação de criação de uma categoria no catálogo do ponto (Admin ou PointManager). */
+export function useCreateCategory() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; input: CreateCategoryInput }
+  >({
+    mutationFn: ({ pointId, input }) => collectionPointService.createCategory(pointId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { createCategory: mutate, ...rest }
+}
+
+/** Mutação de atualização de nome e ícone de uma categoria do ponto. */
+export function useUpdateCategory() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<
+    CollectionPoint,
+    { pointId: string; categoryId: string; input: UpdateCategoryInput }
+  >({
+    mutationFn: ({ pointId, categoryId, input }) =>
+      collectionPointService.updateCategory(pointId, categoryId, input),
+    onSuccess: (updatedPoint) => {
+      queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
+    },
+  })
+
+  return { updateCategory: mutate, ...rest }
+}
+
+/** Mutação de remoção de uma categoria do ponto (falha se estiver em uso por item de estoque ou retirada). */
+export function useRemoveCategory() {
+  const queryClient = useQueryClient()
+
+  const { mutate, ...rest } = useApiMutation<void, { pointId: string; categoryId: string }>({
+    mutationFn: ({ pointId, categoryId }) =>
+      collectionPointService.removeCategory(pointId, categoryId),
+    onSuccess: (_, { pointId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.detail(pointId) })
+    },
+  })
+
+  return { removeCategory: mutate, ...rest }
 }

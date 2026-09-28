@@ -24,7 +24,7 @@ public class RemoveBasketTemplateHandlerTests
     public async Task Handle_Valido_DeveRemoverESalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var rice = point.AddStockItem("Arroz", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta", [(rice, 2)]).Value;
 
         var result = await CreateSut().Handle(
@@ -40,10 +40,11 @@ public class RemoveBasketTemplateHandlerTests
     public async Task Handle_ComReceitaJaUsadaEmRetirada_DeveBloquearENaoSalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var categoryId = TestData.EnsureCategory(point);
+        var rice = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 5, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta", [(rice, 2)]).Value;
         point.RegisterWithdrawal(
-            TestData.Beneficiary(), [ItemCategory.Food], 0, TestData.Now, null, (templateId, 1));
+            TestData.Beneficiary(), [categoryId], 0, TestData.Now, null, (templateId, 1));
 
         var result = await CreateSut().Handle(
             new RemoveBasketTemplateCommand(point.Id.Value, templateId.Value), CancellationToken.None);

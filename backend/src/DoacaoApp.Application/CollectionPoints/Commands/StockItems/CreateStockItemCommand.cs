@@ -14,7 +14,7 @@ public sealed record CreateStockItemCommand(
     Guid PointId,
     string Name,
     string Unit,
-    ItemCategory Category,
+    Guid CategoryId,
     int InitialQuantity,
     int Goal,
     int AlertThreshold,
@@ -30,7 +30,7 @@ public sealed class CreateStockItemValidator : AbstractValidator<CreateStockItem
         RuleFor(x => x.PointId).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
         RuleFor(x => x.Unit).NotEmpty().MaximumLength(20);
-        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.CategoryId).NotEmpty();
         RuleFor(x => x.InitialQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Goal).GreaterThanOrEqualTo(0);
         RuleFor(x => x.AlertThreshold).GreaterThanOrEqualTo(0);
@@ -55,7 +55,7 @@ public sealed class CreateStockItemHandler(
         var result = point.AddStockItem(
             command.Name,
             command.Unit,
-            command.Category,
+            CategoryId.From(command.CategoryId),
             command.InitialQuantity,
             command.Goal,
             command.AlertThreshold,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BasketTemplate, CollectionPoint, StockItem } from '@/models/types'
+import type { BasketTemplate, Category, CollectionPoint, StockItem } from '@/models/types'
 import {
   DEFAULT_ALERT_THRESHOLD,
   MAX_QUANTITY,
@@ -20,26 +20,46 @@ import {
   toWithdrawalRule,
 } from './stockDraft'
 
-function stockItem(overrides: Partial<StockItem> & Pick<StockItem, 'id' | 'category'>): StockItem {
+const CATEGORY_FOOD: Category = { id: 'food', name: 'Alimentos', icon: 'apple' }
+const CATEGORY_CLOTHING: Category = { id: 'clothing', name: 'Roupas', icon: 'shirt' }
+const CATEGORY_FOOTWEAR: Category = { id: 'footwear', name: 'Calçados', icon: 'footprints' }
+const CATEGORY_TOYS: Category = { id: 'toys', name: 'Brinquedos', icon: 'puzzle' }
+const CATEGORY_BOOKS: Category = { id: 'books', name: 'Livros', icon: 'book-open' }
+
+const categories: Category[] = [
+  CATEGORY_FOOD,
+  CATEGORY_CLOTHING,
+  CATEGORY_FOOTWEAR,
+  CATEGORY_TOYS,
+  CATEGORY_BOOKS,
+]
+
+function stockItem(
+  overrides: Partial<StockItem> & Pick<StockItem, 'id'> & { category: Category },
+): StockItem {
+  const { category, ...rest } = overrides
   return {
     name: 'Item',
     unit: 'un',
+    categoryId: category.id,
+    categoryName: category.name,
+    categoryIcon: category.icon,
     quantity: 0,
     goal: 0,
     alertThreshold: DEFAULT_ALERT_THRESHOLD,
     isTracked: true,
     status: 'ok',
-    ...overrides,
+    ...rest,
   }
 }
 
 const items: StockItem[] = [
-  stockItem({ id: 'food-1', category: 'Food', name: 'Arroz', quantity: 12, goal: 50, status: 'ok' }),
-  stockItem({ id: 'clothing-1', category: 'Clothing', name: 'Camiseta', quantity: 3, status: 'low' }),
-  stockItem({ id: 'footwear-1', category: 'Footwear', name: 'Tênis', quantity: 0, status: 'out' }),
+  stockItem({ id: 'food-1', category: CATEGORY_FOOD, name: 'Arroz', quantity: 12, goal: 50, status: 'ok' }),
+  stockItem({ id: 'clothing-1', category: CATEGORY_CLOTHING, name: 'Camiseta', quantity: 3, status: 'low' }),
+  stockItem({ id: 'footwear-1', category: CATEGORY_FOOTWEAR, name: 'Tênis', quantity: 0, status: 'out' }),
   stockItem({
     id: 'toys-1',
-    category: 'Toys',
+    category: CATEGORY_TOYS,
     name: 'Boneca',
     quantity: 40,
     isTracked: false,
@@ -58,23 +78,32 @@ describe('stockDraft — quantidades', () => {
     expect(parseQuantity(String(MAX_QUANTITY + 500))).toBe(MAX_QUANTITY)
   })
 
-  it('agrupa os itens por categoria, na ordem do app, ignorando categorias sem item', () => {
-    const groups = groupByCategory(items)
+  it('agrupa os itens pelas categorias reais do ponto, ordenadas por nome, incluindo as sem item', () => {
+    const groups = groupByCategory(items, categories)
 
-    expect(groups.map((g) => g.category)).toEqual(['Food', 'Clothing', 'Footwear', 'Toys'])
-    expect(groups[0].items).toEqual([items[0]])
+    expect(groups.map((g) => g.category.name)).toEqual([
+      'Alimentos',
+      'Brinquedos',
+      'Calçados',
+      'Livros',
+      'Roupas',
+    ])
+    const foodGroup = groups.find((g) => g.category.id === CATEGORY_FOOD.id)
+    expect(foodGroup?.items).toEqual([items[0]])
+    const booksGroup = groups.find((g) => g.category.id === CATEGORY_BOOKS.id)
+    expect(booksGroup?.items).toEqual([])
   })
 
   it('soma todas as quantidades do catálogo', () => {
     expect(sumQuantities(items)).toBe(55)
   })
 
-  it('soma as quantidades por categoria, zero para as sem item', () => {
+  it('soma as quantidades por categoria, só para as que têm item', () => {
     const byCategory = sumQuantitiesByCategory(items)
 
-    expect(byCategory.Food).toBe(12)
-    expect(byCategory.Clothing).toBe(3)
-    expect(byCategory.Books).toBe(0)
+    expect(byCategory[CATEGORY_FOOD.id]).toBe(12)
+    expect(byCategory[CATEGORY_CLOTHING.id]).toBe(3)
+    expect(byCategory[CATEGORY_BOOKS.id]).toBeUndefined()
   })
 
   it('conta os itens por status calculado pelo backend', () => {

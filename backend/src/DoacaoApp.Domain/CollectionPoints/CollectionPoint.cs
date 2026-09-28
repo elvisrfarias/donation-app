@@ -15,10 +15,10 @@ namespace DoacaoApp.Domain.CollectionPoints;
 public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 {
     private readonly List<Withdrawal> _withdrawals = [];
-    private readonly List<ItemCategory> _acceptedItems = [];
     private List<string> _needs = [];
     private readonly List<StockItem> _stockItems = [];
     private readonly List<BasketTemplate> _basketTemplates = [];
+    private readonly List<Category> _categories = [];
 
     private CollectionPoint()
     {
@@ -34,7 +34,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         CollectionPointType type,
         Address address,
         ContactInfo contact,
-        IEnumerable<ItemCategory> acceptedItems,
         StoredFileId? imageFileId,
         string? description,
         string? openingHours,
@@ -45,7 +44,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         Type = type;
         Address = address;
         Contact = contact;
-        _acceptedItems = Normalize(acceptedItems);
         ImageFileId = imageFileId;
         Description = NormalizeDescription(description);
         OpeningHours = NormalizeOpeningHours(openingHours);
@@ -99,14 +97,17 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     public IReadOnlyList<Withdrawal> Withdrawals => _withdrawals.AsReadOnly();
 
-    /// <summary>Categorias de itens que o ponto recebe/disponibiliza (ex.: comida, roupas).</summary>
-    public IReadOnlyList<ItemCategory> AcceptedItems => _acceptedItems.AsReadOnly();
-
     /// <summary>Catálogo de itens de estoque granular deste ponto (ex.: "Arroz 1kg", "Açúcar").</summary>
     public IReadOnlyList<StockItem> StockItems => _stockItems.AsReadOnly();
 
     /// <summary>Receitas de cesta básica configuradas neste ponto.</summary>
     public IReadOnlyList<BasketTemplate> BasketTemplates => _basketTemplates.AsReadOnly();
+
+    /// <summary>
+    /// Catálogo de categorias deste ponto — o que o ponto declara aceitar/disponibilizar (mostrado no
+    /// mapa público), o agrupamento do estoque e o checklist livre de uma retirada, tudo pelo mesmo id.
+    /// </summary>
+    public IReadOnlyList<Category> Categories => _categories.AsReadOnly();
 
     public static ErrorOr<CollectionPoint> Create(
         string? name,
@@ -114,7 +115,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         Address address,
         ContactInfo contact,
         DateTime createdAtUtc,
-        IEnumerable<ItemCategory>? acceptedItems = null,
         StoredFileId? imageFileId = null,
         string? description = null,
         string? openingHours = null,
@@ -127,7 +127,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
         var point = new CollectionPoint(
             CollectionPointId.New(), name.Trim(), type, address, contact,
-            acceptedItems ?? [], imageFileId, description, openingHours, needs, createdAtUtc);
+            imageFileId, description, openingHours, needs, createdAtUtc);
         point.RaiseDomainEvent(new CollectionPointCreated(point.Id, point.Name, point.Type));
 
         return point;
@@ -146,13 +146,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         return Result.Updated;
     }
 
-    /// <summary>Redefine as categorias de itens aceitas pelo ponto (substitui a lista atual).</summary>
-    public void UpdateAcceptedItems(IEnumerable<ItemCategory> acceptedItems)
-    {
-        _acceptedItems.Clear();
-        _acceptedItems.AddRange(Normalize(acceptedItems));
-    }
-
     /// <summary>Atualiza o texto de apresentação da iniciativa/projeto (nulo quando vazio).</summary>
     public void UpdateDescription(string? description) => Description = NormalizeDescription(description);
 
@@ -164,7 +157,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     /// <summary>Cadastra um novo item de estoque granular para este ponto (nome único, sem diferenciar maiúsculas/minúsculas).</summary>
     public ErrorOr<StockItemId> AddStockItem(
-        string? name, string? unit, ItemCategory category, int initialQuantity, int goal, int alertThreshold, bool isTracked)
+        string? name, string? unit, CategoryId categoryId, int initialQuantity, int goal, int alertThreshold, bool isTracked)
     {
         var nameValidation = ValidateStockItemName(name, excludingItemId: null);
         if (nameValidation.IsError)
@@ -188,7 +181,12 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return goalValidation.FirstError;
         }
 
-        var item = StockItem.Create(Id, name!.Trim(), unit!.Trim(), category, initialQuantity, goal, alertThreshold, isTracked);
+        if (_categories.All(c => c.Id != categoryId))
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
+        }
+
+        var item = StockItem.Create(Id, name!.Trim(), unit!.Trim(), categoryId, initialQuantity, goal, alertThreshold, isTracked);
         _stockItems.Add(item);
 
         return item.Id;
@@ -196,7 +194,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     /// <summary>Atualiza metadados de um item de estoque existente. Não altera a quantidade (ver <see cref="ReplaceStockQuantities"/>).</summary>
     public ErrorOr<Success> UpdateStockItem(
-        StockItemId itemId, string? name, string? unit, ItemCategory category, int goal, int alertThreshold, bool isTracked)
+        StockItemId itemId, string? name, string? unit, CategoryId categoryId, int goal, int alertThreshold, bool isTracked)
     {
         var item = _stockItems.SingleOrDefault(i => i.Id == itemId);
         if (item is null)
@@ -221,7 +219,12 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return goalValidation.FirstError;
         }
 
-        item.UpdateDetails(name!.Trim(), unit!.Trim(), category, goal, alertThreshold, isTracked);
+        if (_categories.All(c => c.Id != categoryId))
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
+        }
+
+        item.UpdateDetails(name!.Trim(), unit!.Trim(), categoryId, goal, alertThreshold, isTracked);
         return Result.Success;
     }
 
@@ -290,7 +293,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         foreach (var (itemId, setting) in settings)
         {
             var item = _stockItems.Single(i => i.Id == itemId);
-            item.UpdateDetails(item.Name, item.Unit, item.Category, setting.Goal, setting.AlertThreshold, setting.IsTracked);
+            item.UpdateDetails(item.Name, item.Unit, item.CategoryId, setting.Goal, setting.AlertThreshold, setting.IsTracked);
         }
 
         return Result.Success;
@@ -362,6 +365,76 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         }
 
         _basketTemplates.Remove(template);
+        return Result.Success;
+    }
+
+    /// <summary>Cadastra uma nova categoria para este ponto (nome único, sem diferenciar maiúsculas/minúsculas).</summary>
+    public ErrorOr<CategoryId> AddCategory(string? name, string? icon)
+    {
+        var nameValidation = ValidateCategoryName(name, excludingCategoryId: null);
+        if (nameValidation.IsError)
+        {
+            return nameValidation.FirstError;
+        }
+
+        if (string.IsNullOrWhiteSpace(icon))
+        {
+            return DomainErrors.CollectionPoint.CategoryIconRequired;
+        }
+
+        var category = Category.Create(Id, name!.Trim(), icon!.Trim());
+        _categories.Add(category);
+
+        return category.Id;
+    }
+
+    /// <summary>Atualiza nome e ícone de uma categoria existente.</summary>
+    public ErrorOr<Success> UpdateCategory(CategoryId id, string? name, string? icon)
+    {
+        var category = _categories.SingleOrDefault(c => c.Id == id);
+        if (category is null)
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
+        }
+
+        var nameValidation = ValidateCategoryName(name, excludingCategoryId: id);
+        if (nameValidation.IsError)
+        {
+            return nameValidation.FirstError;
+        }
+
+        if (string.IsNullOrWhiteSpace(icon))
+        {
+            return DomainErrors.CollectionPoint.CategoryIconRequired;
+        }
+
+        category.UpdateDetails(name!.Trim(), icon!.Trim());
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Remove uma categoria. Falha se ela estiver em uso em algum item de estoque ou já tiver sido
+    /// usada em alguma retirada deste ponto — ambas checagens dentro do próprio agregado, sem I/O extra.
+    /// </summary>
+    public ErrorOr<Success> RemoveCategory(CategoryId id)
+    {
+        var category = _categories.SingleOrDefault(c => c.Id == id);
+        if (category is null)
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
+        }
+
+        if (_stockItems.Any(item => item.CategoryId == id))
+        {
+            return DomainErrors.CollectionPoint.CategoryInUseByStockItem;
+        }
+
+        if (_withdrawals.Any(w => w.CategoryIds.Contains(id)))
+        {
+            return DomainErrors.CollectionPoint.CategoryInUseByWithdrawal;
+        }
+
+        _categories.Remove(category);
         return Result.Success;
     }
 
@@ -445,6 +518,20 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         return isDuplicate ? DomainErrors.CollectionPoint.DuplicateStockItemName : Result.Success;
     }
 
+    private ErrorOr<Success> ValidateCategoryName(string? name, CategoryId? excludingCategoryId)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DomainErrors.CollectionPoint.CategoryNameRequired;
+        }
+
+        var trimmedName = name.Trim();
+        var isDuplicate = _categories.Any(category =>
+            category.Id != excludingCategoryId && string.Equals(category.Name, trimmedName, StringComparison.OrdinalIgnoreCase));
+
+        return isDuplicate ? DomainErrors.CollectionPoint.DuplicateCategoryName : Result.Success;
+    }
+
     private static ErrorOr<Success> ValidateStockItemGoalAndAlert(int goal, int alertThreshold)
     {
         if (goal < 0 || alertThreshold < 0)
@@ -476,9 +563,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(MaxNeeds)];
 
-    private static List<ItemCategory> Normalize(IEnumerable<ItemCategory> items) =>
-        [.. items.Distinct().OrderBy(static i => (int)i)];
-
     /// <summary>Define (ou troca) a imagem do ponto de coleta.</summary>
     public void SetImage(StoredFileId imageFileId) => ImageFileId = imageFileId;
 
@@ -499,7 +583,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// base nele e na <see cref="WithdrawalRule"/> deste ponto.
     /// </summary>
     /// <param name="beneficiary">Beneficiário que está retirando.</param>
-    /// <param name="categories">Itens livres retirados na visita (roupas, calçados…) — não sujeitos ao limite do ciclo nem dão baixa em estoque.</param>
+    /// <param name="categoryIds">Itens livres retirados na visita (roupas, calçados…) — não sujeitos ao limite do ciclo nem dão baixa em estoque.</param>
     /// <param name="beneficiaryWithdrawalsInCurrentCycle">
     /// Total de retiradas com cesta básica pelo beneficiário dentro do ciclo vigente, somando todos os pontos.
     /// </param>
@@ -508,7 +592,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// <param name="basket">Receita de cesta básica retirada nesta visita, se houver, e a quantidade de cestas.</param>
     public ErrorOr<Withdrawal> RegisterWithdrawal(
         Beneficiary beneficiary,
-        IReadOnlyCollection<ItemCategory> categories,
+        IReadOnlyCollection<CategoryId> categoryIds,
         int beneficiaryWithdrawalsInCurrentCycle,
         DateTime occurredAtUtc,
         string? notes,
@@ -519,10 +603,15 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.CollectionPoint.Inactive;
         }
 
-        var distinctCategories = categories.Distinct().ToList();
-        if (distinctCategories.Count == 0)
+        var distinctCategoryIds = categoryIds.Distinct().ToList();
+        if (distinctCategoryIds.Count == 0)
         {
             return DomainErrors.Withdrawal.CategoriesRequired;
+        }
+
+        if (distinctCategoryIds.Any(categoryId => _categories.All(c => c.Id != categoryId)))
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
         }
 
         var basketValidation = ValidateBasketForWithdrawal(basket);
@@ -541,11 +630,11 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             ApplyBasketConsumption(basket.Value);
         }
 
-        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategories, occurredAtUtc, notes, basket);
+        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategoryIds, occurredAtUtc, notes, basket);
         _withdrawals.Add(withdrawal);
 
         RaiseDomainEvent(new WithdrawalRegistered(
-            withdrawal.Id, Id, beneficiary.Id, withdrawal.Categories, occurredAtUtc));
+            withdrawal.Id, Id, beneficiary.Id, withdrawal.CategoryIds, occurredAtUtc));
 
         return withdrawal;
     }
@@ -562,7 +651,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public ErrorOr<Success> UpdateWithdrawal(
         WithdrawalId withdrawalId,
         bool isMostRecentForBeneficiary,
-        IReadOnlyCollection<ItemCategory> categories,
+        IReadOnlyCollection<CategoryId> categoryIds,
         string? notes,
         int beneficiaryWithdrawalsInCurrentCycleExcludingThis,
         (BasketTemplateId Id, int Quantity)? basket = null)
@@ -578,10 +667,15 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.OnlyMostRecentIsEditable;
         }
 
-        var distinctCategories = categories.Distinct().ToList();
-        if (distinctCategories.Count == 0)
+        var distinctCategoryIds = categoryIds.Distinct().ToList();
+        if (distinctCategoryIds.Count == 0)
         {
             return DomainErrors.Withdrawal.CategoriesRequired;
+        }
+
+        if (distinctCategoryIds.Any(categoryId => _categories.All(c => c.Id != categoryId)))
+        {
+            return DomainErrors.CollectionPoint.CategoryNotFound;
         }
 
         var basketValidation = ValidateBasketForWithdrawal(basket, withdrawal.BasketTemplateId, withdrawal.BasketQuantity);
@@ -601,7 +695,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             ApplyBasketConsumption(basket.Value);
         }
 
-        withdrawal.UpdateDetails(distinctCategories, notes, basket);
+        withdrawal.UpdateDetails(distinctCategoryIds, notes, basket);
         return Result.Success;
     }
 

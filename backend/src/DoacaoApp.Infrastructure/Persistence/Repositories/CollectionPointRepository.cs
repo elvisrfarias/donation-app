@@ -13,6 +13,7 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .Include(p => p.Withdrawals)
             .Include(p => p.StockItems)
             .Include(p => p.BasketTemplates)
+            .Include(p => p.Categories)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<CollectionPoint>> ListActiveAsync(CancellationToken cancellationToken = default) =>
@@ -86,4 +87,19 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .Where(w => w.BeneficiaryId == beneficiaryId)
             .OrderByDescending(w => w.OccurredAtUtc)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Category>> GetCategoriesByIdsAsync(
+        IReadOnlyCollection<CategoryId> categoryIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (categoryIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.Categories
+            .AsNoTracking()
+            .Where(c => categoryIds.Contains(c.Id))
+            .ToListAsync(cancellationToken);
+    }
 }

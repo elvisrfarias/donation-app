@@ -2,6 +2,7 @@ using DoacaoApp.Api.Common;
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.CollectionPoints.Commands;
 using DoacaoApp.Application.CollectionPoints.Commands.BasketTemplates;
+using DoacaoApp.Application.CollectionPoints.Commands.Categories;
 using DoacaoApp.Application.CollectionPoints.Commands.StockItems;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Application.CollectionPoints.Queries;
@@ -307,6 +308,71 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
         Guid id, Guid templateId, CancellationToken cancellationToken)
     {
         var result = await Sender.Send(new RemoveBasketTemplateCommand(id, templateId), cancellationToken);
+        return Respond(result, _ => NoContent());
+    }
+
+    /// <summary>Cadastra uma nova categoria no catálogo do ponto.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só cadastra no próprio ponto.</remarks>
+    /// <response code="201">Categoria criada.</response>
+    /// <response code="400">Dados inválidos.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto não encontrado.</response>
+    /// <response code="409">Já existe uma categoria com este nome no ponto.</response>
+    [HttpPost("{id:guid}/categories")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateCategory(
+        Guid id,
+        [FromBody] CreateCategoryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(command with { PointId = id }, cancellationToken);
+        return Respond(result, value => Created($"/api/collection-points/{id}", value));
+    }
+
+    /// <summary>Atualiza nome e ícone de uma categoria do catálogo do ponto.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só atualiza o próprio ponto.</remarks>
+    /// <response code="200">Categoria atualizada.</response>
+    /// <response code="400">Dados inválidos.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto ou categoria não encontrada.</response>
+    /// <response code="409">Já existe outra categoria com este nome no ponto.</response>
+    [HttpPut("{id:guid}/categories/{categoryId:guid}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateCategory(
+        Guid id,
+        Guid categoryId,
+        [FromBody] UpdateCategoryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(command with { PointId = id, CategoryId = categoryId }, cancellationToken);
+        return Respond(result, Ok);
+    }
+
+    /// <summary>Remove uma categoria do catálogo do ponto.</summary>
+    /// <remarks>Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só remove no próprio ponto.</remarks>
+    /// <response code="204">Categoria removida.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
+    /// <response code="404">Ponto ou categoria não encontrada.</response>
+    /// <response code="409">Categoria em uso em algum item de estoque ou retirada.</response>
+    [HttpDelete("{id:guid}/categories/{categoryId:guid}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveCategory(Guid id, Guid categoryId, CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(new RemoveCategoryCommand(id, categoryId), cancellationToken);
         return Respond(result, _ => NoContent());
     }
 }

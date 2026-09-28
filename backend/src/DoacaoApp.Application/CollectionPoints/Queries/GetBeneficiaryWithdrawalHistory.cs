@@ -28,8 +28,8 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
 {
     /// <summary>
     /// Valor fixo de <see cref="BeneficiaryWithdrawalHistoryResponse.LimitedCategory"/>: o limite do
-    /// ciclo não é mais amarrado a uma <see cref="ItemCategory"/> — passou a ser "levar cesta básica
-    /// ou não" (<see cref="Withdrawal.CountsTowardsLimit"/>).
+    /// ciclo não é amarrado a uma categoria específica — é "levar cesta básica ou não"
+    /// (<see cref="Withdrawal.CountsTowardsLimit"/>).
     /// </summary>
     private const string LimitedCategoryLabel = "Basket";
 
@@ -58,6 +58,9 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
 
         var history = await pointRepository.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, cancellationToken);
 
+        var categoryIds = history.SelectMany(w => w.CategoryIds).Distinct().ToList();
+        var categories = await pointRepository.GetCategoriesByIdsAsync(categoryIds, cancellationToken);
+
         var remaining = Math.Max(0, rule.MaxWithdrawalsPerCycle - usedInCycle);
 
         return new BeneficiaryWithdrawalHistoryResponse(
@@ -70,6 +73,6 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
             remaining,
             startUtc,
             endUtc,
-            history.Select(w => w.ToResponse()).ToList());
+            history.Select(w => w.ToResponse(categories)).ToList());
     }
 }

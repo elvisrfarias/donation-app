@@ -14,7 +14,7 @@ public sealed record WithdrawalsSeriesPointResponse(DateOnly Date, int Count);
 public sealed record RecentWithdrawalResponse(
     Guid WithdrawalId,
     string BeneficiaryName,
-    IReadOnlyList<string> Categories,
+    IReadOnlyList<WithdrawalCategoryResponse> Categories,
     DateTime OccurredAtUtc);
 
 /// <summary>Indicadores de resultado de um único ponto de coleta em um período.</summary>

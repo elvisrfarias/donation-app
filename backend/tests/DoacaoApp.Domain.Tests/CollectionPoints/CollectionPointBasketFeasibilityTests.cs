@@ -10,8 +10,9 @@ public class CollectionPointBasketFeasibilityTests
     public void CalculateBasketFeasibility_QuandoUmItemEOGargalo_LimitaOTotalDeCestas()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 25, 0, 0, true).Value;
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 4, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 25, 0, 0, true).Value;
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 4, 0, 0, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta básica", [(riceId, 5), (sugarId, 2)]).Value;
 
         var feasibility = point.CalculateBasketFeasibility(templateId);
@@ -23,8 +24,9 @@ public class CollectionPointBasketFeasibilityTests
     public void CalculateBasketFeasibility_CalculaOQueFaltaParaAProximaCesta()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 25, 0, 0, true).Value;
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 4, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 25, 0, 0, true).Value;
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 4, 0, 0, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta básica", [(riceId, 5), (sugarId, 2)]).Value;
 
         var feasibility = point.CalculateBasketFeasibility(templateId);
@@ -40,8 +42,9 @@ public class CollectionPointBasketFeasibilityTests
     public void CalculateBasketFeasibility_QuandoUmItemEstaZerado_RetornaZeroCestas()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 0, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 0, 0, 0, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta básica", [(riceId, 5), (sugarId, 1)]).Value;
 
         var feasibility = point.CalculateBasketFeasibility(templateId);

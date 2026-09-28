@@ -20,7 +20,7 @@ public sealed class StockItem : Entity<StockItemId>
         CollectionPointId pointId,
         string name,
         string unit,
-        ItemCategory category,
+        CategoryId categoryId,
         int quantity,
         int goal,
         int alertThreshold,
@@ -29,7 +29,7 @@ public sealed class StockItem : Entity<StockItemId>
         PointId = pointId;
         Name = name;
         Unit = unit;
-        Category = category;
+        CategoryId = categoryId;
         Quantity = quantity;
         Goal = goal;
         AlertThreshold = alertThreshold;
@@ -44,8 +44,8 @@ public sealed class StockItem : Entity<StockItemId>
     /// <summary>Unidade de medida em texto livre e curto (ex.: "kg", "un", "L", "pacote").</summary>
     public string Unit { get; private set; }
 
-    /// <summary>Categoria do item, reaproveitada apenas para agrupamento/relatório.</summary>
-    public ItemCategory Category { get; private set; }
+    /// <summary>Categoria do item (do catálogo de categorias do próprio ponto), usada para agrupamento/relatório.</summary>
+    public CategoryId CategoryId { get; private set; }
 
     public int Quantity { get; private set; }
     public int Goal { get; private set; }
@@ -56,19 +56,19 @@ public sealed class StockItem : Entity<StockItemId>
         CollectionPointId pointId,
         string name,
         string unit,
-        ItemCategory category,
+        CategoryId categoryId,
         int quantity,
         int goal,
         int alertThreshold,
         bool isTracked) =>
-        new(StockItemId.New(), pointId, name.Trim(), unit.Trim(), category, quantity, goal, alertThreshold, isTracked);
+        new(StockItemId.New(), pointId, name.Trim(), unit.Trim(), categoryId, quantity, goal, alertThreshold, isTracked);
 
     internal void UpdateDetails(
-        string name, string unit, ItemCategory category, int goal, int alertThreshold, bool isTracked)
+        string name, string unit, CategoryId categoryId, int goal, int alertThreshold, bool isTracked)
     {
         Name = name.Trim();
         Unit = unit.Trim();
-        Category = category;
+        CategoryId = categoryId;
         Goal = goal;
         AlertThreshold = alertThreshold;
         IsTracked = isTracked;

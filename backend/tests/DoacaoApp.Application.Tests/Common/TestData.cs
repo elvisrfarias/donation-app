@@ -35,14 +35,25 @@ public static class TestData
         return point;
     }
 
+    public static CategoryId AddCategory(CollectionPoint point, string name = "Alimentos", string icon = "food") =>
+        point.AddCategory(name, icon).Value;
+
+    /// <summary>Devolve a categoria de mesmo nome já existente no ponto, ou cria uma nova.</summary>
+    public static CategoryId EnsureCategory(CollectionPoint point, string name = "Alimentos", string icon = "food")
+    {
+        var existing = point.Categories.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        return existing?.Id ?? AddCategory(point, name, icon);
+    }
+
     public static StockItemId AddStockItem(
         CollectionPoint point,
         string name = "Arroz 1kg",
         string unit = "kg",
         int quantity = 100,
         int goal = 0,
-        int alertThreshold = 5) =>
-        point.AddStockItem(name, unit, ItemCategory.Food, quantity, goal, alertThreshold, isTracked: true).Value;
+        int alertThreshold = 5,
+        CategoryId? categoryId = null) =>
+        point.AddStockItem(name, unit, categoryId ?? EnsureCategory(point), quantity, goal, alertThreshold, isTracked: true).Value;
 
     public static BasketTemplateId AddBasketTemplate(
         CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>

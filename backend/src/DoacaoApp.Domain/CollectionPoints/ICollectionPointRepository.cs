@@ -48,4 +48,14 @@ public interface ICollectionPointRepository
     Task<IReadOnlyList<Withdrawal>> GetBeneficiaryWithdrawalHistoryAsync(
         BeneficiaryId beneficiaryId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Categorias (de quaisquer pontos) cujos ids aparecem em um conjunto de retiradas. Usada para
+    /// denormalizar nome/ícone no histórico municipal de um beneficiário, que abrange vários pontos
+    /// e, portanto, catálogos de categoria diferentes — diferente das outras consultas deste
+    /// repositório, que sempre operam dentro de um único ponto já carregado com <see cref="Category"/>.
+    /// </summary>
+    Task<IReadOnlyList<Category>> GetCategoriesByIdsAsync(
+        IReadOnlyCollection<CategoryId> categoryIds,
+        CancellationToken cancellationToken = default);
 }

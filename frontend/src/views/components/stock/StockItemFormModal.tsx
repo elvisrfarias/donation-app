@@ -1,15 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { PackagePlus, Save } from 'lucide-react'
-import {
-  itemCategoryLabels,
-  itemCategoryValues,
-  type CollectionPoint,
-  type ItemCategory,
-  type StockItem,
-} from '@/models/types'
+import { PackagePlus, Save, Tags } from 'lucide-react'
+import type { CollectionPoint, StockItem } from '@/models/types'
 import { useCreateStockItem, useUpdateStockItem } from '@/viewmodels'
-import { Alert, Button, ComboBoxInput, FormField, Select } from '@/views/components/ui'
+import { Alert, Button, ComboBoxInput, EmptyState, FormField, Select } from '@/views/components/ui'
 import { ModalComponent } from '@/views/components/modal'
+import { CategoryManagerModal } from './CategoryManagerModal'
 import { DEFAULT_ALERT_THRESHOLD, MAX_QUANTITY, clampQuantity, parseQuantity } from './stockDraft'
 
 const UNIT_SUGGESTIONS = ['kg', 'un', 'L', 'pacote', 'caixa', 'g']
@@ -17,17 +12,17 @@ const UNIT_SUGGESTIONS = ['kg', 'un', 'L', 'pacote', 'caixa', 'g']
 interface StockItemFormValues {
   name: string
   unit: string
-  category: ItemCategory
+  categoryId: string
   initialQuantity: number
   goal: number
   alertThreshold: number
 }
 
-function defaultValues(): StockItemFormValues {
+function defaultValues(firstCategoryId: string): StockItemFormValues {
   return {
     name: '',
     unit: '',
-    category: itemCategoryValues[0],
+    categoryId: firstCategoryId,
     initialQuantity: 0,
     goal: 0,
     alertThreshold: DEFAULT_ALERT_THRESHOLD,
@@ -38,7 +33,7 @@ function valuesFromItem(item: StockItem): StockItemFormValues {
   return {
     name: item.name,
     unit: item.unit,
-    category: item.category,
+    categoryId: item.categoryId,
     initialQuantity: item.quantity,
     goal: item.goal,
     alertThreshold: item.alertThreshold,
@@ -66,18 +61,28 @@ interface StockItemFormModalProps {
 
 export function StockItemFormModal({ point, item, open, onClose }: StockItemFormModalProps) {
   const isEditing = item !== null
+  const categories = point.categories
   const { createStockItem, isPending: isCreating, error: createError, reset: resetCreate } =
     useCreateStockItem()
   const { updateStockItem, isPending: isUpdating, error: updateError, reset: resetUpdate } =
     useUpdateStockItem()
 
   const [values, setValues] = useState<StockItemFormValues>(() =>
-    item ? valuesFromItem(item) : defaultValues(),
+    item ? valuesFromItem(item) : defaultValues(categories[0]?.id ?? ''),
   )
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
+
+  // Se o catálogo de categorias estava vazio quando o formulário abriu (categoryId ainda ''), e uma
+  // categoria acabou de ser criada (ex.: via "Criar categoria" abaixo), usa a primeira como padrão —
+  // derivado no render, sem precisar sincronizar o rascunho via efeito.
+  const selectedCategoryId = values.categoryId !== '' ? values.categoryId : (categories[0]?.id ?? '')
 
   const isPending = isCreating || isUpdating
   const error = createError ?? updateError
-  const validationError = validate(values)
+  const noCategoriesYet = categories.length === 0
+  const validationError = noCategoriesYet
+    ? 'Cadastre ao menos uma categoria antes de adicionar um item.'
+    : validate({ ...values, categoryId: selectedCategoryId })
 
   function set<K extends keyof StockItemFormValues>(key: K, value: StockItemFormValues[K]) {
     setValues((previous) => ({ ...previous, [key]: value }))
@@ -105,7 +110,7 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
         input: {
           name,
           unit,
-          category: values.category,
+          categoryId: selectedCategoryId,
           goal: values.goal,
           alertThreshold: values.alertThreshold,
           isTracked: item.isTracked,
@@ -117,7 +122,7 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
         input: {
           name,
           unit,
-          category: values.category,
+          categoryId: selectedCategoryId,
           initialQuantity: values.initialQuantity,
           goal: values.goal,
           alertThreshold: values.alertThreshold,
@@ -180,18 +185,36 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
           <FormField label="Categoria" htmlFor="stock-item-category" required>
             <Select
               id="stock-item-category"
-              value={values.category}
-              disabled={isPending}
-              onValueChange={(value) => set('category', value as ItemCategory)}
+              value={selectedCategoryId}
+              disabled={isPending || noCategoriesYet}
+              onValueChange={(value) => set('categoryId', value)}
             >
-              {itemCategoryValues.map((category) => (
-                <option key={category} value={category}>
-                  {itemCategoryLabels[category]}
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </Select>
           </FormField>
         </div>
+
+        {noCategoriesYet && (
+          <EmptyState
+            icon={<Tags className="size-6" />}
+            title="Nenhuma categoria cadastrada"
+            description="Crie a primeira categoria deste ponto antes de adicionar um item de estoque."
+            action={
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setCategoryManagerOpen(true)}
+              >
+                Criar categoria
+              </Button>
+            }
+          />
+        )}
 
         <div className={isEditing ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4 sm:grid-cols-3'}>
           {!isEditing && (
@@ -244,7 +267,9 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
           </FormField>
         </div>
 
-        {validationError && <p className="text-xs font-medium text-red-600">{validationError}</p>}
+        {validationError && !noCategoriesYet && (
+          <p className="text-xs font-medium text-red-600">{validationError}</p>
+        )}
 
         <Button
           type="submit"
@@ -257,6 +282,14 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
           {isEditing ? 'Salvar item' : 'Adicionar item'}
         </Button>
       </form>
+
+      <CategoryManagerModal
+        point={point}
+        canEdit
+        open={categoryManagerOpen}
+        startInCreation={noCategoriesYet}
+        onClose={() => setCategoryManagerOpen(false)}
+      />
     </ModalComponent>
   )
 }

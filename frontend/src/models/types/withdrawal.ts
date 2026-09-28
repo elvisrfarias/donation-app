@@ -1,12 +1,13 @@
-import type { ItemCategory } from './collectionPoint'
+import type { WithdrawalCategoryRef } from './collectionPoint'
 
 /** WithdrawalResponse do backend. */
 export interface Withdrawal {
   id: string
   pointId: string
   beneficiaryId: string
-  /** Itens retirados na visita (roupas, calçados… — sem limite nem baixa de estoque). */
-  categories: ItemCategory[]
+  /** Itens retirados na visita (roupas, calçados… — sem limite nem baixa de estoque). Já vêm
+   *  denormalizados (nome/ícone) pelo backend. */
+  categories: WithdrawalCategoryRef[]
   /** Receita de cesta básica retirada nesta visita, se houver. */
   basketTemplateId?: string | null
   basketQuantity?: number | null
@@ -18,7 +19,7 @@ export interface Withdrawal {
 export interface RegisterWithdrawalInput {
   pointId: string
   beneficiaryId: string
-  categories: ItemCategory[]
+  categoryIds: string[]
   occurredAtUtc?: string | null
   notes?: string | null
   /** Receita de cesta básica retirada nesta visita, se houver — sujeita ao limite do ciclo e dá baixa no estoque. */
@@ -29,7 +30,7 @@ export interface RegisterWithdrawalInput {
 /** Corpo do UpdateWithdrawalCommand. Só a retirada mais recente do beneficiário pode ser editada. */
 export interface UpdateWithdrawalInput {
   pointId: string
-  categories: ItemCategory[]
+  categoryIds: string[]
   notes?: string | null
   basketTemplateId?: string | null
   basketQuantity?: number | null

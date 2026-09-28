@@ -23,8 +23,9 @@ public class UpdateBasketTemplateHandlerTests
     public async Task Handle_Valido_DeveAtualizarESalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
-        var beans = point.AddStockItem("Feijão", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var categoryId = TestData.EnsureCategory(point);
+        var rice = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 5, true).Value;
+        var beans = point.AddStockItem("Feijão", "kg", categoryId, 10, 0, 5, true).Value;
         var templateId = point.CreateBasketTemplate("Cesta", [(rice, 2)]).Value;
 
         var command = new UpdateBasketTemplateCommand(

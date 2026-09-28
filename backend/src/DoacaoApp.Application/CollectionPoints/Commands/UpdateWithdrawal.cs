@@ -17,7 +17,7 @@ namespace DoacaoApp.Application.CollectionPoints.Commands;
 public sealed record UpdateWithdrawalCommand(
     Guid PointId,
     Guid WithdrawalId,
-    IReadOnlyList<ItemCategory> Categories,
+    IReadOnlyList<Guid> CategoryIds,
     string? Notes,
     Guid? BasketTemplateId = null,
     int? BasketQuantity = null) : IRequest<ErrorOr<WithdrawalResponse>>, IScopedToCollectionPoint
@@ -31,7 +31,7 @@ public sealed class UpdateWithdrawalValidator : AbstractValidator<UpdateWithdraw
     {
         RuleFor(x => x.PointId).NotEmpty();
         RuleFor(x => x.WithdrawalId).NotEmpty();
-        RuleForEach(x => x.Categories).IsInEnum();
+        RuleForEach(x => x.CategoryIds).NotEmpty();
         RuleFor(x => x.Notes).MaximumLength(500);
         RuleFor(x => x.BasketQuantity)
             .GreaterThan(0)
@@ -74,7 +74,7 @@ public sealed class UpdateWithdrawalHandler(
         var basket = ToBasket(command.BasketTemplateId, command.BasketQuantity);
 
         var updated = point.UpdateWithdrawal(
-            withdrawalId, isMostRecentForBeneficiary, command.Categories, command.Notes, othersInCycle, basket);
+            withdrawalId, isMostRecentForBeneficiary, command.CategoryIds.Select(CategoryId.From).ToList(), command.Notes, othersInCycle, basket);
         if (updated.IsError)
         {
             return updated.Errors;
@@ -82,7 +82,7 @@ public sealed class UpdateWithdrawalHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return existing.ToResponse();
+        return existing.ToResponse(point.Categories);
     }
 
     private static (BasketTemplateId Id, int Quantity)? ToBasket(Guid? basketTemplateId, int? basketQuantity) =>

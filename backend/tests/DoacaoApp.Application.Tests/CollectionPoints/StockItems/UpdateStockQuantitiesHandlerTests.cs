@@ -23,8 +23,9 @@ public class UpdateStockQuantitiesHandlerTests
     public async Task Handle_Valido_DeveAtualizarAsQuantidadesESalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
-        var beans = point.AddStockItem("Feijão", "kg", ItemCategory.Food, 5, 0, 5, true).Value;
+        var categoryId = TestData.EnsureCategory(point);
+        var rice = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 5, true).Value;
+        var beans = point.AddStockItem("Feijão", "kg", categoryId, 5, 0, 5, true).Value;
 
         var command = new UpdateStockQuantitiesCommand(
             point.Id.Value, [new StockQuantityEntry(rice.Value, 20), new StockQuantityEntry(beans.Value, 8)]);
@@ -41,7 +42,7 @@ public class UpdateStockQuantitiesHandlerTests
     public async Task Handle_ComQuantidadeNegativa_DeveBloquearSemAlterarNadaENaoSalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var rice = point.AddStockItem("Arroz", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
 
         var command = new UpdateStockQuantitiesCommand(point.Id.Value, [new StockQuantityEntry(rice.Value, -1)]);
 

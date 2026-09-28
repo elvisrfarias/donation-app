@@ -20,10 +20,11 @@ public class GetCollectionPointHandlerTests
     public async Task Handle_QuandoOPontoExiste_RetornaOCatalogoDeEstoqueComOStatusCalculado()
     {
         var point = BuildPoint();
-        point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, initialQuantity: 0, goal: 0, alertThreshold: 5, isTracked: true);
-        point.AddStockItem("Feijão 1kg", "kg", ItemCategory.Food, initialQuantity: 3, goal: 0, alertThreshold: 5, isTracked: true);
-        point.AddStockItem("Óleo", "L", ItemCategory.Food, initialQuantity: 50, goal: 50, alertThreshold: 5, isTracked: true);
-        point.AddStockItem("Açúcar", "kg", ItemCategory.Food, initialQuantity: 20, goal: 50, alertThreshold: 5, isTracked: true);
+        var categoryId = point.AddCategory("Alimentos", "food").Value;
+        point.AddStockItem("Arroz 1kg", "kg", categoryId, initialQuantity: 0, goal: 0, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Feijão 1kg", "kg", categoryId, initialQuantity: 3, goal: 0, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Óleo", "L", categoryId, initialQuantity: 50, goal: 50, alertThreshold: 5, isTracked: true);
+        point.AddStockItem("Açúcar", "kg", categoryId, initialQuantity: 20, goal: 50, alertThreshold: 5, isTracked: true);
         _repository
             .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(point);
@@ -39,11 +40,47 @@ public class GetCollectionPointHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DeveDenormalizarCategoriaDeCadaItemDeEstoque()
+    {
+        var point = BuildPoint();
+        var categoryId = point.AddCategory("Alimentos", "food").Value;
+        point.AddStockItem("Arroz 1kg", "kg", categoryId, 10, 0, 5, true);
+        _repository
+            .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(point);
+
+        var result = await CreateSut().Handle(new GetCollectionPointQuery(point.Id.Value), CancellationToken.None);
+
+        var item = result.Value.StockItems.Should().ContainSingle().Subject;
+        item.CategoryId.Should().Be(categoryId.Value);
+        item.CategoryName.Should().Be("Alimentos");
+        item.CategoryIcon.Should().Be("food");
+    }
+
+    [Fact]
+    public async Task Handle_DeveIncluirOCatalogoDeCategoriasDoPonto()
+    {
+        var point = BuildPoint();
+        point.AddCategory("Alimentos", "food");
+        point.AddCategory("Roupas", "shirt");
+        _repository
+            .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(point);
+
+        var result = await CreateSut().Handle(new GetCollectionPointQuery(point.Id.Value), CancellationToken.None);
+
+        result.Value.Categories.Should().HaveCount(2);
+        result.Value.Categories.Should().Contain(c => c.Name == "Alimentos" && c.Icon == "food");
+        result.Value.Categories.Should().Contain(c => c.Name == "Roupas" && c.Icon == "shirt");
+    }
+
+    [Fact]
     public async Task Handle_DeveIncluirAsReceitasDeCestaComAFeasibilidadeCalculada()
     {
         var point = BuildPoint();
-        var rice = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
-        var beans = point.AddStockItem("Feijão 1kg", "kg", ItemCategory.Food, 4, 0, 5, true).Value;
+        var categoryId = point.AddCategory("Alimentos", "food").Value;
+        var rice = point.AddStockItem("Arroz 1kg", "kg", categoryId, 10, 0, 5, true).Value;
+        var beans = point.AddStockItem("Feijão 1kg", "kg", categoryId, 4, 0, 5, true).Value;
         var template = point.CreateBasketTemplate("Cesta básica", [(rice, 2), (beans, 1)]).Value;
         _repository
             .Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>()))

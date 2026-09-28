@@ -18,14 +18,15 @@ public class CollectionPointStockItemTests
     public void AddStockItem_Valido_DeveAdicionarOItem()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("Arroz", "kg", ItemCategory.Food, initialQuantity: 20, goal: 50, alertThreshold: 10, isTracked: true);
+        var result = point.AddStockItem("Arroz", "kg", categoryId, initialQuantity: 20, goal: 50, alertThreshold: 10, isTracked: true);
 
         result.IsError.Should().BeFalse();
         var item = point.StockItems.Single(i => i.Id == result.Value);
         item.Name.Should().Be("Arroz");
         item.Unit.Should().Be("kg");
-        item.Category.Should().Be(ItemCategory.Food);
+        item.CategoryId.Should().Be(categoryId);
         item.Quantity.Should().Be(20);
         item.Goal.Should().Be(50);
         item.AlertThreshold.Should().Be(10);
@@ -36,8 +37,9 @@ public class CollectionPointStockItemTests
     public void AddStockItem_ComNomeVazio_DeveBloquear()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("   ", "kg", ItemCategory.Food, 0, 0, 0, true);
+        var result = point.AddStockItem("   ", "kg", categoryId, 0, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.StockItemNameRequired");
@@ -47,20 +49,33 @@ public class CollectionPointStockItemTests
     public void AddStockItem_ComUnidadeVazia_DeveBloquear()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("Arroz", "   ", ItemCategory.Food, 0, 0, 0, true);
+        var result = point.AddStockItem("Arroz", "   ", categoryId, 0, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.StockItemUnitRequired");
     }
 
     [Fact]
+    public void AddStockItem_ComCategoriaInexistenteNoPonto_DeveBloquear()
+    {
+        var point = TestData.Point();
+
+        var result = point.AddStockItem("Arroz", "kg", CategoryId.New(), 0, 0, 0, true);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("CollectionPoint.CategoryNotFound");
+    }
+
+    [Fact]
     public void AddStockItem_ComNomeDuplicadoIgnorandoMaiusculasEMinusculas_DeveBloquear()
     {
         var point = TestData.Point();
-        point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, 0, 0, true);
+        var categoryId = TestData.AddCategory(point);
+        point.AddStockItem("Arroz", "kg", categoryId, 0, 0, 0, true);
 
-        var result = point.AddStockItem("ARROZ", "kg", ItemCategory.Food, 0, 0, 0, true);
+        var result = point.AddStockItem("ARROZ", "kg", categoryId, 0, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.DuplicateStockItemName");
@@ -71,8 +86,9 @@ public class CollectionPointStockItemTests
     public void AddStockItem_ComQuantidadeNegativa_DeveBloquear()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("Arroz", "kg", ItemCategory.Food, initialQuantity: -1, 0, 0, true);
+        var result = point.AddStockItem("Arroz", "kg", categoryId, initialQuantity: -1, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.NegativeQuantity");
@@ -84,8 +100,9 @@ public class CollectionPointStockItemTests
     public void AddStockItem_ComMetaOuAvisoNegativo_DeveBloquear(int goal, int alertThreshold)
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, goal, alertThreshold, true);
+        var result = point.AddStockItem("Arroz", "kg", categoryId, 0, goal, alertThreshold, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("StockSetting.NegativeValue");
@@ -95,8 +112,9 @@ public class CollectionPointStockItemTests
     public void AddStockItem_ComAvisoAcimaDaMeta_DeveBloquear()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, goal: 10, alertThreshold: 11, isTracked: true);
+        var result = point.AddStockItem("Arroz", "kg", categoryId, 0, goal: 10, alertThreshold: 11, isTracked: true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("StockSetting.AlertAboveGoal");
@@ -106,10 +124,11 @@ public class CollectionPointStockItemTests
     public void UpdateStockItem_Valido_DeveAtualizarMetadadosSemAlterarAQuantidade()
     {
         var point = TestData.Point();
-        var itemId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 20, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Arroz", "kg", categoryId, 20, 0, 0, true).Value;
 
         var result = point.UpdateStockItem(
-            itemId, "Arroz Tipo 1", "pacote", ItemCategory.Food, goal: 30, alertThreshold: 5, isTracked: false);
+            itemId, "Arroz Tipo 1", "pacote", categoryId, goal: 30, alertThreshold: 5, isTracked: false);
 
         result.IsError.Should().BeFalse();
         var item = point.StockItems.Single(i => i.Id == itemId);
@@ -125,21 +144,36 @@ public class CollectionPointStockItemTests
     public void UpdateStockItem_ItemInexistente_DeveRetornarNotFound()
     {
         var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
 
-        var result = point.UpdateStockItem(StockItemId.New(), "Arroz", "kg", ItemCategory.Food, 0, 0, true);
+        var result = point.UpdateStockItem(StockItemId.New(), "Arroz", "kg", categoryId, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.StockItemNotFound");
     }
 
     [Fact]
+    public void UpdateStockItem_ComCategoriaInexistenteNoPonto_DeveBloquear()
+    {
+        var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Arroz", "kg", categoryId, 0, 0, 0, true).Value;
+
+        var result = point.UpdateStockItem(itemId, "Arroz", "kg", CategoryId.New(), 0, 0, true);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("CollectionPoint.CategoryNotFound");
+    }
+
+    [Fact]
     public void UpdateStockItem_ComNomeDuplicadoDeOutroItem_DeveBloquear()
     {
         var point = TestData.Point();
-        point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, 0, 0, true);
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 0, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        point.AddStockItem("Arroz", "kg", categoryId, 0, 0, 0, true);
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 0, 0, 0, true).Value;
 
-        var result = point.UpdateStockItem(sugarId, "arroz", "kg", ItemCategory.Food, 0, 0, true);
+        var result = point.UpdateStockItem(sugarId, "arroz", "kg", categoryId, 0, 0, true);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("CollectionPoint.DuplicateStockItemName");
@@ -149,9 +183,10 @@ public class CollectionPointStockItemTests
     public void UpdateStockItem_MantendoOMesmoNome_NaoBloqueiaPorDuplicidade()
     {
         var point = TestData.Point();
-        var itemId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Arroz", "kg", categoryId, 0, 0, 0, true).Value;
 
-        var result = point.UpdateStockItem(itemId, "Arroz", "kg", ItemCategory.Food, 10, 5, true);
+        var result = point.UpdateStockItem(itemId, "Arroz", "kg", categoryId, 10, 5, true);
 
         result.IsError.Should().BeFalse();
     }
@@ -160,7 +195,8 @@ public class CollectionPointStockItemTests
     public void RemoveStockItem_NaoReferenciadoEmReceita_DeveRemover()
     {
         var point = TestData.Point();
-        var itemId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 0, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Arroz", "kg", categoryId, 0, 0, 0, true).Value;
 
         var result = point.RemoveStockItem(itemId);
 
@@ -172,7 +208,8 @@ public class CollectionPointStockItemTests
     public void RemoveStockItem_ReferenciadoEmReceita_DeveBloquear()
     {
         var point = TestData.Point();
-        var itemId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
         point.CreateBasketTemplate("Cesta básica", [(itemId, 1)]);
 
         var result = point.RemoveStockItem(itemId);
@@ -197,8 +234,9 @@ public class CollectionPointStockItemTests
     public void ReplaceStockQuantities_Valido_DeveAtualizarAsQuantidades()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 5, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 5, 0, 0, true).Value;
 
         var result = point.ReplaceStockQuantities(new Dictionary<StockItemId, int> { [riceId] = 30, [sugarId] = 12 });
 
@@ -211,7 +249,8 @@ public class CollectionPointStockItemTests
     public void ReplaceStockQuantities_ComItemInexistente_DeveBloquearSemAlterarNada()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
 
         var result = point.ReplaceStockQuantities(new Dictionary<StockItemId, int> { [riceId] = 30, [StockItemId.New()] = 5 });
 
@@ -224,7 +263,8 @@ public class CollectionPointStockItemTests
     public void ReplaceStockQuantities_ComQuantidadeNegativa_DeveBloquearSemAlterarNada()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
 
         var result = point.ReplaceStockQuantities(new Dictionary<StockItemId, int> { [riceId] = -1 });
 
@@ -237,7 +277,8 @@ public class CollectionPointStockItemTests
     public void ReplaceStockItemSettings_Valido_DeveAtualizarMetaAvisoEMonitoramento()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
 
         var result = point.ReplaceStockItemSettings(
             new Dictionary<StockItemId, (int Goal, int AlertThreshold, bool IsTracked)> { [riceId] = (50, 10, false) });
@@ -265,7 +306,8 @@ public class CollectionPointStockItemTests
     public void ReplaceStockItemSettings_ComAvisoAcimaDaMeta_DeveBloquear()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
 
         var result = point.ReplaceStockItemSettings(
             new Dictionary<StockItemId, (int Goal, int AlertThreshold, bool IsTracked)> { [riceId] = (10, 11, true) });

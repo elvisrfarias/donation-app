@@ -10,7 +10,7 @@ namespace DoacaoApp.Domain.CollectionPoints;
 /// </summary>
 public sealed class Withdrawal : Entity<WithdrawalId>
 {
-    private readonly List<ItemCategory> _categories = [];
+    private readonly List<CategoryId> _categoryIds = [];
 
     private Withdrawal()
     {
@@ -20,7 +20,7 @@ public sealed class Withdrawal : Entity<WithdrawalId>
         WithdrawalId id,
         CollectionPointId pointId,
         BeneficiaryId beneficiaryId,
-        IEnumerable<ItemCategory> categories,
+        IEnumerable<CategoryId> categoryIds,
         DateTime occurredAtUtc,
         string? notes,
         BasketTemplateId? basketTemplateId,
@@ -28,7 +28,7 @@ public sealed class Withdrawal : Entity<WithdrawalId>
     {
         PointId = pointId;
         BeneficiaryId = beneficiaryId;
-        _categories.AddRange(categories);
+        _categoryIds.AddRange(categoryIds);
         OccurredAtUtc = occurredAtUtc;
         Notes = notes;
         BasketTemplateId = basketTemplateId;
@@ -38,7 +38,7 @@ public sealed class Withdrawal : Entity<WithdrawalId>
     public CollectionPointId PointId { get; private set; }
     public BeneficiaryId BeneficiaryId { get; private set; }
     /// <summary>Itens retirados na visita (cestas básicas, roupas, calçados…), sem repetição.</summary>
-    public IReadOnlyList<ItemCategory> Categories => _categories.AsReadOnly();
+    public IReadOnlyList<CategoryId> CategoryIds => _categoryIds.AsReadOnly();
 
     /// <summary>Receita de cesta básica retirada nesta visita, se houver — dá baixa automática no estoque do ponto.</summary>
     public BasketTemplateId? BasketTemplateId { get; private set; }
@@ -55,19 +55,19 @@ public sealed class Withdrawal : Entity<WithdrawalId>
     internal static Withdrawal Create(
         CollectionPointId pointId,
         BeneficiaryId beneficiaryId,
-        IEnumerable<ItemCategory> categories,
+        IEnumerable<CategoryId> categoryIds,
         DateTime occurredAtUtc,
         string? notes,
         (BasketTemplateId Id, int Quantity)? basket = null) =>
         new(
-            WithdrawalId.New(), pointId, beneficiaryId, categories, occurredAtUtc, NormalizeNotes(notes),
+            WithdrawalId.New(), pointId, beneficiaryId, categoryIds, occurredAtUtc, NormalizeNotes(notes),
             basket?.Id, basket?.Quantity);
 
     internal void UpdateDetails(
-        IEnumerable<ItemCategory> categories, string? notes, (BasketTemplateId Id, int Quantity)? basket = null)
+        IEnumerable<CategoryId> categoryIds, string? notes, (BasketTemplateId Id, int Quantity)? basket = null)
     {
-        _categories.Clear();
-        _categories.AddRange(categories);
+        _categoryIds.Clear();
+        _categoryIds.AddRange(categoryIds);
         Notes = NormalizeNotes(notes);
         BasketTemplateId = basket?.Id;
         BasketQuantity = basket?.Quantity;

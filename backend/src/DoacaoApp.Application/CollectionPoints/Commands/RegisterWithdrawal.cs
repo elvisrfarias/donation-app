@@ -20,7 +20,7 @@ namespace DoacaoApp.Application.CollectionPoints.Commands;
 public sealed record RegisterWithdrawalCommand(
     Guid PointId,
     Guid BeneficiaryId,
-    IReadOnlyList<ItemCategory> Categories,
+    IReadOnlyList<Guid> CategoryIds,
     DateTime? OccurredAtUtc,
     string? Notes,
     Guid? BasketTemplateId = null,
@@ -35,7 +35,7 @@ public sealed class RegisterWithdrawalValidator : AbstractValidator<RegisterWith
     {
         RuleFor(x => x.PointId).NotEmpty();
         RuleFor(x => x.BeneficiaryId).NotEmpty();
-        RuleForEach(x => x.Categories).IsInEnum();
+        RuleForEach(x => x.CategoryIds).NotEmpty();
         RuleFor(x => x.Notes).MaximumLength(500);
         RuleFor(x => x.BasketQuantity)
             .GreaterThan(0)
@@ -80,7 +80,7 @@ public sealed class RegisterWithdrawalHandler(
         var basket = ToBasket(command.BasketTemplateId, command.BasketQuantity);
 
         var withdrawalResult = point.RegisterWithdrawal(
-            beneficiary, command.Categories, alreadyInCycle, occurredAt, command.Notes, basket);
+            beneficiary, command.CategoryIds.Select(CategoryId.From).ToList(), alreadyInCycle, occurredAt, command.Notes, basket);
 
         if (withdrawalResult.IsError)
         {
@@ -89,7 +89,7 @@ public sealed class RegisterWithdrawalHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return withdrawalResult.Value.ToResponse();
+        return withdrawalResult.Value.ToResponse(point.Categories);
     }
 
     private static (BasketTemplateId Id, int Quantity)? ToBasket(Guid? basketTemplateId, int? basketQuantity) =>

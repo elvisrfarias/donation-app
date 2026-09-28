@@ -1,15 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Check, Loader2, MapPin, Plus, Search, ShoppingBasket } from 'lucide-react'
-import {
-  collectionPointTypeLabels,
-  itemCategoryLabels,
-  type CollectionPoint,
-  type StockItem,
-} from '@/models/types'
+import { Check, Loader2, MapPin, Plus, Search, ShoppingBasket, Tags } from 'lucide-react'
+import { collectionPointTypeLabels, type CollectionPoint, type StockItem } from '@/models/types'
 import { cn } from '@/lib/utils'
 import { useRemoveStockItem } from '@/viewmodels'
-import { Alert, Badge, Button, Card } from '@/views/components/ui'
-import { categoryIcons } from './categoryIcons'
+import { Alert, Badge, Button, Card, EmptyState } from '@/views/components/ui'
+import { CategoryManagerModal } from './CategoryManagerModal'
+import { FALLBACK_ICON, ICON_BY_KEY } from './categoryIcons'
 import { StockItemCard } from './StockItemCard'
 import { StockItemFormModal } from './StockItemFormModal'
 import {
@@ -116,7 +112,7 @@ function CategorySection({
   onEdit: (item: StockItem) => void
   onRemove: (item: StockItem) => void
 }) {
-  const Icon = categoryIcons[group.category]
+  const Icon = ICON_BY_KEY[group.category.icon] ?? FALLBACK_ICON
   const attentionCount = itemsNeedingRestock(group.items).length
 
   return (
@@ -127,7 +123,7 @@ function CategorySection({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-stone-900">
-            {itemCategoryLabels[group.category]}
+            {group.category.name}
           </span>
           <span className="block text-xs text-stone-500">
             {group.items.length} {group.items.length === 1 ? 'item' : 'itens'}
@@ -169,11 +165,14 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
   const [formItem, setFormItem] = useState<StockItem | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<StockItem | null>(null)
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
+  const [categoryManagerStartsInCreation, setCategoryManagerStartsInCreation] = useState(false)
 
   const trimmedSearch = search.trim()
   const isSearching = trimmedSearch.length > 0
+  const hasCategories = point.categories.length > 0
 
-  const allGroups = useMemo(() => groupByCategory(items), [items])
+  const allGroups = useMemo(() => groupByCategory(items, point.categories), [items, point.categories])
   const visibleGroups = useMemo(() => {
     if (!isSearching) return allGroups
     const term = normalize(trimmedSearch)
@@ -192,6 +191,11 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
   function openAddForm() {
     setFormItem(null)
     setFormOpen(true)
+  }
+
+  function openCategoryManager(startInCreation: boolean) {
+    setCategoryManagerStartsInCreation(startInCreation)
+    setCategoryManagerOpen(true)
   }
 
   function openEditForm(item: StockItem) {
@@ -276,6 +280,17 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
             Adicionar item
           </Button>
         )}
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            leftIcon={<Tags className="size-4" />}
+            onClick={() => openCategoryManager(false)}
+            className="shrink-0"
+          >
+            Gerenciar categorias
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -294,7 +309,22 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
       {removeConflictMessage && <Alert tone="error">{removeConflictMessage}</Alert>}
 
       <div className="space-y-3">
-        {visibleGroups.length === 0 && (
+        {!hasCategories && (
+          <EmptyState
+            icon={<Tags className="size-6" />}
+            title="Nenhuma categoria cadastrada"
+            description="Crie a primeira categoria deste ponto para começar a organizar o catálogo de estoque."
+            action={
+              canEdit && (
+                <Button type="button" variant="brand" size="sm" onClick={() => openCategoryManager(true)}>
+                  Criar categoria
+                </Button>
+              )
+            }
+          />
+        )}
+
+        {hasCategories && visibleGroups.length === 0 && (
           <Alert tone="info" title={isSearching ? 'Nenhum item encontrado' : 'Catálogo vazio'}>
             {isSearching
               ? 'Tente buscar por outro nome.'
@@ -302,9 +332,9 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
           </Alert>
         )}
 
-        {visibleGroups.map((group) => (
+        {hasCategories && visibleGroups.map((group) => (
           <CategorySection
-            key={group.category}
+            key={group.category.id}
             group={group}
             quantityFor={quantityFor}
             disabled={!canEdit}
@@ -339,6 +369,14 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
         item={formItem}
         open={formOpen}
         onClose={() => setFormOpen(false)}
+      />
+
+      <CategoryManagerModal
+        point={point}
+        canEdit={canEdit}
+        open={categoryManagerOpen}
+        startInCreation={categoryManagerStartsInCreation}
+        onClose={() => setCategoryManagerOpen(false)}
       />
     </div>
   )

@@ -1,16 +1,11 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { ChevronDown, Save } from 'lucide-react'
-import {
-  cycleTypeLabels,
-  itemCategoryLabels,
-  type CollectionPoint,
-  type CycleType,
-} from '@/models/types'
+import { cycleTypeLabels, type CollectionPoint, type CycleType } from '@/models/types'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useUpdateStockItemSettings, useUpdateWithdrawalRule } from '@/viewmodels'
 import { Alert, Button, Card, FormField, Select } from '@/views/components/ui'
-import { categoryIcons } from './categoryIcons'
+import { FALLBACK_ICON, ICON_BY_KEY } from './categoryIcons'
 import {
   MAX_QUANTITY,
   MAX_WITHDRAWALS_PER_CYCLE,
@@ -157,7 +152,7 @@ function SettingsCategorySection({
   onToggle: () => void
   onChange: (itemId: string, next: ItemSetting) => void
 }) {
-  const Icon = categoryIcons[group.category]
+  const Icon = ICON_BY_KEY[group.category.icon] ?? FALLBACK_ICON
 
   return (
     <Card className="p-0">
@@ -172,7 +167,7 @@ function SettingsCategorySection({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-stone-900">
-            {itemCategoryLabels[group.category]}
+            {group.category.name}
           </span>
           <span className="block text-xs text-stone-500">
             {group.items.length} {group.items.length === 1 ? 'item' : 'itens'}
@@ -247,14 +242,17 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
     items.some((item) => settingError(visibleSettings[item.id]) !== null)
   useWarnBeforeLeaving(isDirty)
 
-  const groups = useMemo(() => groupByCategory(items), [items])
+  const groups = useMemo(
+    () => groupByCategory(items, point.categories).filter((group) => group.items.length > 0),
+    [items, point.categories],
+  )
 
-  function isExpanded(category: string): boolean {
-    return collapsedOverrides[category] !== true
+  function isExpanded(categoryId: string): boolean {
+    return collapsedOverrides[categoryId] !== true
   }
 
-  function toggleCategory(category: string) {
-    setCollapsedOverrides((previous) => ({ ...previous, [category]: isExpanded(category) }))
+  function toggleCategory(categoryId: string) {
+    setCollapsedOverrides((previous) => ({ ...previous, [categoryId]: isExpanded(categoryId) }))
   }
 
   function changeSetting(itemId: string, next: ItemSetting) {
@@ -376,12 +374,12 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
         <div className="space-y-3">
           {groups.map((group) => (
             <SettingsCategorySection
-              key={group.category}
+              key={group.category.id}
               group={group}
               draft={visibleSettings}
               disabled={!canEdit || isPending}
-              expanded={isExpanded(group.category)}
-              onToggle={() => toggleCategory(group.category)}
+              expanded={isExpanded(group.category.id)}
+              onToggle={() => toggleCategory(group.category.id)}
               onChange={changeSetting}
             />
           ))}

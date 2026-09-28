@@ -90,6 +90,28 @@ public static class DomainErrors
             Error.Conflict(
                 "CollectionPoint.BasketTemplateInUseByWithdrawal",
                 "Esta receita já foi usada em alguma retirada e não pode ser removida. Desative-a em vez de remover.");
+
+        public static Error CategoryNotFound =>
+            Error.NotFound("CollectionPoint.CategoryNotFound", "Categoria não encontrada neste ponto.");
+
+        public static Error CategoryNameRequired =>
+            Error.Validation("CollectionPoint.CategoryNameRequired", "O nome da categoria é obrigatório.");
+
+        public static Error CategoryIconRequired =>
+            Error.Validation("CollectionPoint.CategoryIconRequired", "O ícone da categoria é obrigatório.");
+
+        public static Error DuplicateCategoryName =>
+            Error.Conflict("CollectionPoint.DuplicateCategoryName", "Já existe uma categoria com este nome neste ponto.");
+
+        public static Error CategoryInUseByStockItem =>
+            Error.Conflict(
+                "CollectionPoint.CategoryInUseByStockItem",
+                "Esta categoria está em uso em um item de estoque e não pode ser removida.");
+
+        public static Error CategoryInUseByWithdrawal =>
+            Error.Conflict(
+                "CollectionPoint.CategoryInUseByWithdrawal",
+                "Esta categoria já foi usada em alguma retirada e não pode ser removida.");
     }
 
     public static class StockSetting

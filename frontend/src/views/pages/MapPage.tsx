@@ -19,7 +19,6 @@ import { sharePoint } from '@/lib/pointActions'
 import {
   collectionPointTypeLabels,
   formatAddress,
-  itemCategoryLabels,
   type CollectionPoint,
   type CollectionPointType,
 } from '@/models/types'
@@ -29,6 +28,7 @@ import { CollectionPointsMap } from '@/views/components/map/CollectionPointsMap'
 import { colorByType } from '@/views/components/map/markerIcon'
 import { PointReviewsModal } from '@/views/components/reviews/PointReviewsModal'
 import { StarRating } from '@/views/components/reviews/StarRating'
+import { FALLBACK_ICON, ICON_BY_KEY } from '@/views/components/stock/categoryIcons'
 import { CenteredSpinner, EmptyState, Select } from '@/views/components/ui'
 
 const typeIcon: Record<CollectionPointType, typeof Building2> = {
@@ -222,16 +222,20 @@ export function MapPage() {
                             </p>
                           )}
                         </div>
-                        {item.acceptedItems.length > 0 && (
+                        {item.categories.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {item.acceptedItems.map((category) => (
-                              <span
-                                key={category}
-                                className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 ring-1 ring-stone-200 ring-inset"
-                              >
-                                {itemCategoryLabels[category]}
-                              </span>
-                            ))}
+                            {item.categories.map((category) => {
+                              const Icon = ICON_BY_KEY[category.icon] ?? FALLBACK_ICON
+                              return (
+                                <span
+                                  key={category.id}
+                                  className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 ring-1 ring-stone-200 ring-inset"
+                                >
+                                  <Icon className="size-3" aria-hidden />
+                                  {category.name}
+                                </span>
+                              )
+                            })}
                           </div>
                         )}
                         {item.needs.length > 0 && (

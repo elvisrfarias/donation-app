@@ -1,4 +1,4 @@
-import { itemCategoryValues, type CollectionPoint, type ItemCategory } from '@/models/types'
+import type { Category, CollectionPoint } from '@/models/types'
 
 /**
  * Só é possível retirar categorias com algum item acompanhado (a mesma configuração da aba "Metas
@@ -9,11 +9,11 @@ import { itemCategoryValues, type CollectionPoint, type ItemCategory } from '@/m
  * estoque — quem está sujeita à regra de equidade e consome estoque é a cesta básica
  * (`BasketTemplate`), tratada à parte na seção "Cesta básica" do formulário de retirada.
  */
-export function availableWithdrawalCategories(point: CollectionPoint): ItemCategory[] {
-  const available = new Set(
+export function availableWithdrawalCategories(point: CollectionPoint): Category[] {
+  const availableCategoryIds = new Set(
     point.stockItems
       .filter((item) => item.isTracked && item.quantity > 0)
-      .map((item) => item.category),
+      .map((item) => item.categoryId),
   )
-  return itemCategoryValues.filter((category) => available.has(category))
+  return point.categories.filter((category) => availableCategoryIds.has(category.id))
 }

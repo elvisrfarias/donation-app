@@ -3,9 +3,11 @@ import type {
   CollectionPoint,
   CollectionPointDashboard,
   CreateBasketTemplateInput,
+  CreateCategoryInput,
   CreateCollectionPointInput,
   CreateStockItemInput,
   UpdateBasketTemplateInput,
+  UpdateCategoryInput,
   UpdateCollectionPointInput,
   UpdateStockItemInput,
   UpdateStockItemSettingsInput,
@@ -158,5 +160,29 @@ export const collectionPointService = {
   /** Remove uma receita de cesta básica do ponto (requer role Admin ou PointManager). */
   async removeBasketTemplate(id: string, templateId: string): Promise<void> {
     await http.delete(`/collection-points/${id}/basket-templates/${templateId}`)
+  },
+
+  /** Cadastra uma nova categoria no catálogo do ponto (requer role Admin ou PointManager). */
+  async createCategory(id: string, input: CreateCategoryInput): Promise<CollectionPoint> {
+    const { data } = await http.post<CollectionPoint>(`/collection-points/${id}/categories`, input)
+    return data
+  },
+
+  /** Atualiza nome e ícone de uma categoria existente do ponto (requer role Admin ou PointManager). */
+  async updateCategory(
+    id: string,
+    categoryId: string,
+    input: UpdateCategoryInput,
+  ): Promise<CollectionPoint> {
+    const { data } = await http.put<CollectionPoint>(
+      `/collection-points/${id}/categories/${categoryId}`,
+      input,
+    )
+    return data
+  },
+
+  /** Remove uma categoria do catálogo do ponto (falha se estiver em uso por item de estoque ou retirada). */
+  async removeCategory(id: string, categoryId: string): Promise<void> {
+    await http.delete(`/collection-points/${id}/categories/${categoryId}`)
   },
 }

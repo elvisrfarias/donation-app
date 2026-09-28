@@ -23,7 +23,7 @@ public class CreateBasketTemplateHandlerTests
     public async Task Handle_Valido_DeveCriarESalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var rice = point.AddStockItem("Arroz", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
 
         var command = new CreateBasketTemplateCommand(
             point.Id.Value, "Cesta básica", [new BasketTemplateItemEntry(rice.Value, 2)]);

@@ -23,9 +23,10 @@ public class UpdateStockItemHandlerTests
     public async Task Handle_Valido_DeveAtualizarESalvar()
     {
         var point = GivenPoint();
-        var itemId = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var categoryId = TestData.EnsureCategory(point);
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", categoryId, 10, 0, 5, true).Value;
         var command = new UpdateStockItemCommand(
-            point.Id.Value, itemId.Value, "Arroz 5kg", "kg", ItemCategory.Food, Goal: 50, AlertThreshold: 10, IsTracked: false);
+            point.Id.Value, itemId.Value, "Arroz 5kg", "kg", categoryId.Value, Goal: 50, AlertThreshold: 10, IsTracked: false);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -36,12 +37,31 @@ public class UpdateStockItemHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ComOutraCategoria_DeveDenormalizarONomeEIconeDaNovaCategoria()
+    {
+        var point = GivenPoint();
+        var foodCategory = point.AddCategory("Alimentos", "food").Value;
+        var clothingCategory = point.AddCategory("Roupas", "shirt").Value;
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", foodCategory, 10, 0, 5, true).Value;
+        var command = new UpdateStockItemCommand(
+            point.Id.Value, itemId.Value, "Arroz 1kg", "kg", clothingCategory.Value, Goal: 0, AlertThreshold: 5, IsTracked: true);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        var item = result.Value.StockItems.Should().ContainSingle().Subject;
+        item.CategoryId.Should().Be(clothingCategory.Value);
+        item.CategoryName.Should().Be("Roupas");
+        item.CategoryIcon.Should().Be("shirt");
+    }
+
+    [Fact]
     public async Task Handle_ComAvisoAcimaDaMeta_DeveBloquearENaoSalvar()
     {
         var point = GivenPoint();
-        var itemId = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var categoryId = TestData.EnsureCategory(point);
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", categoryId, 10, 0, 5, true).Value;
         var command = new UpdateStockItemCommand(
-            point.Id.Value, itemId.Value, "Arroz 1kg", "kg", ItemCategory.Food, Goal: 10, AlertThreshold: 20, IsTracked: true);
+            point.Id.Value, itemId.Value, "Arroz 1kg", "kg", categoryId.Value, Goal: 10, AlertThreshold: 20, IsTracked: true);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -50,11 +70,26 @@ public class UpdateStockItemHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ComCategoriaInexistenteNoPonto_DeveBloquearENaoSalvar()
+    {
+        var point = GivenPoint();
+        var categoryId = TestData.EnsureCategory(point);
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", categoryId, 10, 0, 5, true).Value;
+        var command = new UpdateStockItemCommand(
+            point.Id.Value, itemId.Value, "Arroz 1kg", "kg", Guid.NewGuid(), Goal: 0, AlertThreshold: 5, IsTracked: true);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("CollectionPoint.CategoryNotFound");
+    }
+
+    [Fact]
     public async Task Handle_ComItemInexistente_DeveRetornarNotFound()
     {
         var point = GivenPoint();
+        var categoryId = TestData.EnsureCategory(point);
         var command = new UpdateStockItemCommand(
-            point.Id.Value, Guid.NewGuid(), "Arroz", "kg", ItemCategory.Food, 0, 5, true);
+            point.Id.Value, Guid.NewGuid(), "Arroz", "kg", categoryId.Value, 0, 5, true);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -69,7 +104,7 @@ public class UpdateStockItemHandlerTests
             .ReturnsAsync((CollectionPoint?)null);
 
         var result = await CreateSut().Handle(
-            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", "kg", ItemCategory.Food, 0, 5, true),
+            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", "kg", Guid.NewGuid(), 0, 5, true),
             CancellationToken.None);
 
         result.FirstError.Code.Should().Be("CollectionPoint.NotFound");
@@ -80,7 +115,7 @@ public class UpdateStockItemHandlerTests
     {
         var pointId = Guid.NewGuid();
 
-        new UpdateStockItemCommand(pointId, Guid.NewGuid(), "Arroz", "kg", ItemCategory.Food, 0, 5, true)
+        new UpdateStockItemCommand(pointId, Guid.NewGuid(), "Arroz", "kg", Guid.NewGuid(), 0, 5, true)
             .Should().BeAssignableTo<IScopedToCollectionPoint>()
             .Which.CollectionPointId.Should().Be(pointId);
     }

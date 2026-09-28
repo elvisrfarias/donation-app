@@ -15,7 +15,7 @@ public sealed record UpdateStockItemCommand(
     Guid StockItemId,
     string Name,
     string Unit,
-    ItemCategory Category,
+    Guid CategoryId,
     int Goal,
     int AlertThreshold,
     bool IsTracked) : IRequest<ErrorOr<CollectionPointResponse>>, IScopedToCollectionPoint
@@ -31,7 +31,7 @@ public sealed class UpdateStockItemValidator : AbstractValidator<UpdateStockItem
         RuleFor(x => x.StockItemId).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
         RuleFor(x => x.Unit).NotEmpty().MaximumLength(20);
-        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.CategoryId).NotEmpty();
         RuleFor(x => x.Goal).GreaterThanOrEqualTo(0);
         RuleFor(x => x.AlertThreshold).GreaterThanOrEqualTo(0);
     }
@@ -56,7 +56,7 @@ public sealed class UpdateStockItemHandler(
             StockItemId.From(command.StockItemId),
             command.Name,
             command.Unit,
-            command.Category,
+            CategoryId.From(command.CategoryId),
             command.Goal,
             command.AlertThreshold,
             command.IsTracked);

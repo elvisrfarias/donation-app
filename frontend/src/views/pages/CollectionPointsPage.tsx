@@ -16,8 +16,6 @@ import { useNavigate } from 'react-router-dom'
 import { downloadCsv } from '@/lib/csv'
 import {
   collectionPointTypeLabels,
-  itemCategoryLabels,
-  itemCategoryValues,
   type CollectionPoint,
   type CollectionPointType,
 } from '@/models/types'
@@ -35,6 +33,7 @@ import { DataTable, type RowAction } from '@/views/components/data-table'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
 import { AddressLocationField } from '@/views/components/map/AddressLocationField'
 import { ModalComponent } from '@/views/components/modal'
+import { FALLBACK_ICON, ICON_BY_KEY } from '@/views/components/stock/categoryIcons'
 import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
 
 const typeIcon: Record<CollectionPointType, typeof Building2> = {
@@ -85,20 +84,24 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
   },
   {
     id: 'items',
-    accessorFn: (row) => row.acceptedItems.map((i) => itemCategoryLabels[i]).join(', '),
+    accessorFn: (row) => row.categories.map((category) => category.name).join(', '),
     header: 'Itens',
     enableSorting: false,
     meta: { label: 'Itens', filterPlaceholder: 'Filtrar item…' },
     cell: ({ row }) => {
-      const items = row.original.acceptedItems
-      if (items.length === 0) return <span className="text-xs text-stone-400">—</span>
+      const categories = row.original.categories
+      if (categories.length === 0) return <span className="text-xs text-stone-400">—</span>
       return (
         <div className="flex max-w-56 flex-wrap gap-1">
-          {items.map((item) => (
-            <Badge key={item} tone="slate">
-              {itemCategoryLabels[item]}
-            </Badge>
-          ))}
+          {categories.map((category) => {
+            const Icon = ICON_BY_KEY[category.icon] ?? FALLBACK_ICON
+            return (
+              <Badge key={category.id} tone="slate">
+                <Icon className="size-3" aria-hidden />
+                {category.name}
+              </Badge>
+            )
+          })}
         </div>
       )
     },
@@ -142,11 +145,6 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
 const typeOptions: SelectOption[] = Object.entries(collectionPointTypeLabels).map(
   ([value, label]) => ({ value, label }),
 )
-
-const itemCategoryOptions: SelectOption[] = itemCategoryValues.map((value) => ({
-  value,
-  label: itemCategoryLabels[value],
-}))
 
 const collectionPointFields: FormFieldConfig[] = [
   { name: 'name', type: 'text', label: 'Nome', required: true, colSpan: 'full' },
@@ -198,15 +196,6 @@ const collectionPointFields: FormFieldConfig[] = [
     required: true,
   },
   {
-    name: 'acceptedItems',
-    type: 'multiselect',
-    label: 'Itens disponíveis',
-    hint: 'Selecione as categorias de itens que o ponto recebe/disponibiliza.',
-    options: itemCategoryOptions,
-    required: true,
-    colSpan: 'full',
-  },
-  {
     name: 'image',
     type: 'image',
     label: 'Imagem do ponto',
@@ -232,7 +221,6 @@ const collectionPointDefaults: CreateCollectionPointForm = {
   responsibleName: '',
   email: '',
   phone: '',
-  acceptedItems: [],
   image: undefined as unknown as File,
 }
 
@@ -274,7 +262,6 @@ export function CollectionPointsPage() {
     responsibleName: editingPoint.contact.responsibleName,
     email: editingPoint.contact.email,
     phone: maskPhone(editingPoint.contact.phone),
-    acceptedItems: editingPoint.acceptedItems,
     image: undefined,
   }
 
@@ -353,7 +340,7 @@ export function CollectionPointsPage() {
                       p.averageRating.toFixed(1),
                       p.reviewCount,
                       p.beneficiariesServed,
-                      p.acceptedItems.map((i) => itemCategoryLabels[i]).join(', '),
+                      p.categories.map((category) => category.name).join(', '),
                     ]),
                   )
                 }

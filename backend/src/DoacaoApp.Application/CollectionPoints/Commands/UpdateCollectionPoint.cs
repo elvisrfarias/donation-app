@@ -27,7 +27,6 @@ public sealed record UpdateCollectionPointCommand(
     string ResponsibleName,
     string Email,
     string Phone,
-    IReadOnlyList<ItemCategory> AcceptedItems,
     Guid? ImageFileId,
     double? Latitude = null,
     double? Longitude = null,
@@ -52,9 +51,6 @@ public sealed class UpdateCollectionPointValidator : AbstractValidator<UpdateCol
         RuleFor(x => x.Description).MaximumLength(CollectionPoint.MaxDescriptionLength);
         RuleFor(x => x.OpeningHours).MaximumLength(CollectionPoint.MaxOpeningHoursLength);
         RuleForEach(x => x.Needs).MaximumLength(CollectionPoint.MaxNeedLength);
-        RuleFor(x => x.AcceptedItems)
-            .NotEmpty().WithMessage("Informe ao menos uma categoria de itens do ponto de coleta.");
-        RuleForEach(x => x.AcceptedItems).IsInEnum();
     }
 }
 
@@ -97,7 +93,6 @@ public sealed class UpdateCollectionPointHandler(
 
         point.UpdateAddress(address.Value);
         point.UpdateContact(contact.Value);
-        point.UpdateAcceptedItems(command.AcceptedItems);
         point.UpdateDescription(command.Description);
         point.UpdateOpeningHours(command.OpeningHours);
         point.UpdateNeeds(command.Needs);

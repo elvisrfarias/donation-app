@@ -30,3 +30,6 @@ public sealed class StockItemIdConverter()
 
 public sealed class BasketTemplateIdConverter()
     : ValueConverter<BasketTemplateId, Guid>(id => id.Value, value => BasketTemplateId.From(value));
+
+public sealed class CategoryIdConverter()
+    : ValueConverter<CategoryId, Guid>(id => id.Value, value => CategoryId.From(value));

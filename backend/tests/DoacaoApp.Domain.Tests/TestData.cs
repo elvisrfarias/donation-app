@@ -39,13 +39,22 @@ public static class TestData
             pointId ?? CollectionPointId.New(),
             Now).Value;
 
+    public static CategoryId AddCategory(CollectionPoint point, string name = "Alimentos", string icon = "food") =>
+        point.AddCategory(name, icon).Value;
+
+    public static CategoryId EnsureCategory(CollectionPoint point, string name = "Alimentos", string icon = "food")
+    {
+        var existing = point.Categories.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        return existing?.Id ?? AddCategory(point, name, icon);
+    }
+
     public static StockItemId AddStockItem(
         CollectionPoint point,
         string name = "Arroz",
         string unit = "kg",
         int quantity = 10,
-        ItemCategory category = ItemCategory.Food) =>
-        point.AddStockItem(name, unit, category, quantity, goal: 0, alertThreshold: 0, isTracked: true).Value;
+        CategoryId? categoryId = null) =>
+        point.AddStockItem(name, unit, categoryId ?? EnsureCategory(point), quantity, goal: 0, alertThreshold: 0, isTracked: true).Value;
 
     public static BasketTemplateId CreateBasketTemplate(
         CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>

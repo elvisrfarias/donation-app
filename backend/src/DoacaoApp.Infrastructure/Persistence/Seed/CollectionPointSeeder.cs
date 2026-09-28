@@ -136,6 +136,20 @@ public static class CollectionPointSeeder
         "Cidade Alta",
     ];
 
+    private static readonly (string Name, string Icon)[] SampleCategories =
+    [
+        ("Alimentos", "apple"),
+        ("Roupas", "shirt"),
+        ("Calçados", "footprints"),
+        ("Higiene", "spray-can"),
+        ("Limpeza", "brush"),
+        ("Móveis", "armchair"),
+        ("Eletrodomésticos", "refrigerator"),
+        ("Brinquedos", "puzzle"),
+        ("Livros", "book-open"),
+        ("Medicamentos", "pill"),
+    ];
+
     private static readonly string[] Responsibles =
     [
         "Maria Aparecida Souza",
@@ -200,13 +214,14 @@ public static class CollectionPointSeeder
                 continue;
             }
 
-            var point = CollectionPoint.Create(
-                name, type, address.Value, contact.Value, now, PickItems(random));
+            var point = CollectionPoint.Create(name, type, address.Value, contact.Value, now);
             if (point.IsError)
             {
                 logger.LogWarning("Seed: falha ao criar ponto em {City}: {Error}", place.City, point.FirstError.Description);
                 continue;
             }
+
+            AddSampleCategories(point.Value, random);
 
             repository.Add(point.Value);
             created++;
@@ -219,17 +234,20 @@ public static class CollectionPointSeeder
             OesteSantaCatarina.Length);
     }
 
-    private static IReadOnlyList<ItemCategory> PickItems(Random random)
+    private static void AddSampleCategories(CollectionPoint point, Random random)
     {
-        var all = Enum.GetValues<ItemCategory>();
         var count = random.Next(1, 5);
-        var picked = new HashSet<ItemCategory>();
-        while (picked.Count < count)
+        var pickedIndexes = new HashSet<int>();
+        while (pickedIndexes.Count < count)
         {
-            picked.Add(all[random.Next(all.Length)]);
+            pickedIndexes.Add(random.Next(SampleCategories.Length));
         }
 
-        return [.. picked];
+        foreach (var index in pickedIndexes)
+        {
+            var (categoryName, icon) = SampleCategories[index];
+            point.AddCategory(categoryName, icon);
+        }
     }
 
     private static string BuildName(CollectionPointType type, string city, string district, Random random)

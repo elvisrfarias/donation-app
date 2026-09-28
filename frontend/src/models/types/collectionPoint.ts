@@ -2,46 +2,24 @@ import type { Cycle, CycleType } from './beneficiary'
 
 export type CollectionPointType = 'Association' | 'Church' | 'PublicEntity'
 
-/** Categorias de itens que um ponto recebe/disponibiliza (espelha o enum ItemCategory do backend). */
-export type ItemCategory =
-  | 'Food'
-  | 'Clothing'
-  | 'Footwear'
-  | 'Hygiene'
-  | 'Cleaning'
-  | 'Furniture'
-  | 'Appliances'
-  | 'Toys'
-  | 'Books'
-  | 'Medicine'
-  | 'Other'
+/** Categoria dinâmica do catálogo do ponto (agrupa estoque, checklist de retirada e itens
+ *  aceitos no mapa público). CategoryResponse do backend. Ponto novo nasce sem nenhuma. */
+export interface Category {
+  id: string
+  name: string
+  icon: string
+}
 
-export const itemCategoryValues: ItemCategory[] = [
-  'Food',
-  'Clothing',
-  'Footwear',
-  'Hygiene',
-  'Cleaning',
-  'Furniture',
-  'Appliances',
-  'Toys',
-  'Books',
-  'Medicine',
-  'Other',
-]
+/** Corpo do CreateCategoryCommand. */
+export interface CreateCategoryInput {
+  name: string
+  icon: string
+}
 
-export const itemCategoryLabels: Record<ItemCategory, string> = {
-  Food: 'Alimentos',
-  Clothing: 'Roupas',
-  Footwear: 'Calçados',
-  Hygiene: 'Higiene',
-  Cleaning: 'Limpeza',
-  Furniture: 'Móveis',
-  Appliances: 'Eletrodomésticos',
-  Toys: 'Brinquedos',
-  Books: 'Livros',
-  Medicine: 'Medicamentos',
-  Other: 'Outros',
+/** Corpo do UpdateCategoryCommand. */
+export interface UpdateCategoryInput {
+  name: string
+  icon: string
 }
 
 export interface Address {
@@ -66,12 +44,16 @@ export interface Contact {
 /** Classificação de estoque de um item, computada pelo backend (ver `StatusOf` em `CollectionPointResponse`). */
 export type StockItemStatus = 'out' | 'low' | 'goal' | 'ok'
 
-/** Um item granular do catálogo de estoque de um ponto (ex.: "Arroz 1kg"). StockItemResponse do backend. */
+/** Um item granular do catálogo de estoque de um ponto (ex.: "Arroz 1kg"). StockItemResponse do backend.
+ *  `categoryName`/`categoryIcon` já vêm resolvidos pelo backend a partir do catálogo de categorias do
+ *  próprio ponto — não é preciso cruzar com `CollectionPoint.categories` para renderizar. */
 export interface StockItem {
   id: string
   name: string
   unit: string
-  category: ItemCategory
+  categoryId: string
+  categoryName: string
+  categoryIcon: string
   quantity: number
   /** Meta desejada (0 = sem meta). */
   goal: number
@@ -87,7 +69,7 @@ export interface StockItem {
 export interface CreateStockItemInput {
   name: string
   unit: string
-  category: ItemCategory
+  categoryId: string
   initialQuantity: number
   goal: number
   alertThreshold: number
@@ -98,7 +80,7 @@ export interface CreateStockItemInput {
 export interface UpdateStockItemInput {
   name: string
   unit: string
-  category: ItemCategory
+  categoryId: string
   goal: number
   alertThreshold: number
   isTracked: boolean
@@ -205,8 +187,9 @@ export interface CollectionPoint {
   contact: Contact
   isActive: boolean
   createdAtUtc: string
-  /** Categorias de itens declaradas pelo ponto (ex.: Food, Clothing). */
-  acceptedItems: ItemCategory[]
+  /** Catálogo de categorias do ponto (sempre preenchido, em toda visibilidade) — é o que aparece
+   *  como "o que este ponto aceita" no mapa público, e agrupa o estoque e o checklist de retirada. */
+  categories: Category[]
   /** URL (temporária) da foto do ponto. Nulo nos pontos antigos/seed — a UI cai no ícone. */
   imageUrl?: string | null
   /** Média das notas (0 quando ainda não há avaliações). */
@@ -225,10 +208,18 @@ export interface WithdrawalsSeriesPoint {
   count: number
 }
 
+/** Categoria já resolvida (nome/ícone) de um item retirado — mesmo formato usado no histórico de
+ *  retiradas do beneficiário (`WithdrawalCategoryResponse` do backend). */
+export interface WithdrawalCategoryRef {
+  categoryId: string
+  categoryName: string
+  categoryIcon: string
+}
+
 export interface RecentWithdrawal {
   withdrawalId: string
   beneficiaryName: string
-  categories: ItemCategory[]
+  categories: WithdrawalCategoryRef[]
   occurredAtUtc: string
 }
 
@@ -263,8 +254,6 @@ export interface CreateCollectionPointInput {
   responsibleName: string
   email: string
   phone: string
-  /** Categorias de itens do ponto (ao menos uma). */
-  acceptedItems: ItemCategory[]
   /** Id do arquivo de imagem já enviado (POST /api/files). Obrigatório. */
   imageFileId: string
   /** Coordenadas exatas do ponto no mapa (opcionais). */
@@ -290,7 +279,6 @@ export interface UpdateCollectionPointInput {
   responsibleName: string
   email: string
   phone: string
-  acceptedItems: ItemCategory[]
   /** Id da nova imagem (POST /api/files). Omitido mantém a imagem atual. */
   imageFileId?: string | null
   /** Coordenadas exatas do ponto no mapa (opcionais). */

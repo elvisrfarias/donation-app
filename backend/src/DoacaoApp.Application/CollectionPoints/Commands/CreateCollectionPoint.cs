@@ -25,7 +25,6 @@ public sealed record CreateCollectionPointCommand(
     string ResponsibleName,
     string Email,
     string Phone,
-    IReadOnlyList<ItemCategory> AcceptedItems,
     Guid ImageFileId,
     double? Latitude = null,
     double? Longitude = null,
@@ -49,9 +48,6 @@ public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCol
         RuleFor(x => x.Description).MaximumLength(CollectionPoint.MaxDescriptionLength);
         RuleFor(x => x.OpeningHours).MaximumLength(CollectionPoint.MaxOpeningHoursLength);
         RuleForEach(x => x.Needs).MaximumLength(CollectionPoint.MaxNeedLength);
-        RuleFor(x => x.AcceptedItems)
-            .NotEmpty().WithMessage("Informe ao menos uma categoria de itens do ponto de coleta.");
-        RuleForEach(x => x.AcceptedItems).IsInEnum();
         RuleFor(x => x.ImageFileId).NotEmpty().WithMessage("A imagem do ponto de coleta é obrigatória.");
     }
 }
@@ -95,7 +91,7 @@ public sealed class CreateCollectionPointHandler(
         var now = clock.UtcNow;
         var pointResult = CollectionPoint.Create(
             command.Name, command.Type, address.Value, contact.Value, now,
-            command.AcceptedItems, image.Id, command.Description,
+            image.Id, command.Description,
             command.OpeningHours, command.Needs);
 
         if (pointResult.IsError)

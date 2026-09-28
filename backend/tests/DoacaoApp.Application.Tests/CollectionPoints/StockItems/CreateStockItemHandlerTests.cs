@@ -23,8 +23,9 @@ public class CreateStockItemHandlerTests
     public async Task Handle_Valido_DeveCadastrarESalvar()
     {
         var point = GivenPoint();
+        var categoryId = TestData.EnsureCategory(point);
         var command = new CreateStockItemCommand(
-            point.Id.Value, "Arroz 1kg", "kg", ItemCategory.Food, InitialQuantity: 10, Goal: 50, AlertThreshold: 5, IsTracked: true);
+            point.Id.Value, "Arroz 1kg", "kg", categoryId.Value, InitialQuantity: 10, Goal: 50, AlertThreshold: 5, IsTracked: true);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -34,16 +35,46 @@ public class CreateStockItemHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DeveDenormalizarNomeEIconeDaCategoria()
+    {
+        var point = GivenPoint();
+        var categoryId = point.AddCategory("Alimentos", "food").Value;
+        var command = new CreateStockItemCommand(
+            point.Id.Value, "Arroz 1kg", "kg", categoryId.Value, InitialQuantity: 10, Goal: 50, AlertThreshold: 5, IsTracked: true);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        var item = result.Value.StockItems.Should().ContainSingle().Subject;
+        item.CategoryId.Should().Be(categoryId.Value);
+        item.CategoryName.Should().Be("Alimentos");
+        item.CategoryIcon.Should().Be("food");
+    }
+
+    [Fact]
     public async Task Handle_ComNomeDuplicado_DeveBloquearENaoSalvar()
     {
         var point = GivenPoint();
-        point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 0, 0, 5, true);
+        var categoryId = TestData.EnsureCategory(point);
+        point.AddStockItem("Arroz 1kg", "kg", categoryId, 0, 0, 5, true);
         var command = new CreateStockItemCommand(
-            point.Id.Value, "arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true);
+            point.Id.Value, "arroz 1kg", "kg", categoryId.Value, 10, 0, 5, true);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
         result.FirstError.Code.Should().Be("CollectionPoint.DuplicateStockItemName");
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ComCategoriaInexistenteNoPonto_DeveBloquearENaoSalvar()
+    {
+        var point = GivenPoint();
+        var command = new CreateStockItemCommand(
+            point.Id.Value, "Arroz 1kg", "kg", Guid.NewGuid(), 10, 0, 5, true);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("CollectionPoint.CategoryNotFound");
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -55,7 +86,7 @@ public class CreateStockItemHandlerTests
             .ReturnsAsync((CollectionPoint?)null);
 
         var result = await CreateSut().Handle(
-            new CreateStockItemCommand(Guid.NewGuid(), "Arroz", "kg", ItemCategory.Food, 0, 0, 0, true),
+            new CreateStockItemCommand(Guid.NewGuid(), "Arroz", "kg", Guid.NewGuid(), 0, 0, 0, true),
             CancellationToken.None);
 
         result.FirstError.Code.Should().Be("CollectionPoint.NotFound");
@@ -66,7 +97,7 @@ public class CreateStockItemHandlerTests
     {
         var pointId = Guid.NewGuid();
 
-        new CreateStockItemCommand(pointId, "Arroz", "kg", ItemCategory.Food, 0, 0, 0, true)
+        new CreateStockItemCommand(pointId, "Arroz", "kg", Guid.NewGuid(), 0, 0, 0, true)
             .Should().BeAssignableTo<IScopedToCollectionPoint>()
             .Which.CollectionPointId.Should().Be(pointId);
     }

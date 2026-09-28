@@ -34,21 +34,21 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_InformaQueOLimiteEPorCestaBasicaEListaTodasAsRetiradas()
+    public async Task Handle_InformaQueOLimiteEPorCestaBasicaEListaTodasAsRetiradasComACategoriaDenormalizada()
     {
         var point = GivenPoint(maxPerCycle: 3);
         var beneficiary = GivenBeneficiaryWithUsage(point, usedInCycle: 1);
-        var clothing = point.RegisterWithdrawal(beneficiary, [ItemCategory.Clothing], 0, TestData.Now, null).Value;
-        var food = point.RegisterWithdrawal(beneficiary, [ItemCategory.Food], 0, TestData.Now.AddDays(-1), null).Value;
-        _pointRepo
-            .Setup(r => r.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([clothing, food]);
+        var clothingCategory = point.AddCategory("Roupas", "shirt").Value;
+        var foodCategory = point.AddCategory("Alimentos", "food").Value;
+        var clothing = point.RegisterWithdrawal(beneficiary, [clothingCategory], 0, TestData.Now, null).Value;
+        var food = point.RegisterWithdrawal(beneficiary, [foodCategory], 0, TestData.Now.AddDays(-1), null).Value;
+        GivenHistory(point, beneficiary, [clothing, food]);
 
         var result = await CreateSut().Handle(
             new GetBeneficiaryWithdrawalHistoryQuery(beneficiary.Id.Value, point.Id.Value), CancellationToken.None);
 
         result.Value.LimitedCategory.Should().Be("Basket");
-        result.Value.Withdrawals.SelectMany(w => w.Categories).Should().Equal("Clothing", "Food");
+        result.Value.Withdrawals.SelectMany(w => w.Categories).Select(c => c.CategoryName).Should().Equal("Roupas", "Alimentos");
     }
 
     [Fact]
@@ -118,9 +118,23 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
             .Setup(r => r.CountBeneficiaryBasketWithdrawalsAsync(
                 beneficiary.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(usedInCycle);
+        GivenHistory(point, beneficiary, []);
+        return beneficiary;
+    }
+
+    /// <summary>
+    /// Simula o repositório real: o histórico municipal devolve as retiradas tal como estão, e as
+    /// categorias resolvidas vêm de uma consulta separada por ids — aqui restrita ao catálogo do
+    /// próprio ponto usado no teste, já que este cenário não abrange vários pontos.
+    /// </summary>
+    private void GivenHistory(CollectionPoint point, Beneficiary beneficiary, IReadOnlyList<Withdrawal> history)
+    {
         _pointRepo
             .Setup(r => r.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-        return beneficiary;
+            .ReturnsAsync(history);
+        _pointRepo
+            .Setup(r => r.GetCategoriesByIdsAsync(It.IsAny<IReadOnlyCollection<CategoryId>>(), It.IsAny<CancellationToken>()))
+            .Returns<IReadOnlyCollection<CategoryId>, CancellationToken>((ids, _) =>
+                Task.FromResult<IReadOnlyList<Category>>([.. point.Categories.Where(c => ids.Contains(c.Id))]));
     }
 }

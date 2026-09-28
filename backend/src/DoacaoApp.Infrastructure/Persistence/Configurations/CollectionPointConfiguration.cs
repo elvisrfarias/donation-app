@@ -50,29 +50,6 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
             .FindProperty(nameof(CollectionPoint.Needs))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
-        var itemsConverter = new ValueConverter<IReadOnlyList<ItemCategory>, string>(
-            items => string.Join(',', items.Select(static i => i.ToString())),
-            value => value.Length == 0
-                ? new List<ItemCategory>()
-                : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(Enum.Parse<ItemCategory>)
-                    .ToList());
-
-        var itemsComparer = new ValueComparer<IReadOnlyList<ItemCategory>>(
-            (a, b) => a!.SequenceEqual(b!),
-            items => items.Aggregate(0, (hash, i) => HashCode.Combine(hash, (int)i)),
-            items => items.ToList());
-
-        builder.Property(p => p.AcceptedItems)
-            .HasColumnName("accepted_items")
-            .HasConversion(itemsConverter, itemsComparer)
-            .HasMaxLength(300)
-            .IsRequired()
-            .HasDefaultValue(new List<ItemCategory>());
-        builder.Metadata
-            .FindProperty(nameof(CollectionPoint.AcceptedItems))!
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
-
         builder.Property(p => p.IsActive).IsRequired();
         builder.Property(p => p.CreatedAtUtc).IsRequired();
 
@@ -127,6 +104,15 @@ public sealed class CollectionPointConfiguration : IEntityTypeConfiguration<Coll
 
         builder.Metadata
             .FindNavigation(nameof(CollectionPoint.BasketTemplates))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(p => p.Categories)
+            .WithOne()
+            .HasForeignKey(c => c.PointId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata
+            .FindNavigation(nameof(CollectionPoint.Categories))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

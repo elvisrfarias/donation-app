@@ -24,7 +24,7 @@ public class RemoveStockItemHandlerTests
     public async Task Handle_Valido_DeveRemoverESalvar()
     {
         var point = GivenPoint();
-        var itemId = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
 
         var result = await CreateSut().Handle(new RemoveStockItemCommand(point.Id.Value, itemId.Value), CancellationToken.None);
 
@@ -38,7 +38,7 @@ public class RemoveStockItemHandlerTests
     public async Task Handle_ComItemUsadoPorReceitaDeCesta_DeveBloquearENaoSalvar()
     {
         var point = GivenPoint();
-        var itemId = point.AddStockItem("Arroz 1kg", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var itemId = point.AddStockItem("Arroz 1kg", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
         point.CreateBasketTemplate("Cesta", [(itemId, 1)]);
 
         var result = await CreateSut().Handle(new RemoveStockItemCommand(point.Id.Value, itemId.Value), CancellationToken.None);

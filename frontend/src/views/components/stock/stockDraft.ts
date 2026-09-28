@@ -1,12 +1,11 @@
-import {
-  itemCategoryValues,
-  type BasketTemplate,
-  type CollectionPoint,
-  type CycleType,
-  type ItemCategory,
-  type StockItem,
-  type StockItemSettingEntry,
-  type StockItemStatus,
+import type {
+  BasketTemplate,
+  Category,
+  CollectionPoint,
+  CycleType,
+  StockItem,
+  StockItemSettingEntry,
+  StockItemStatus,
 } from '@/models/types'
 
 export const DEFAULT_ALERT_THRESHOLD = 5
@@ -24,33 +23,35 @@ export function parseQuantity(text: string): number {
 }
 
 export interface StockItemCategoryGroup {
-  category: ItemCategory
+  category: Category
   items: StockItem[]
 }
 
-/** Agrupa os itens do catálogo por categoria, na mesma ordem usada no resto do app. Categorias sem
- *  nenhum item ficam de fora — a lista de categorias é fixa, mas o catálogo é dinâmico. */
-export function groupByCategory(items: StockItem[]): StockItemCategoryGroup[] {
-  return itemCategoryValues
-    .map((category) => ({ category, items: items.filter((item) => item.category === category) }))
-    .filter((group) => group.items.length > 0)
+/** Agrupa os itens do catálogo pelas categorias reais do ponto, ordenadas por nome — inclusive as
+ *  que ainda não têm nenhum item, para que uma categoria recém-criada apareça vazia e o gestor
+ *  possa adicionar o primeiro item nela. */
+export function groupByCategory(items: StockItem[], categories: Category[]): StockItemCategoryGroup[] {
+  return [...categories]
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    .map((category) => ({
+      category,
+      items: items.filter((item) => item.categoryId === category.id),
+    }))
 }
 
 export function sumQuantities(items: StockItem[]): number {
   return items.reduce((total, item) => total + item.quantity, 0)
 }
 
-/** Soma as quantidades por categoria — usado onde a UI ainda pensa em categorias (ex.: seleção de
- *  itens ao registrar uma retirada), não em itens individuais. */
-export function sumQuantitiesByCategory(items: StockItem[]): Record<ItemCategory, number> {
-  return Object.fromEntries(
-    itemCategoryValues.map((category) => [
-      category,
-      items
-        .filter((item) => item.category === category)
-        .reduce((total, item) => total + item.quantity, 0),
-    ]),
-  ) as Record<ItemCategory, number>
+/** Soma as quantidades por categoria (chave = `categoryId`) — usado onde a UI ainda pensa em
+ *  categorias (ex.: seleção de itens ao registrar uma retirada), não em itens individuais. Só
+ *  inclui categorias com pelo menos um item no catálogo. */
+export function sumQuantitiesByCategory(items: StockItem[]): Record<string, number> {
+  const totals: Record<string, number> = {}
+  for (const item of items) {
+    totals[item.categoryId] = (totals[item.categoryId] ?? 0) + item.quantity
+  }
+  return totals
 }
 
 export function countByStatus(items: StockItem[], status: StockItemStatus): number {

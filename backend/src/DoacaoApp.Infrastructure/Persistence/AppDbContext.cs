@@ -23,6 +23,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<StockItem> StockItems => Set<StockItem>();
     public DbSet<BasketTemplate> BasketTemplates => Set<BasketTemplate>();
+    public DbSet<Category> Categories => Set<Category>();
     public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -34,6 +35,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         configurationBuilder.Properties<WithdrawalId>().HaveConversion<WithdrawalIdConverter>();
         configurationBuilder.Properties<StockItemId>().HaveConversion<StockItemIdConverter>();
         configurationBuilder.Properties<BasketTemplateId>().HaveConversion<BasketTemplateIdConverter>();
+        configurationBuilder.Properties<CategoryId>().HaveConversion<CategoryIdConverter>();
         configurationBuilder.Properties<BeneficiaryId>().HaveConversion<BeneficiaryIdConverter>();
         configurationBuilder.Properties<StoredFileId>().HaveConversion<StoredFileIdConverter>();
         configurationBuilder.Properties<ReviewId>().HaveConversion<ReviewIdConverter>();

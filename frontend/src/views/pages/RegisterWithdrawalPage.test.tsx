@@ -14,18 +14,29 @@ import type {
 import { useAuthStore } from '@/stores/auth'
 import { RegisterWithdrawalPage } from './RegisterWithdrawalPage'
 
+const foodCategory = { id: 'cat-food', name: 'Alimentos', icon: 'apple' }
+const clothingCategory = { id: 'cat-clothing', name: 'Roupas', icon: 'shirt' }
+const footwearCategory = { id: 'cat-footwear', name: 'Calçados', icon: 'footprints' }
+
+function categoryRef(category: { id: string; name: string; icon: string }) {
+  return { categoryId: category.id, categoryName: category.name, categoryIcon: category.icon }
+}
+
 const point = {
   id: 'point-1',
   name: 'Casa Solidária',
   address: { city: 'Concórdia', state: 'SC' },
   withdrawalRule: { type: 'Annual', maxWithdrawalsPerCycle: 3 },
   basketTemplates: [],
+  categories: [foodCategory, clothingCategory, footwearCategory],
   stockItems: [
     {
       id: 'item-food',
       name: 'Cesta básica',
       unit: 'un',
-      category: 'Food',
+      categoryId: foodCategory.id,
+      categoryName: foodCategory.name,
+      categoryIcon: foodCategory.icon,
       quantity: 5,
       goal: 0,
       alertThreshold: 5,
@@ -36,7 +47,9 @@ const point = {
       id: 'item-clothing',
       name: 'Roupas variadas',
       unit: 'un',
-      category: 'Clothing',
+      categoryId: clothingCategory.id,
+      categoryName: clothingCategory.name,
+      categoryIcon: clothingCategory.icon,
       quantity: 6,
       goal: 0,
       alertThreshold: 5,
@@ -47,7 +60,9 @@ const point = {
       id: 'item-footwear',
       name: 'Calçados variados',
       unit: 'un',
-      category: 'Footwear',
+      categoryId: footwearCategory.id,
+      categoryName: footwearCategory.name,
+      categoryIcon: footwearCategory.icon,
       quantity: 4,
       goal: 0,
       alertThreshold: 5,
@@ -207,7 +222,10 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-2',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Clothing', 'Footwear'],
+          categories: [
+            { categoryId: clothingCategory.id, categoryName: clothingCategory.name, categoryIcon: clothingCategory.icon },
+            { categoryId: footwearCategory.id, categoryName: footwearCategory.name, categoryIcon: footwearCategory.icon },
+          ],
           occurredAtUtc: '2026-08-10T15:00:00Z',
           notes: 'Duas camisetas',
         },
@@ -215,7 +233,9 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-1',
           pointId: 'other-point',
           beneficiaryId: 'ben-1',
-          categories: ['Food'],
+          categories: [
+            { categoryId: foodCategory.id, categoryName: foodCategory.name, categoryIcon: foodCategory.icon },
+          ],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -298,7 +318,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-1',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: ['Food'],
+      categories: [categoryRef(foodCategory)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
@@ -315,7 +335,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categories: ['Food'],
+        categoryIds: [foodCategory.id],
         notes: 'Uma cesta',
       }),
     )
@@ -332,7 +352,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-8',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: ['Food', 'Clothing', 'Footwear'],
+      categories: [categoryRef(foodCategory), categoryRef(clothingCategory), categoryRef(footwearCategory)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
@@ -350,7 +370,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categories: ['Food', 'Clothing', 'Footwear'],
+        categoryIds: [foodCategory.id, clothingCategory.id, footwearCategory.id],
         notes: null,
       }),
     )
@@ -364,7 +384,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-9',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: ['Clothing'],
+      categories: [categoryRef(clothingCategory)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
@@ -390,7 +410,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categories: ['Clothing'],
+        categoryIds: [clothingCategory.id],
         notes: null,
       }),
     )
@@ -404,7 +424,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-10',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: ['Clothing'],
+      categories: [categoryRef(clothingCategory)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
@@ -425,7 +445,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categories: ['Clothing'],
+        categoryIds: [clothingCategory.id],
         notes: null,
         basketTemplateId: 'basket-1',
         basketQuantity: 1,
@@ -511,7 +531,7 @@ describe('RegisterWithdrawalPage', () => {
     const pointNotTrackingFootwear = {
       ...point,
       stockItems: point.stockItems.map((item) =>
-        item.category === 'Footwear' ? { ...item, isTracked: false } : item,
+        item.categoryId === footwearCategory.id ? { ...item, isTracked: false } : item,
       ),
     } as CollectionPoint
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointNotTrackingFootwear)
@@ -549,7 +569,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Clothing'],
+          categories: [categoryRef(clothingCategory)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },
@@ -557,7 +577,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-older',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Food'],
+          categories: [categoryRef(foodCategory)],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -583,7 +603,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-other',
           pointId: 'other-point',
           beneficiaryId: 'ben-1',
-          categories: ['Clothing'],
+          categories: [categoryRef(clothingCategory)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },
@@ -591,7 +611,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-here',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Food'],
+          categories: [categoryRef(foodCategory)],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -613,7 +633,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Clothing', 'Footwear'],
+          categories: [categoryRef(clothingCategory), categoryRef(footwearCategory)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: 'Nota original',
         },
@@ -623,7 +643,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-recent',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: ['Clothing'],
+      categories: [categoryRef(clothingCategory)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
       notes: 'Nota corrigida',
     } as Withdrawal)
@@ -645,7 +665,7 @@ describe('RegisterWithdrawalPage', () => {
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('w-recent', {
         pointId: 'point-1',
-        categories: ['Clothing'],
+        categoryIds: [clothingCategory.id],
         notes: 'Nota corrigida',
       }),
     )
@@ -661,7 +681,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: ['Clothing'],
+          categories: [categoryRef(clothingCategory)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },

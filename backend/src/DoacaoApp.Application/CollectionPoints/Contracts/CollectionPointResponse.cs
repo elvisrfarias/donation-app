@@ -4,8 +4,10 @@ namespace DoacaoApp.Application.CollectionPoints.Contracts;
 
 /// <summary>
 /// Representação pública de um ponto de coleta (endereço + contato + avaliações).
-/// <see cref="StockItems"/> e <see cref="BasketTemplates"/> só vêm preenchidos na visão de gestão
-/// (<c>includeManagementDetails: true</c>) — a listagem pública devolve as duas listas vazias.
+/// <see cref="Categories"/> vem sempre preenchido (é o catálogo que o ponto declara aceitar,
+/// mostrado no mapa público); já <see cref="StockItems"/> e <see cref="BasketTemplates"/> só vêm
+/// preenchidos na visão de gestão (<c>includeManagementDetails: true</c>) — a listagem pública
+/// devolve as duas listas vazias.
 /// </summary>
 public sealed record CollectionPointResponse(
     Guid Id,
@@ -14,12 +16,12 @@ public sealed record CollectionPointResponse(
     string? Description,
     string? OpeningHours,
     IReadOnlyList<string> Needs,
+    IReadOnlyList<CategoryResponse> Categories,
     IReadOnlyList<StockItemResponse> StockItems,
     IReadOnlyList<BasketTemplateResponse> BasketTemplates,
     WithdrawalRuleResponse WithdrawalRule,
     AddressResponse Address,
     ContactResponse Contact,
-    IReadOnlyList<string> AcceptedItems,
     bool IsActive,
     DateTime CreatedAtUtc,
     string? ImageUrl,
@@ -27,12 +29,17 @@ public sealed record CollectionPointResponse(
     int ReviewCount,
     int BeneficiariesServed);
 
+/// <summary>Categoria do catálogo do ponto (agrupa estoque, checklist de retirada e itens aceitos no mapa público).</summary>
+public sealed record CategoryResponse(Guid Id, string Name, string Icon);
+
 /// <summary>Classificação do estoque de um item: "out" (em falta), "low" (baixo), "goal" (meta atingida) ou "ok".</summary>
 public sealed record StockItemResponse(
     Guid Id,
     string Name,
     string Unit,
-    string Category,
+    Guid CategoryId,
+    string CategoryName,
+    string CategoryIcon,
     int Quantity,
     int Goal,
     int AlertThreshold,
@@ -89,7 +96,8 @@ public static class CollectionPointMappings
             point.Description,
             point.OpeningHours,
             [.. point.Needs],
-            includeManagementDetails ? point.StockItems.Select(ToResponse).ToList() : [],
+            [.. point.Categories.Select(ToResponse)],
+            includeManagementDetails ? point.StockItems.Select(item => item.ToResponse(point)).ToList() : [],
             includeManagementDetails ? point.BasketTemplates.Select(template => template.ToResponse(point)).ToList() : [],
             new WithdrawalRuleResponse(point.WithdrawalRule.Type.ToString(), point.WithdrawalRule.MaxWithdrawalsPerCycle),
             new AddressResponse(
@@ -106,7 +114,6 @@ public static class CollectionPointMappings
                 point.Contact.ResponsibleName,
                 point.Contact.Email.Value,
                 point.Contact.Phone.Formatted),
-            [.. point.AcceptedItems.Select(static i => i.ToString())],
             point.IsActive,
             point.CreatedAtUtc,
             imageUrl,
@@ -114,17 +121,25 @@ public static class CollectionPointMappings
             reviewCount,
             beneficiariesServed);
 
-    private static StockItemResponse ToResponse(StockItem item) =>
-        new(
+    private static CategoryResponse ToResponse(Category category) =>
+        new(category.Id.Value, category.Name, category.Icon);
+
+    private static StockItemResponse ToResponse(this StockItem item, CollectionPoint point)
+    {
+        var category = point.Categories.Single(candidate => candidate.Id == item.CategoryId);
+        return new(
             item.Id.Value,
             item.Name,
             item.Unit,
-            item.Category.ToString(),
+            item.CategoryId.Value,
+            category.Name,
+            category.Icon,
             item.Quantity,
             item.Goal,
             item.AlertThreshold,
             item.IsTracked,
             StatusOf(item.Quantity, item.Goal, item.AlertThreshold));
+    }
 
     private static BasketTemplateResponse ToResponse(this BasketTemplate template, CollectionPoint point)
     {

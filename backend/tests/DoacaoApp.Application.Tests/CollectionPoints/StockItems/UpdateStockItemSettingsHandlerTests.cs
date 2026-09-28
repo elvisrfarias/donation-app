@@ -23,7 +23,7 @@ public class UpdateStockItemSettingsHandlerTests
     public async Task Handle_Valido_DeveSalvarAsConfiguracoes()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var rice = point.AddStockItem("Arroz", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
 
         var command = new UpdateStockItemSettingsCommand(
             point.Id.Value, [new StockItemSettingEntry(rice.Value, Goal: 50, AlertThreshold: 10, IsTracked: false)]);
@@ -40,7 +40,7 @@ public class UpdateStockItemSettingsHandlerTests
     public async Task Handle_AvisoAcimaDaMeta_DeveBloquearENaoSalvar()
     {
         var point = GivenPoint();
-        var rice = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 5, true).Value;
+        var rice = point.AddStockItem("Arroz", "kg", TestData.EnsureCategory(point), 10, 0, 5, true).Value;
 
         var command = new UpdateStockItemSettingsCommand(
             point.Id.Value, [new StockItemSettingEntry(rice.Value, Goal: 10, AlertThreshold: 20, IsTracked: true)]);

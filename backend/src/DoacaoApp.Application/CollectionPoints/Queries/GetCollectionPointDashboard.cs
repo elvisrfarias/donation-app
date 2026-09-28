@@ -73,7 +73,7 @@ public sealed class GetCollectionPointDashboardHandler(
             registered.Count,
             granularity,
             BuildSeries(withdrawals, start, end, granularity),
-            await BuildRecentWithdrawalsAsync(withdrawals, cancellationToken));
+            await BuildRecentWithdrawalsAsync(withdrawals, point.Categories, cancellationToken));
     }
 
     private (DateOnly Start, DateOnly End) ResolvePeriod(GetCollectionPointDashboardQuery query)
@@ -128,6 +128,7 @@ public sealed class GetCollectionPointDashboardHandler(
 
     private async Task<IReadOnlyList<RecentWithdrawalResponse>> BuildRecentWithdrawalsAsync(
         IReadOnlyList<Withdrawal> withdrawalsNewestFirst,
+        IReadOnlyCollection<Category> categories,
         CancellationToken cancellationToken)
     {
         var recent = withdrawalsNewestFirst.Take(RecentWithdrawalsShown).ToList();
@@ -139,7 +140,7 @@ public sealed class GetCollectionPointDashboardHandler(
             .Select(w => new RecentWithdrawalResponse(
                 w.Id.Value,
                 nameById.GetValueOrDefault(w.BeneficiaryId, "Beneficiário removido"),
-                w.Categories.Select(category => category.ToString()).ToList(),
+                w.ToResponse(categories).Categories,
                 w.OccurredAtUtc))
             .ToList();
     }

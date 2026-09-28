@@ -1,4 +1,5 @@
 using DoacaoApp.Domain.CollectionPoints;
+using DoacaoApp.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,12 +16,12 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
 
         builder.Property(w => w.PointId).IsRequired();
         builder.Property(w => w.BeneficiaryId).IsRequired();
-        builder.PrimitiveCollection(w => w.Categories)
-            .HasColumnName("categories")
+        builder.PrimitiveCollection(w => w.CategoryIds)
+            .HasColumnName("category_ids")
             .ElementType()
-            .HasConversion<string>();
+            .HasConversion<CategoryIdConverter>();
         builder.Metadata
-            .FindProperty(nameof(Withdrawal.Categories))!
+            .FindProperty(nameof(Withdrawal.CategoryIds))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);

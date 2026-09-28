@@ -9,8 +9,9 @@ public class CollectionPointBasketTemplateTests
     private static (CollectionPoint Point, StockItemId RiceId, StockItemId SugarId) PointWithItems()
     {
         var point = TestData.Point();
-        var riceId = point.AddStockItem("Arroz", "kg", ItemCategory.Food, 10, 0, 0, true).Value;
-        var sugarId = point.AddStockItem("Açúcar", "kg", ItemCategory.Food, 5, 0, 0, true).Value;
+        var categoryId = TestData.AddCategory(point);
+        var riceId = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 0, true).Value;
+        var sugarId = point.AddStockItem("Açúcar", "kg", categoryId, 5, 0, 0, true).Value;
         return (point, riceId, sugarId);
     }
 
@@ -161,7 +162,7 @@ public class CollectionPointBasketTemplateTests
         var templateId = point.CreateBasketTemplate("Cesta básica", [(riceId, 1)]).Value;
         var beneficiary = TestData.Beneficiary();
         point.RegisterWithdrawal(
-            beneficiary, [ItemCategory.Food], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null,
+            beneficiary, [point.Categories[0].Id], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null,
             basket: (templateId, 1));
 
         var result = point.RemoveBasketTemplate(templateId);

@@ -10,12 +10,15 @@ const point = {
   id: 'point-1',
   name: 'Casa Solidária',
   basketTemplates: [],
+  categories: [{ id: 'cat-food', name: 'Alimentos', icon: 'apple' }],
   stockItems: [
     {
       id: 'item-food',
       name: 'Arroz 1kg',
       unit: 'kg',
-      category: 'Food',
+      categoryId: 'cat-food',
+      categoryName: 'Alimentos',
+      categoryIcon: 'apple',
       quantity: 12,
       goal: 50,
       alertThreshold: 10,
