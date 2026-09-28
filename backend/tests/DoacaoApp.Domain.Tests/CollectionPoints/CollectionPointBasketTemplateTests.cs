@@ -158,11 +158,11 @@ public class CollectionPointBasketTemplateTests
     [Fact]
     public void RemoveBasketTemplate_JaUsadaEmRetirada_DeveBloquear()
     {
-        var (point, riceId, _) = PointWithItems();
+        var (point, riceId, sugarId) = PointWithItems();
         var templateId = point.CreateBasketTemplate("Cesta básica", [(riceId, 1)]).Value;
         var beneficiary = TestData.Beneficiary();
         point.RegisterWithdrawal(
-            beneficiary, [point.Categories[0].Id], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null,
+            beneficiary, [TestData.Item(sugarId)], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null,
             basket: (templateId, 1));
 
         var result = point.RemoveBasketTemplate(templateId);

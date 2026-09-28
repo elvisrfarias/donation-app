@@ -6,8 +6,8 @@ namespace DoacaoApp.Domain.CollectionPoints;
 /// Categoria de itens — Entity DENTRO do agregado <see cref="CollectionPoint"/>. O catálogo de
 /// categorias é próprio de cada ponto (não é compartilhado entre pontos do município). Serve três
 /// papéis: o que o ponto declara aceitar/disponibilizar (mostrado no mapa público), o agrupamento
-/// do catálogo de estoque (<see cref="StockItem"/>) e o checklist livre de uma retirada
-/// (<see cref="Withdrawal.CategoryIds"/>).
+/// do catálogo de estoque (<see cref="StockItem"/>) e, indiretamente, dos itens livres de uma
+/// retirada (<see cref="Withdrawal.Items"/> referencia o <see cref="StockItem"/>, que tem categoria).
 /// </summary>
 public sealed class Category : Entity<CategoryId>
 {

@@ -12,7 +12,7 @@ namespace DoacaoApp.Api.Controllers;
 /// <summary>Corpo de uma requisição de edição de retirada.</summary>
 public sealed record UpdateWithdrawalRequest(
     Guid PointId,
-    IReadOnlyList<Guid> CategoryIds,
+    IReadOnlyList<WithdrawalItemEntry> Items,
     string? Notes,
     Guid? BasketTemplateId = null,
     int? BasketQuantity = null);
@@ -64,7 +64,7 @@ public sealed class WithdrawalsController(ISender sender) : ApiController(sender
         CancellationToken cancellationToken)
     {
         var command = new UpdateWithdrawalCommand(
-            request.PointId, withdrawalId, request.CategoryIds, request.Notes,
+            request.PointId, withdrawalId, request.Items, request.Notes,
             request.BasketTemplateId, request.BasketQuantity);
         var result = await Sender.Send(command, cancellationToken);
         return Respond(result, Ok);

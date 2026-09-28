@@ -10,6 +10,7 @@ import type {
   BeneficiaryWithdrawalHistory,
   CollectionPoint,
   Withdrawal,
+  WithdrawalItemRef,
 } from '@/models/types'
 import { useAuthStore } from '@/stores/auth'
 import { RegisterWithdrawalPage } from './RegisterWithdrawalPage'
@@ -18,8 +19,58 @@ const foodCategory = { id: 'cat-food', name: 'Alimentos', icon: 'apple' }
 const clothingCategory = { id: 'cat-clothing', name: 'Roupas', icon: 'shirt' }
 const footwearCategory = { id: 'cat-footwear', name: 'Calçados', icon: 'footprints' }
 
-function categoryRef(category: { id: string; name: string; icon: string }) {
-  return { categoryId: category.id, categoryName: category.name, categoryIcon: category.icon }
+const riceItem = {
+  id: 'item-food',
+  name: 'Arroz 1kg',
+  unit: 'kg',
+  categoryId: foodCategory.id,
+  categoryName: foodCategory.name,
+  categoryIcon: foodCategory.icon,
+  quantity: 5,
+  goal: 0,
+  alertThreshold: 5,
+  isTracked: true,
+  status: 'ok',
+}
+
+const clothingItem = {
+  id: 'item-clothing',
+  name: 'Camiseta',
+  unit: 'un',
+  categoryId: clothingCategory.id,
+  categoryName: clothingCategory.name,
+  categoryIcon: clothingCategory.icon,
+  quantity: 6,
+  goal: 0,
+  alertThreshold: 5,
+  isTracked: true,
+  status: 'ok',
+}
+
+const footwearItem = {
+  id: 'item-footwear',
+  name: 'Tênis',
+  unit: 'un',
+  categoryId: footwearCategory.id,
+  categoryName: footwearCategory.name,
+  categoryIcon: footwearCategory.icon,
+  quantity: 4,
+  goal: 0,
+  alertThreshold: 5,
+  isTracked: true,
+  status: 'ok',
+}
+
+function itemRef(item: typeof riceItem, quantity: number): WithdrawalItemRef {
+  return {
+    stockItemId: item.id,
+    itemName: item.name,
+    unit: item.unit,
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    categoryIcon: item.categoryIcon,
+    quantity,
+  }
 }
 
 const point = {
@@ -29,60 +80,20 @@ const point = {
   withdrawalRule: { type: 'Annual', maxWithdrawalsPerCycle: 3 },
   basketTemplates: [],
   categories: [foodCategory, clothingCategory, footwearCategory],
-  stockItems: [
-    {
-      id: 'item-food',
-      name: 'Cesta básica',
-      unit: 'un',
-      categoryId: foodCategory.id,
-      categoryName: foodCategory.name,
-      categoryIcon: foodCategory.icon,
-      quantity: 5,
-      goal: 0,
-      alertThreshold: 5,
-      isTracked: true,
-      status: 'ok',
-    },
-    {
-      id: 'item-clothing',
-      name: 'Roupas variadas',
-      unit: 'un',
-      categoryId: clothingCategory.id,
-      categoryName: clothingCategory.name,
-      categoryIcon: clothingCategory.icon,
-      quantity: 6,
-      goal: 0,
-      alertThreshold: 5,
-      isTracked: true,
-      status: 'ok',
-    },
-    {
-      id: 'item-footwear',
-      name: 'Calçados variados',
-      unit: 'un',
-      categoryId: footwearCategory.id,
-      categoryName: footwearCategory.name,
-      categoryIcon: footwearCategory.icon,
-      quantity: 4,
-      goal: 0,
-      alertThreshold: 5,
-      isTracked: true,
-      status: 'ok',
-    },
-  ],
+  stockItems: [riceItem, clothingItem, footwearItem],
 } as unknown as CollectionPoint
 
 const basicBasket: BasketTemplate = {
   id: 'basket-1',
   name: 'Cesta básica padrão',
   isActive: true,
-  items: [{ stockItemId: 'item-food', itemName: 'Cesta básica', quantity: 1 }],
+  items: [{ stockItemId: 'item-food', itemName: 'Arroz 1kg', quantity: 1 }],
   feasibility: {
     completeBaskets: 5,
     missing: [
       {
         itemId: 'item-food',
-        itemName: 'Cesta básica',
+        itemName: 'Arroz 1kg',
         requiredPerBasket: 1,
         currentQuantity: 5,
         neededForNextBasket: 0,
@@ -164,6 +175,11 @@ async function openAddWithdrawalModal() {
   return screen.findByRole('dialog')
 }
 
+async function addItem(dialog: HTMLElement, optionName: string | RegExp) {
+  await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
+  await userEvent.click(await screen.findByRole('option', { name: optionName }))
+}
+
 describe('RegisterWithdrawalPage', () => {
   it('quando o gestor tem um só ponto, mostra o campo já selecionado e desabilitado', async () => {
     renderPage()
@@ -214,7 +230,7 @@ describe('RegisterWithdrawalPage', () => {
     expect(await screen.findByText(/Nenhum beneficiário encontrado/)).toBeInTheDocument()
   })
 
-  it('lista todo tipo de retirada do beneficiário, com a categoria e o ponto de cada uma', async () => {
+  it('lista todo tipo de retirada do beneficiário, com os itens e o ponto de cada uma', async () => {
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(1, [
@@ -222,10 +238,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-2',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [
-            { categoryId: clothingCategory.id, categoryName: clothingCategory.name, categoryIcon: clothingCategory.icon },
-            { categoryId: footwearCategory.id, categoryName: footwearCategory.name, categoryIcon: footwearCategory.icon },
-          ],
+          items: [itemRef(clothingItem, 2), itemRef(footwearItem, 1)],
           occurredAtUtc: '2026-08-10T15:00:00Z',
           notes: 'Duas camisetas',
         },
@@ -233,9 +246,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-1',
           pointId: 'other-point',
           beneficiaryId: 'ben-1',
-          categories: [
-            { categoryId: foodCategory.id, categoryName: foodCategory.name, categoryIcon: foodCategory.icon },
-          ],
+          items: [itemRef(riceItem, 3)],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -246,9 +257,9 @@ describe('RegisterWithdrawalPage', () => {
     await searchMaria()
 
     const table = await screen.findByRole('table')
-    expect(table).toHaveTextContent('Roupas')
-    expect(table).toHaveTextContent('Calçados')
-    expect(table).toHaveTextContent('Alimentos')
+    expect(table).toHaveTextContent('Camiseta × 2')
+    expect(table).toHaveTextContent('Tênis × 1')
+    expect(table).toHaveTextContent('Arroz 1kg × 3')
     expect(table).toHaveTextContent('Duas camisetas')
     expect(table).toHaveTextContent('Neste ponto')
     expect(table).toHaveTextContent('Em outro ponto')
@@ -264,7 +275,60 @@ describe('RegisterWithdrawalPage', () => {
 
     expect(within(dialog).queryByRole('button', { name: /^Remover/ })).not.toBeInTheDocument()
     expect(within(dialog).getByText('Escolha ao menos um item disponível.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Nenhum item adicionado ainda.')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
+  })
+
+  it('adiciona um item pelo seletor, mostra a linha com stepper e permite remover', async () => {
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
+    renderPage()
+
+    await searchMaria()
+    const dialog = await openAddWithdrawalModal()
+    await addItem(dialog, /Camiseta \(un\)/)
+
+    expect(within(dialog).getByText('Camiseta')).toBeInTheDocument()
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(1)
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeEnabled()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remover Camiseta' }))
+
+    expect(within(dialog).queryByText('Camiseta')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
+  })
+
+  it('a quantidade de um item não passa do estoque disponível', async () => {
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
+    renderPage()
+
+    await searchMaria()
+    const dialog = await openAddWithdrawalModal()
+    await addItem(dialog, /Tênis \(un\)/)
+
+    const increment = within(dialog).getByRole('button', { name: 'Aumentar quantidade de Tênis' })
+    for (let i = 0; i < footwearItem.quantity - 1; i++) {
+      await userEvent.click(increment)
+    }
+
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Tênis' })).toHaveValue(
+      footwearItem.quantity,
+    )
+    expect(increment).toBeDisabled()
+  })
+
+  it('não oferece mais um item já adicionado no seletor', async () => {
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
+    renderPage()
+
+    await searchMaria()
+    const dialog = await openAddWithdrawalModal()
+    await addItem(dialog, /Camiseta \(un\)/)
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
+    expect(screen.queryByRole('option', { name: /Camiseta/ })).not.toBeInTheDocument()
   })
 
   it('itens livres (roupas, calçados…) nunca são bloqueados pelo limite do ciclo', async () => {
@@ -276,10 +340,8 @@ describe('RegisterWithdrawalPage', () => {
     expect(screen.getByText('Limite atingido')).toBeInTheDocument()
 
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Arroz 1kg \(kg\)/)
+    await addItem(dialog, /Camiseta \(un\)/)
 
     expect(within(dialog).getByText(/Sem limite por ciclo/)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeEnabled()
@@ -295,9 +357,7 @@ describe('RegisterWithdrawalPage', () => {
     expect(screen.getByText('Limite atingido')).toBeInTheDocument()
 
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Camiseta \(un\)/)
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
@@ -318,16 +378,14 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-1',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: [categoryRef(foodCategory)],
+      items: [itemRef(riceItem, 1)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
 
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Arroz 1kg \(kg\)/)
     await userEvent.type(within(dialog).getByLabelText(/Observações/), 'Uma cesta')
     await userEvent.click(within(dialog).getByRole('button', { name: /registrar retirada/i }))
 
@@ -335,7 +393,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categoryIds: [foodCategory.id],
+        items: [{ stockItemId: riceItem.id, quantity: 1 }],
         notes: 'Uma cesta',
       }),
     )
@@ -345,32 +403,37 @@ describe('RegisterWithdrawalPage', () => {
     expect(screen.queryByLabelText('CPF do beneficiário')).not.toBeInTheDocument()
   })
 
-  it('registra vários itens de uma vez: cesta básica, roupas e calçados', async () => {
+  it('registra vários itens de uma vez, cada um com sua quantidade', async () => {
     vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
       id: 'w-8',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: [categoryRef(foodCategory), categoryRef(clothingCategory), categoryRef(footwearCategory)],
+      items: [itemRef(riceItem, 2), itemRef(clothingItem, 1), itemRef(footwearItem, 1)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
 
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Alimentos (5)' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Calçados (4)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Arroz 1kg \(kg\)/)
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Aumentar quantidade de Arroz 1kg' }),
+    )
+    await addItem(dialog, /Camiseta \(un\)/)
+    await addItem(dialog, /Tênis \(un\)/)
     await userEvent.click(within(dialog).getByRole('button', { name: /registrar retirada/i }))
 
     await waitFor(() =>
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categoryIds: [foodCategory.id, clothingCategory.id, footwearCategory.id],
+        items: [
+          { stockItemId: riceItem.id, quantity: 2 },
+          { stockItemId: clothingItem.id, quantity: 1 },
+          { stockItemId: footwearItem.id, quantity: 1 },
+        ],
         notes: null,
       }),
     )
@@ -384,16 +447,14 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-9',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: [categoryRef(clothingCategory)],
+      items: [itemRef(clothingItem, 1)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
 
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Camiseta \(un\)/)
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
@@ -410,7 +471,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categoryIds: [clothingCategory.id],
+        items: [{ stockItemId: clothingItem.id, quantity: 1 }],
         notes: null,
       }),
     )
@@ -424,16 +485,14 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-10',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: [categoryRef(clothingCategory)],
+      items: [itemRef(clothingItem, 1)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
     } as Withdrawal)
     renderPage()
 
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Camiseta \(un\)/)
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
@@ -445,7 +504,7 @@ describe('RegisterWithdrawalPage', () => {
       expect(register).toHaveBeenCalledWith({
         pointId: 'point-1',
         beneficiaryId: 'ben-1',
-        categoryIds: [clothingCategory.id],
+        items: [{ stockItemId: clothingItem.id, quantity: 1 }],
         notes: null,
         basketTemplateId: 'basket-1',
         basketQuantity: 1,
@@ -462,7 +521,7 @@ describe('RegisterWithdrawalPage', () => {
         missing: [
           {
             itemId: 'item-food',
-            itemName: 'Cesta básica',
+            itemName: 'Arroz 1kg',
             requiredPerBasket: 1,
             currentQuantity: 1,
             neededForNextBasket: 0,
@@ -480,16 +539,14 @@ describe('RegisterWithdrawalPage', () => {
 
     await searchMaria()
     const dialog = await openAddWithdrawalModal()
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Roupas (6)' }))
-    await userEvent.keyboard('{Escape}')
+    await addItem(dialog, /Camiseta \(un\)/)
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Aumentar quantidade de cestas' }))
 
     expect(within(dialog).getByText('Estoque insuficiente para esta cesta')).toBeInTheDocument()
-    expect(within(dialog).getByText(/Faltam 1 de Cesta básica/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Faltam 1 kg de Arroz 1kg/)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
   })
 
@@ -507,10 +564,7 @@ describe('RegisterWithdrawalPage', () => {
     expect(
       within(dialog).getByText('Este ponto não tem nenhum item em estoque no momento.'),
     ).toBeInTheDocument()
-    expect(within(dialog).getByRole('combobox', { name: /Itens da retirada/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
+    expect(within(dialog).getByRole('combobox', { name: /Itens da retirada/ })).toBeDisabled()
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
   })
 
@@ -524,10 +578,10 @@ describe('RegisterWithdrawalPage', () => {
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
 
     expect(screen.queryByRole('option', { name: /Brinquedos/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Roupas (6)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Camiseta \(un\)/ })).toBeInTheDocument()
   })
 
-  it('não lista uma categoria com estoque se o ponto não a está acompanhando', async () => {
+  it('não lista um item com estoque se o ponto não o está acompanhando', async () => {
     const pointNotTrackingFootwear = {
       ...point,
       stockItems: point.stockItems.map((item) =>
@@ -543,9 +597,9 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Itens da retirada/ }))
 
-    expect(screen.getByRole('option', { name: 'Alimentos (5)' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Roupas (6)' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Calçados/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Arroz 1kg \(kg\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Camiseta \(un\)/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Tênis/ })).not.toBeInTheDocument()
   })
 
   it('busca o estoque atualizado do ponto ao abrir o modal de adicionar retirada', async () => {
@@ -569,7 +623,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(clothingCategory)],
+          items: [itemRef(clothingItem, 1)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },
@@ -577,7 +631,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-older',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(foodCategory)],
+          items: [itemRef(riceItem, 1)],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -603,7 +657,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-other',
           pointId: 'other-point',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(clothingCategory)],
+          items: [itemRef(clothingItem, 1)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },
@@ -611,7 +665,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-here',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(foodCategory)],
+          items: [itemRef(riceItem, 1)],
           occurredAtUtc: '2026-03-02T15:00:00Z',
           notes: null,
         },
@@ -633,7 +687,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(clothingCategory), categoryRef(footwearCategory)],
+          items: [itemRef(clothingItem, 2), itemRef(footwearItem, 1)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: 'Nota original',
         },
@@ -643,7 +697,7 @@ describe('RegisterWithdrawalPage', () => {
       id: 'w-recent',
       pointId: 'point-1',
       beneficiaryId: 'ben-1',
-      categories: [categoryRef(clothingCategory)],
+      items: [itemRef(clothingItem, 2)],
       occurredAtUtc: '2026-09-26T15:00:00Z',
       notes: 'Nota corrigida',
     } as Withdrawal)
@@ -653,11 +707,12 @@ describe('RegisterWithdrawalPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Editar retirada' }))
     const dialog = await screen.findByRole('dialog', { name: /editar retirada/i })
 
-    expect(within(dialog).getByText('Roupas (6)')).toBeInTheDocument()
-    expect(within(dialog).getByText('Calçados (4)')).toBeInTheDocument()
+    expect(within(dialog).getByText('Camiseta')).toBeInTheDocument()
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(2)
+    expect(within(dialog).getByText('Tênis')).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/Observações/)).toHaveValue('Nota original')
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Remover Calçados (4)' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remover Tênis' }))
     await userEvent.clear(within(dialog).getByLabelText(/Observações/))
     await userEvent.type(within(dialog).getByLabelText(/Observações/), 'Nota corrigida')
     await userEvent.click(within(dialog).getByRole('button', { name: /editar retirada/i }))
@@ -665,12 +720,47 @@ describe('RegisterWithdrawalPage', () => {
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('w-recent', {
         pointId: 'point-1',
-        categoryIds: [clothingCategory.id],
+        items: [{ stockItemId: clothingItem.id, quantity: 2 }],
         notes: 'Nota corrigida',
       }),
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByText('Retirada atualizada!')).toBeInTheDocument()
+  })
+
+  it('ao editar, permite aumentar a quantidade de um item já reservado por esta mesma retirada além do estoque livre', async () => {
+    /**
+     * O ponto tem só 5kg de arroz em estoque, mas esta retirada (que já está sendo editada) já
+     * tinha reservado 3kg antes — então o máximo permitido no stepper é 5 + 3 = 8kg, não 5kg.
+     */
+    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
+      historyWith(0, [
+        {
+          id: 'w-recent',
+          pointId: 'point-1',
+          beneficiaryId: 'ben-1',
+          items: [itemRef(riceItem, 3)],
+          occurredAtUtc: '2026-09-26T15:00:00Z',
+          notes: null,
+        },
+      ]),
+    )
+    renderPage()
+
+    await searchMaria()
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar retirada' }))
+    const dialog = await screen.findByRole('dialog', { name: /editar retirada/i })
+
+    const increment = within(dialog).getByRole('button', { name: 'Aumentar quantidade de Arroz 1kg' })
+    for (let i = 0; i < 5; i++) {
+      await userEvent.click(increment)
+    }
+
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Arroz 1kg' })).toHaveValue(8)
+    expect(increment).toBeDisabled()
+    expect(within(dialog).queryByText('Estoque insuficiente')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /editar retirada/i })).toBeEnabled()
   })
 
   it('quando o backend recusa a edição, mostra o erro e mantém a modal aberta', async () => {
@@ -681,7 +771,7 @@ describe('RegisterWithdrawalPage', () => {
           id: 'w-recent',
           pointId: 'point-1',
           beneficiaryId: 'ben-1',
-          categories: [categoryRef(clothingCategory)],
+          items: [itemRef(clothingItem, 1)],
           occurredAtUtc: '2026-09-26T15:00:00Z',
           notes: null,
         },

@@ -49,19 +49,6 @@ public class RemoveCategoryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ComCategoriaUsadaEmRetirada_DeveBloquearENaoSalvar()
-    {
-        var point = GivenPoint();
-        var categoryId = point.AddCategory("Roupas", "shirt").Value;
-        point.RegisterWithdrawal(TestData.Beneficiary(), [categoryId], 0, TestData.Now, null);
-
-        var result = await CreateSut().Handle(new RemoveCategoryCommand(point.Id.Value, categoryId.Value), CancellationToken.None);
-
-        result.FirstError.Code.Should().Be("CollectionPoint.CategoryInUseByWithdrawal");
-        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
     public async Task Handle_ComCategoriaInexistente_DeveRetornarNotFound()
     {
         var point = GivenPoint();

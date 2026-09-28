@@ -173,17 +173,18 @@ public class CollectionPointCategoryTests
     }
 
     [Fact]
-    public void RemoveCategory_ReferenciadaEmRetirada_DeveBloquear()
+    public void RemoveCategory_DoItemDeEstoqueUsadoEmRetirada_DeveBloquearTransitivamente()
     {
         var point = TestData.Point();
         var categoryId = point.AddCategory("Roupas", "shirt").Value;
+        var itemId = point.AddStockItem("Camiseta", "un", categoryId, 10, 0, 0, true).Value;
         var beneficiary = TestData.Beneficiary();
-        point.RegisterWithdrawal(beneficiary, [categoryId], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null);
+        point.RegisterWithdrawal(beneficiary, [TestData.Item(itemId)], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null);
 
         var result = point.RemoveCategory(categoryId);
 
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("CollectionPoint.CategoryInUseByWithdrawal");
+        result.FirstError.Code.Should().Be("CollectionPoint.CategoryInUseByStockItem");
         point.Categories.Should().ContainSingle(c => c.Id == categoryId);
     }
 }

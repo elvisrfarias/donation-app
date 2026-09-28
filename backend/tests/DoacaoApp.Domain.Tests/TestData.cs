@@ -59,4 +59,7 @@ public static class TestData
     public static BasketTemplateId CreateBasketTemplate(
         CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>
         point.CreateBasketTemplate(name, items).Value;
+
+    public static WithdrawalItem Item(StockItemId stockItemId, int quantity = 1) =>
+        new(stockItemId, quantity);
 }

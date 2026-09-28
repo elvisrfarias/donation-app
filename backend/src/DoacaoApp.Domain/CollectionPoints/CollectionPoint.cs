@@ -228,7 +228,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         return Result.Success;
     }
 
-    /// <summary>Remove um item de estoque. Falha se ele estiver em uso em alguma receita de cesta.</summary>
+    /// <summary>Remove um item de estoque. Falha se ele estiver em uso em alguma receita de cesta ou já tiver sido dado em alguma retirada.</summary>
     public ErrorOr<Success> RemoveStockItem(StockItemId itemId)
     {
         var item = _stockItems.SingleOrDefault(i => i.Id == itemId);
@@ -242,6 +242,13 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         if (isReferencedByBasketTemplate)
         {
             return DomainErrors.CollectionPoint.StockItemInUseByBasketTemplate;
+        }
+
+        var isReferencedByWithdrawal = _withdrawals
+            .Any(withdrawal => withdrawal.Items.Any(withdrawalItem => withdrawalItem.StockItemId == itemId));
+        if (isReferencedByWithdrawal)
+        {
+            return DomainErrors.CollectionPoint.StockItemInUseByWithdrawal;
         }
 
         _stockItems.Remove(item);
@@ -413,8 +420,10 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     }
 
     /// <summary>
-    /// Remove uma categoria. Falha se ela estiver em uso em algum item de estoque ou já tiver sido
-    /// usada em alguma retirada deste ponto — ambas checagens dentro do próprio agregado, sem I/O extra.
+    /// Remove uma categoria. Falha se ela estiver em uso em algum item de estoque — como uma retirada só
+    /// referencia itens de estoque (nunca a categoria diretamente), e um item de estoque usado em alguma
+    /// retirada não pode ser removido (<see cref="RemoveStockItem"/>), essa única checagem já protege
+    /// transitivamente uma categoria com histórico de retiradas.
     /// </summary>
     public ErrorOr<Success> RemoveCategory(CategoryId id)
     {
@@ -427,11 +436,6 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         if (_stockItems.Any(item => item.CategoryId == id))
         {
             return DomainErrors.CollectionPoint.CategoryInUseByStockItem;
-        }
-
-        if (_withdrawals.Any(w => w.CategoryIds.Contains(id)))
-        {
-            return DomainErrors.CollectionPoint.CategoryInUseByWithdrawal;
         }
 
         _categories.Remove(category);
@@ -583,7 +587,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// base nele e na <see cref="WithdrawalRule"/> deste ponto.
     /// </summary>
     /// <param name="beneficiary">Beneficiário que está retirando.</param>
-    /// <param name="categoryIds">Itens livres retirados na visita (roupas, calçados…) — não sujeitos ao limite do ciclo nem dão baixa em estoque.</param>
+    /// <param name="items">Itens livres retirados na visita (roupas, calçados…), com quantidade — não sujeitos ao limite do ciclo, mas dão baixa em estoque.</param>
     /// <param name="beneficiaryWithdrawalsInCurrentCycle">
     /// Total de retiradas com cesta básica pelo beneficiário dentro do ciclo vigente, somando todos os pontos.
     /// </param>
@@ -592,7 +596,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     /// <param name="basket">Receita de cesta básica retirada nesta visita, se houver, e a quantidade de cestas.</param>
     public ErrorOr<Withdrawal> RegisterWithdrawal(
         Beneficiary beneficiary,
-        IReadOnlyCollection<CategoryId> categoryIds,
+        IReadOnlyCollection<WithdrawalItem> items,
         int beneficiaryWithdrawalsInCurrentCycle,
         DateTime occurredAtUtc,
         string? notes,
@@ -603,15 +607,10 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.CollectionPoint.Inactive;
         }
 
-        var distinctCategoryIds = categoryIds.Distinct().ToList();
-        if (distinctCategoryIds.Count == 0)
+        var itemsValidation = ValidateItemsForWithdrawal(items);
+        if (itemsValidation.IsError)
         {
-            return DomainErrors.Withdrawal.CategoriesRequired;
-        }
-
-        if (distinctCategoryIds.Any(categoryId => _categories.All(c => c.Id != categoryId)))
-        {
-            return DomainErrors.CollectionPoint.CategoryNotFound;
+            return itemsValidation.FirstError;
         }
 
         var basketValidation = ValidateBasketForWithdrawal(basket);
@@ -625,16 +624,17 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
+        ApplyItemConsumption(items);
         if (basket is not null)
         {
             ApplyBasketConsumption(basket.Value);
         }
 
-        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, distinctCategoryIds, occurredAtUtc, notes, basket);
+        var withdrawal = Withdrawal.Create(Id, beneficiary.Id, items, occurredAtUtc, notes, basket);
         _withdrawals.Add(withdrawal);
 
         RaiseDomainEvent(new WithdrawalRegistered(
-            withdrawal.Id, Id, beneficiary.Id, withdrawal.CategoryIds, occurredAtUtc));
+            withdrawal.Id, Id, beneficiary.Id, withdrawal.Items, occurredAtUtc));
 
         return withdrawal;
     }
@@ -651,7 +651,7 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
     public ErrorOr<Success> UpdateWithdrawal(
         WithdrawalId withdrawalId,
         bool isMostRecentForBeneficiary,
-        IReadOnlyCollection<CategoryId> categoryIds,
+        IReadOnlyCollection<WithdrawalItem> items,
         string? notes,
         int beneficiaryWithdrawalsInCurrentCycleExcludingThis,
         (BasketTemplateId Id, int Quantity)? basket = null)
@@ -667,15 +667,10 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.OnlyMostRecentIsEditable;
         }
 
-        var distinctCategoryIds = categoryIds.Distinct().ToList();
-        if (distinctCategoryIds.Count == 0)
+        var itemsValidation = ValidateItemsForWithdrawal(items, withdrawal.Items);
+        if (itemsValidation.IsError)
         {
-            return DomainErrors.Withdrawal.CategoriesRequired;
-        }
-
-        if (distinctCategoryIds.Any(categoryId => _categories.All(c => c.Id != categoryId)))
-        {
-            return DomainErrors.CollectionPoint.CategoryNotFound;
+            return itemsValidation.FirstError;
         }
 
         var basketValidation = ValidateBasketForWithdrawal(basket, withdrawal.BasketTemplateId, withdrawal.BasketQuantity);
@@ -689,13 +684,16 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.Withdrawal.CycleLimitReached(WithdrawalRule.MaxWithdrawalsPerCycle);
         }
 
+        RevertItemConsumption(withdrawal.Items);
+        ApplyItemConsumption(items);
+
         RevertBasketConsumption(withdrawal.BasketTemplateId, withdrawal.BasketQuantity);
         if (basket is not null)
         {
             ApplyBasketConsumption(basket.Value);
         }
 
-        withdrawal.UpdateDetails(distinctCategoryIds, notes, basket);
+        withdrawal.UpdateDetails(items, notes, basket);
         return Result.Success;
     }
 
@@ -768,6 +766,64 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         {
             var stockItem = _stockItems.SingleOrDefault(s => s.Id == item.StockItemId);
             stockItem?.Increase(item.Quantity * quantity.Value);
+        }
+    }
+
+    private ErrorOr<Success> ValidateItemsForWithdrawal(
+        IReadOnlyCollection<WithdrawalItem> items, IReadOnlyCollection<WithdrawalItem>? previousItems = null)
+    {
+        if (items.Count == 0)
+        {
+            return DomainErrors.Withdrawal.ItemsRequired;
+        }
+
+        if (items.Any(item => item.Quantity <= 0))
+        {
+            return DomainErrors.Withdrawal.InvalidItemQuantity;
+        }
+
+        if (items.Select(item => item.StockItemId).Distinct().Count() != items.Count)
+        {
+            return DomainErrors.Withdrawal.DuplicateItem;
+        }
+
+        if (items.Any(item => _stockItems.All(stockItem => stockItem.Id != item.StockItemId)))
+        {
+            return DomainErrors.CollectionPoint.StockItemNotFound;
+        }
+
+        var hasEnoughStock = items.All(item =>
+            AvailableQuantityForItem(item.StockItemId, previousItems) >= item.Quantity);
+
+        return hasEnoughStock ? Result.Success : DomainErrors.Withdrawal.InsufficientStock;
+    }
+
+    private int AvailableQuantityForItem(StockItemId stockItemId, IReadOnlyCollection<WithdrawalItem>? previousItems)
+    {
+        var currentQuantity = _stockItems.Single(item => item.Id == stockItemId).Quantity;
+        var previouslyReservedQuantity = previousItems?.SingleOrDefault(item => item.StockItemId == stockItemId)?.Quantity ?? 0;
+        return currentQuantity + previouslyReservedQuantity;
+    }
+
+    private void ApplyItemConsumption(IReadOnlyCollection<WithdrawalItem> items)
+    {
+        foreach (var item in items)
+        {
+            _stockItems.Single(stockItem => stockItem.Id == item.StockItemId).Decrease(item.Quantity);
+        }
+    }
+
+    private void RevertItemConsumption(IReadOnlyCollection<WithdrawalItem>? previousItems)
+    {
+        if (previousItems is null || previousItems.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var item in previousItems)
+        {
+            var stockItem = _stockItems.SingleOrDefault(s => s.Id == item.StockItemId);
+            stockItem?.Increase(item.Quantity);
         }
     }
 }

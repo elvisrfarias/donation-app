@@ -1,5 +1,4 @@
 using DoacaoApp.Domain.CollectionPoints;
-using DoacaoApp.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,13 +15,21 @@ public sealed class WithdrawalConfiguration : IEntityTypeConfiguration<Withdrawa
 
         builder.Property(w => w.PointId).IsRequired();
         builder.Property(w => w.BeneficiaryId).IsRequired();
-        builder.PrimitiveCollection(w => w.CategoryIds)
-            .HasColumnName("category_ids")
-            .ElementType()
-            .HasConversion<CategoryIdConverter>();
+
+        builder.OwnsMany(w => w.Items, item =>
+        {
+            item.ToTable("withdrawal_items");
+            item.WithOwner().HasForeignKey("withdrawal_id");
+            item.Property(i => i.StockItemId).HasColumnName("stock_item_id").IsRequired();
+            item.Property(i => i.Quantity).HasColumnName("quantity").IsRequired();
+            item.HasKey("withdrawal_id", nameof(WithdrawalItem.StockItemId));
+            item.HasOne<StockItem>().WithMany().HasForeignKey(i => i.StockItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         builder.Metadata
-            .FindProperty(nameof(Withdrawal.CategoryIds))!
+            .FindNavigation(nameof(Withdrawal.Items))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(w => w.OccurredAtUtc).IsRequired();
         builder.Property(w => w.Notes).HasMaxLength(500);
 

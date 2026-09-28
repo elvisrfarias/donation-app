@@ -226,11 +226,6 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
 
-                    b.PrimitiveCollection<Guid[]>("CategoryIds")
-                        .IsRequired()
-                        .HasColumnType("uuid[]")
-                        .HasColumnName("category_ids");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -997,6 +992,37 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PointId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("DoacaoApp.Domain.CollectionPoints.WithdrawalItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("withdrawal_id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("StockItemId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("stock_item_id");
+
+                            b1.Property<int>("Quantity")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity");
+
+                            b1.HasKey("withdrawal_id", "StockItemId");
+
+                            b1.HasIndex("StockItemId");
+
+                            b1.ToTable("withdrawal_items", (string)null);
+
+                            b1.HasOne("DoacaoApp.Domain.CollectionPoints.StockItem", null)
+                                .WithMany()
+                                .HasForeignKey("StockItemId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired();
+
+                            b1.WithOwner()
+                                .HasForeignKey("withdrawal_id");
+                        });
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>

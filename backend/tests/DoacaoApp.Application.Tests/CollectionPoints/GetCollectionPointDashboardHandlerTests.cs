@@ -98,13 +98,13 @@ public class GetCollectionPointDashboardHandlerTests
     public async Task Handle_ContaOsBeneficiariosDistintosAtendidosNoPeriodo()
     {
         var point = GivenPoint();
-        var categoryId = TestData.EnsureCategory(point);
+        var stockItem = TestData.AddStockItem(point);
         var maria = TestData.Beneficiary("Maria");
         var joao = TestData.Beneficiary("João", TestData.ValidCpfB);
         GivenWithdrawals(point,
-            point.RegisterWithdrawal(maria, [categoryId], 0, TestData.Now, null).Value,
-            point.RegisterWithdrawal(maria, [categoryId], 0, TestData.Now.AddHours(-2), null).Value,
-            point.RegisterWithdrawal(joao, [categoryId], 0, TestData.Now.AddHours(-3), null).Value);
+            point.RegisterWithdrawal(maria, [TestData.Item(stockItem)], 0, TestData.Now, null).Value,
+            point.RegisterWithdrawal(maria, [TestData.Item(stockItem)], 0, TestData.Now.AddHours(-2), null).Value,
+            point.RegisterWithdrawal(joao, [TestData.Item(stockItem)], 0, TestData.Now.AddHours(-3), null).Value);
 
         var result = await Query(point);
 
@@ -131,9 +131,11 @@ public class GetCollectionPointDashboardHandlerTests
     public async Task Handle_ListaAsUltimasRetiradasDoPeriodoComONomeDoBeneficiarioEACategoriaDenormalizada()
     {
         var point = GivenPoint();
-        var clothing = point.AddCategory("Roupas", "shirt").Value;
+        var clothingCategory = point.AddCategory("Roupas", "shirt").Value;
+        var clothingItem = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: clothingCategory);
         var beneficiary = TestData.Beneficiary("Maria Souza");
-        GivenWithdrawals(point, point.RegisterWithdrawal(beneficiary, [clothing], 0, TestData.Now, null).Value);
+        GivenWithdrawals(
+            point, point.RegisterWithdrawal(beneficiary, [TestData.Item(clothingItem)], 0, TestData.Now, null).Value);
         _beneficiaryRepo
             .Setup(r => r.ListByIdsAsync(It.IsAny<IReadOnlyCollection<BeneficiaryId>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([beneficiary]);
@@ -143,10 +145,12 @@ public class GetCollectionPointDashboardHandlerTests
         var recent = result.Value.RecentWithdrawals.Should().ContainSingle().Subject;
         recent.BeneficiaryName.Should().Be("Maria Souza");
         recent.OccurredAtUtc.Should().Be(TestData.Now);
-        var category = recent.Categories.Should().ContainSingle().Subject;
-        category.CategoryId.Should().Be(clothing.Value);
-        category.CategoryName.Should().Be("Roupas");
-        category.CategoryIcon.Should().Be("shirt");
+        var item = recent.Items.Should().ContainSingle().Subject;
+        item.StockItemId.Should().Be(clothingItem.Value);
+        item.ItemName.Should().Be("Camiseta");
+        item.CategoryId.Should().Be(clothingCategory.Value);
+        item.CategoryName.Should().Be("Roupas");
+        item.CategoryIcon.Should().Be("shirt");
     }
 
     [Fact]
@@ -227,5 +231,5 @@ public class GetCollectionPointDashboardHandlerTests
             .ReturnsAsync(withdrawals.OrderByDescending(w => w.OccurredAtUtc).ToList());
 
     private static Withdrawal WithdrawalAt(CollectionPoint point, DateTime occurredAtUtc) =>
-        point.RegisterWithdrawal(TestData.Beneficiary(), [TestData.EnsureCategory(point)], 0, occurredAtUtc, null).Value;
+        point.RegisterWithdrawal(TestData.Beneficiary(), [TestData.Item(TestData.EnsureStockItem(point))], 0, occurredAtUtc, null).Value;
 }

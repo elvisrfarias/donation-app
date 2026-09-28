@@ -25,9 +25,11 @@ public class RegisterWithdrawalHandlerTests
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
         var categoryId = TestData.EnsureCategory(point, "Roupas");
+        var stockItem = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: categoryId);
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
-        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null);
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(stockItem.Value, 1)], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -37,35 +39,86 @@ public class RegisterWithdrawalHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DeveDenormalizarNomeEIconeDasCategoriasNaResposta()
+    public async Task Handle_DeveDenormalizarNomeUnidadeECategoriaDoItemNaResposta()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
         var categoryId = point.AddCategory("Roupas", "shirt").Value;
+        var stockItem = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: categoryId);
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
-        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null);
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(stockItem.Value, 2)], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
-        var category = result.Value.Categories.Should().ContainSingle().Subject;
-        category.CategoryId.Should().Be(categoryId.Value);
-        category.CategoryName.Should().Be("Roupas");
-        category.CategoryIcon.Should().Be("shirt");
+        var item = result.Value.Items.Should().ContainSingle().Subject;
+        item.StockItemId.Should().Be(stockItem.Value);
+        item.ItemName.Should().Be("Camiseta");
+        item.Unit.Should().Be("un");
+        item.CategoryId.Should().Be(categoryId.Value);
+        item.CategoryName.Should().Be("Roupas");
+        item.CategoryIcon.Should().Be("shirt");
+        item.Quantity.Should().Be(2);
     }
 
     [Fact]
-    public async Task Handle_ComCategoriaInexistenteNoPonto_DeveBloquear()
+    public async Task Handle_ComItemInexistenteNoPonto_DeveBloquear()
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
-        var command = new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [Guid.NewGuid()], null, null);
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(Guid.NewGuid(), 1)], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
-        result.FirstError.Code.Should().Be("CollectionPoint.CategoryNotFound");
+        result.FirstError.Code.Should().Be("CollectionPoint.StockItemNotFound");
+    }
+
+    [Fact]
+    public async Task Handle_ComEstoqueInsuficienteParaOItemLivre_DeveBloquearENaoSalvar()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point(maxPerCycle: 1);
+        var stockItem = TestData.AddStockItem(point, "Camiseta", "un", 3);
+        SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
+
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(stockItem.Value, 4)], null, null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Withdrawal.InsufficientStock");
+        point.StockItems.Single(i => i.Id == stockItem).Quantity.Should().Be(3);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ComItensLivres_DescontaEstoqueDeCadaItemEPersiste()
+    {
+        var beneficiary = TestData.Beneficiary();
+        var point = TestData.Point(maxPerCycle: 1);
+        var foodId = TestData.AddStockItem(point, "Arroz", "kg", 10);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 5, categoryId: TestData.AddCategory(point, "Roupas"));
+        SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
+
+        var command = new RegisterWithdrawalCommand(
+            point.Id.Value,
+            beneficiary.Id.Value,
+            [new WithdrawalItemEntry(foodId.Value, 2), new WithdrawalItemEntry(clothingId.Value, 1)],
+            null,
+            null);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Items.Should().HaveCount(2);
+        point.StockItems.Single(i => i.Id == foodId).Quantity.Should().Be(8);
+        point.StockItems.Single(i => i.Id == clothingId).Quantity.Should().Be(4);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -75,11 +128,13 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 1);
         var categoryId = TestData.EnsureCategory(point);
         var stockItem = TestData.AddStockItem(point, quantity: 100, categoryId: categoryId);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 1);
 
         var command = new RegisterWithdrawalCommand(
-            point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, template.Value, 1);
+            point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+            template.Value, 1);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -95,12 +150,14 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 3);
         var categoryId = TestData.EnsureCategory(point);
         var stockItem = TestData.AddStockItem(point, quantity: 100, categoryId: categoryId);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 2);
 
         var result = await CreateSut().Handle(
             new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, template.Value, 1),
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+                template.Value, 1),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -113,12 +170,14 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 1);
         var categoryId = TestData.EnsureCategory(point);
         var stockItem = TestData.AddStockItem(point, quantity: 100, categoryId: categoryId);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 5));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         await CreateSut().Handle(
             new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, template.Value, 1),
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+                template.Value, 1),
             CancellationToken.None);
 
         _pointRepo.Verify(
@@ -137,12 +196,14 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 3);
         var categoryId = TestData.EnsureCategory(point);
         var stockItem = TestData.AddStockItem(point, quantity: 10, categoryId: categoryId);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 3));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         var result = await CreateSut().Handle(
             new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, template.Value, 2),
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+                template.Value, 2),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -156,12 +217,14 @@ public class RegisterWithdrawalHandlerTests
         var point = TestData.Point(maxPerCycle: 3);
         var categoryId = TestData.EnsureCategory(point);
         var stockItem = TestData.AddStockItem(point, quantity: 4, categoryId: categoryId);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var template = TestData.AddBasketTemplate(point, "Cesta", (stockItem, 3));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         var result = await CreateSut().Handle(
             new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, template.Value, 2),
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+                template.Value, 2),
             CancellationToken.None);
 
         result.FirstError.Code.Should().Be("Withdrawal.InsufficientStock");
@@ -174,12 +237,13 @@ public class RegisterWithdrawalHandlerTests
     {
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 3);
-        var categoryId = TestData.EnsureCategory(point);
+        var clothingId = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 0);
 
         var result = await CreateSut().Handle(
             new RegisterWithdrawalCommand(
-                point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null, Guid.NewGuid(), 1),
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(clothingId.Value, 1)], null, null,
+                Guid.NewGuid(), 1),
             CancellationToken.None);
 
         result.FirstError.Code.Should().Be("Withdrawal.BasketTemplateNotFound");
@@ -196,7 +260,7 @@ public class RegisterWithdrawalHandlerTests
             new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [], null, null),
             CancellationToken.None);
 
-        result.FirstError.Code.Should().Be("Withdrawal.CategoriesRequired");
+        result.FirstError.Code.Should().Be("Withdrawal.ItemsRequired");
     }
 
     [Theory]
@@ -208,14 +272,16 @@ public class RegisterWithdrawalHandlerTests
         var beneficiary = TestData.Beneficiary();
         var point = TestData.Point(maxPerCycle: 1);
         var categoryId = TestData.EnsureCategory(point, categoryName);
+        var stockItem = TestData.AddStockItem(point, "Item", "un", 10, categoryId: categoryId);
         SetupRepositories(beneficiary, point, withdrawalsInCycle: 5);
 
         var result = await CreateSut().Handle(
-            new RegisterWithdrawalCommand(point.Id.Value, beneficiary.Id.Value, [categoryId.Value], null, null),
+            new RegisterWithdrawalCommand(
+                point.Id.Value, beneficiary.Id.Value, [new WithdrawalItemEntry(stockItem.Value, 1)], null, null),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.Categories.Should().ContainSingle(c => c.CategoryName == categoryName);
+        result.Value.Items.Should().ContainSingle(i => i.CategoryName == categoryName);
         _pointRepo.Verify(
             r => r.CountBeneficiaryBasketWithdrawalsAsync(
                 It.IsAny<BeneficiaryId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
@@ -229,7 +295,8 @@ public class RegisterWithdrawalHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Beneficiary?)null);
 
-        var command = new RegisterWithdrawalCommand(Guid.NewGuid(), Guid.NewGuid(), [Guid.NewGuid()], null, null);
+        var command = new RegisterWithdrawalCommand(
+            Guid.NewGuid(), Guid.NewGuid(), [new WithdrawalItemEntry(Guid.NewGuid(), 1)], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 
@@ -245,7 +312,8 @@ public class RegisterWithdrawalHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<CollectionPointId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CollectionPoint?)null);
 
-        var command = new RegisterWithdrawalCommand(Guid.NewGuid(), beneficiary.Id.Value, [Guid.NewGuid()], null, null);
+        var command = new RegisterWithdrawalCommand(
+            Guid.NewGuid(), beneficiary.Id.Value, [new WithdrawalItemEntry(Guid.NewGuid(), 1)], null, null);
 
         var result = await CreateSut().Handle(command, CancellationToken.None);
 

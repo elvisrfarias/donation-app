@@ -67,6 +67,11 @@ public static class DomainErrors
                 "CollectionPoint.StockItemInUseByBasketTemplate",
                 "Este item está em uso em uma receita de cesta e não pode ser removido.");
 
+        public static Error StockItemInUseByWithdrawal =>
+            Error.Conflict(
+                "CollectionPoint.StockItemInUseByWithdrawal",
+                "Este item já foi dado em uma retirada e não pode ser removido.");
+
         public static Error BasketTemplateNotFound =>
             Error.NotFound("CollectionPoint.BasketTemplateNotFound", "Receita de cesta não encontrada neste ponto.");
 
@@ -183,11 +188,21 @@ public static class DomainErrors
 
     public static class Withdrawal
     {
-        public static Error CategoriesRequired =>
-            Error.Validation("Withdrawal.CategoriesRequired", "Informe ao menos um item da retirada.");
+        public static Error ItemsRequired =>
+            Error.Validation("Withdrawal.ItemsRequired", "Informe ao menos um item da retirada.");
 
         public static Error ItemUnavailable =>
             Error.Conflict("Withdrawal.ItemUnavailable", "Um dos itens selecionados não está disponível no estoque deste ponto.");
+
+        public static Error DuplicateItem =>
+            Error.Validation(
+                "Withdrawal.DuplicateItem",
+                "Um item não pode aparecer mais de uma vez na mesma retirada.");
+
+        public static Error InvalidItemQuantity =>
+            Error.Validation(
+                "Withdrawal.InvalidItemQuantity",
+                "A quantidade de cada item da retirada deve ser maior que zero.");
 
         public static Error CycleLimitReached(int max) =>
             Error.Conflict(

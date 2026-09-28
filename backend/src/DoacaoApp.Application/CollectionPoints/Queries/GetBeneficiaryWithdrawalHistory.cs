@@ -58,7 +58,9 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
 
         var history = await pointRepository.GetBeneficiaryWithdrawalHistoryAsync(beneficiary.Id, cancellationToken);
 
-        var categoryIds = history.SelectMany(w => w.CategoryIds).Distinct().ToList();
+        var stockItemIds = history.SelectMany(w => w.Items).Select(item => item.StockItemId).Distinct().ToList();
+        var stockItems = await pointRepository.GetStockItemsByIdsAsync(stockItemIds, cancellationToken);
+        var categoryIds = stockItems.Select(item => item.CategoryId).Distinct().ToList();
         var categories = await pointRepository.GetCategoriesByIdsAsync(categoryIds, cancellationToken);
 
         var remaining = Math.Max(0, rule.MaxWithdrawalsPerCycle - usedInCycle);
@@ -73,6 +75,6 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
             remaining,
             startUtc,
             endUtc,
-            history.Select(w => w.ToResponse(categories)).ToList());
+            history.Select(w => w.ToResponse(stockItems, categories)).ToList());
     }
 }

@@ -220,6 +220,22 @@ public class CollectionPointStockItemTests
     }
 
     [Fact]
+    public void RemoveStockItem_ReferenciadoEmRetirada_DeveBloquear()
+    {
+        var point = TestData.Point();
+        var categoryId = TestData.AddCategory(point);
+        var itemId = point.AddStockItem("Camiseta", "un", categoryId, 10, 0, 0, true).Value;
+        var beneficiary = TestData.Beneficiary();
+        point.RegisterWithdrawal(beneficiary, [TestData.Item(itemId)], beneficiaryWithdrawalsInCurrentCycle: 0, TestData.Now, null);
+
+        var result = point.RemoveStockItem(itemId);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("CollectionPoint.StockItemInUseByWithdrawal");
+        point.StockItems.Should().ContainSingle(i => i.Id == itemId);
+    }
+
+    [Fact]
     public void RemoveStockItem_ItemInexistente_DeveRetornarNotFound()
     {
         var point = TestData.Point();

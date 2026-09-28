@@ -102,4 +102,19 @@ public sealed class CollectionPointRepository(AppDbContext context) : ICollectio
             .Where(c => categoryIds.Contains(c.Id))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<StockItem>> GetStockItemsByIdsAsync(
+        IReadOnlyCollection<StockItemId> stockItemIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (stockItemIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.StockItems
+            .AsNoTracking()
+            .Where(i => stockItemIds.Contains(i.Id))
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -55,7 +55,15 @@ public static class TestData
         CategoryId? categoryId = null) =>
         point.AddStockItem(name, unit, categoryId ?? EnsureCategory(point), quantity, goal, alertThreshold, isTracked: true).Value;
 
+    /// <summary>Devolve o item de estoque de mesmo nome já existente no ponto, ou cria um novo.</summary>
+    public static StockItemId EnsureStockItem(CollectionPoint point, string name = "Arroz 1kg", string unit = "kg") =>
+        point.StockItems.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase))?.Id
+        ?? AddStockItem(point, name, unit);
+
     public static BasketTemplateId AddBasketTemplate(
         CollectionPoint point, string name, params (StockItemId StockItemId, int Quantity)[] items) =>
         point.CreateBasketTemplate(name, items).Value;
+
+    public static WithdrawalItem Item(StockItemId stockItemId, int quantity = 1) =>
+        new(stockItemId, quantity);
 }

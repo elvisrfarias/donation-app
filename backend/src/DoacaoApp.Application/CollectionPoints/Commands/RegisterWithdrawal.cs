@@ -11,16 +11,19 @@ using MediatR;
 
 namespace DoacaoApp.Application.CollectionPoints.Commands;
 
+/// <summary>Um item livre da retirada: item de estoque do ponto e quantidade dada ao beneficiário.</summary>
+public sealed record WithdrawalItemEntry(Guid StockItemId, int Quantity);
+
 /// <summary>
 /// Registra uma retirada (uma visita, com um ou mais itens) em um ponto de coleta. Só a cesta básica
 /// segue a regra de equidade (limite do ponto no ciclo vigente, somando o histórico de TODOS os pontos
-/// do município, e baixa automática no estoque); os demais itens (categorias livres) não têm limite
-/// nem dão baixa, mas ficam registrados no histórico do beneficiário.
+/// do município, e baixa automática no estoque); os demais itens (itens livres) não têm limite de
+/// ciclo, mas descontam do estoque do ponto igualmente e ficam registrados no histórico do beneficiário.
 /// </summary>
 public sealed record RegisterWithdrawalCommand(
     Guid PointId,
     Guid BeneficiaryId,
-    IReadOnlyList<Guid> CategoryIds,
+    IReadOnlyList<WithdrawalItemEntry> Items,
     DateTime? OccurredAtUtc,
     string? Notes,
     Guid? BasketTemplateId = null,
@@ -35,7 +38,12 @@ public sealed class RegisterWithdrawalValidator : AbstractValidator<RegisterWith
     {
         RuleFor(x => x.PointId).NotEmpty();
         RuleFor(x => x.BeneficiaryId).NotEmpty();
-        RuleForEach(x => x.CategoryIds).NotEmpty();
+        RuleFor(x => x.Items).NotEmpty();
+        RuleForEach(x => x.Items).ChildRules(item =>
+        {
+            item.RuleFor(i => i.StockItemId).NotEmpty();
+            item.RuleFor(i => i.Quantity).GreaterThan(0);
+        });
         RuleFor(x => x.Notes).MaximumLength(500);
         RuleFor(x => x.BasketQuantity)
             .GreaterThan(0)
@@ -80,7 +88,12 @@ public sealed class RegisterWithdrawalHandler(
         var basket = ToBasket(command.BasketTemplateId, command.BasketQuantity);
 
         var withdrawalResult = point.RegisterWithdrawal(
-            beneficiary, command.CategoryIds.Select(CategoryId.From).ToList(), alreadyInCycle, occurredAt, command.Notes, basket);
+            beneficiary,
+            ToDomainItems(command.Items),
+            alreadyInCycle,
+            occurredAt,
+            command.Notes,
+            basket);
 
         if (withdrawalResult.IsError)
         {
@@ -89,9 +102,12 @@ public sealed class RegisterWithdrawalHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return withdrawalResult.Value.ToResponse(point.Categories);
+        return withdrawalResult.Value.ToResponse(point.StockItems, point.Categories);
     }
 
     private static (BasketTemplateId Id, int Quantity)? ToBasket(Guid? basketTemplateId, int? basketQuantity) =>
         basketTemplateId is null ? null : (BasketTemplateId.From(basketTemplateId.Value), basketQuantity!.Value);
+
+    internal static IReadOnlyList<WithdrawalItem> ToDomainItems(IReadOnlyList<WithdrawalItemEntry> items) =>
+        [.. items.Select(item => new WithdrawalItem(StockItemId.From(item.StockItemId), item.Quantity))];
 }

@@ -208,18 +208,22 @@ export interface WithdrawalsSeriesPoint {
   count: number
 }
 
-/** Categoria já resolvida (nome/ícone) de um item retirado — mesmo formato usado no histórico de
- *  retiradas do beneficiário (`WithdrawalCategoryResponse` do backend). */
-export interface WithdrawalCategoryRef {
+/** Item retirado numa visita, já resolvido (nome/unidade/categoria) pelo backend — mesmo formato
+ *  usado no histórico de retiradas do beneficiário (`WithdrawalItemResponse` do backend). */
+export interface WithdrawalItemRef {
+  stockItemId: string
+  itemName: string
+  unit: string
   categoryId: string
   categoryName: string
   categoryIcon: string
+  quantity: number
 }
 
 export interface RecentWithdrawal {
   withdrawalId: string
   beneficiaryName: string
-  categories: WithdrawalCategoryRef[]
+  items: WithdrawalItemRef[]
   occurredAtUtc: string
 }
 

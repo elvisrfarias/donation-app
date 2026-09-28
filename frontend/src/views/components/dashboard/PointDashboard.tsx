@@ -29,7 +29,7 @@ import {
 } from '@/models/types'
 import { useCollectionPoint, useCollectionPointDashboard } from '@/viewmodels'
 import { StatCard } from '@/views/components/common/StatCard'
-import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
+import { WithdrawalItemBadges } from '@/views/components/withdrawal/WithdrawalItemBadge'
 import { DashboardHeader } from './DashboardHeader'
 import { PeriodFilter } from './PeriodFilter'
 import { itemsNeedingRestock } from '@/views/components/stock/stockDraft'
@@ -244,7 +244,7 @@ function RecentWithdrawalsCard({ dashboard }: { dashboard: CollectionPointDashbo
                 <span className="truncate text-sm font-medium text-stone-800">
                   {withdrawal.beneficiaryName}
                 </span>
-                <CategoryBadges categories={withdrawal.categories} />
+                <WithdrawalItemBadges items={withdrawal.items} />
               </span>
               <time
                 dateTime={withdrawal.occurredAtUtc}

@@ -1,13 +1,20 @@
-import type { WithdrawalCategoryRef } from './collectionPoint'
+import type { WithdrawalItemRef } from './collectionPoint'
+
+/** Um item do corpo de Register/UpdateWithdrawalCommand: item de estoque do ponto e quantidade dada. */
+export interface WithdrawalItemEntryInput {
+  stockItemId: string
+  quantity: number
+}
 
 /** WithdrawalResponse do backend. */
 export interface Withdrawal {
   id: string
   pointId: string
   beneficiaryId: string
-  /** Itens retirados na visita (roupas, calçados… — sem limite nem baixa de estoque). Já vêm
-   *  denormalizados (nome/ícone) pelo backend. */
-  categories: WithdrawalCategoryRef[]
+  /** Itens específicos dados na visita, com quantidade — sem limite nem baixa no ciclo (só a
+   *  cesta básica conta para o limite), mas cada um desconta do estoque do ponto. Já vêm
+   *  denormalizados (nome/unidade/categoria) pelo backend. */
+  items: WithdrawalItemRef[]
   /** Receita de cesta básica retirada nesta visita, se houver. */
   basketTemplateId?: string | null
   basketQuantity?: number | null
@@ -19,7 +26,7 @@ export interface Withdrawal {
 export interface RegisterWithdrawalInput {
   pointId: string
   beneficiaryId: string
-  categoryIds: string[]
+  items: WithdrawalItemEntryInput[]
   occurredAtUtc?: string | null
   notes?: string | null
   /** Receita de cesta básica retirada nesta visita, se houver — sujeita ao limite do ciclo e dá baixa no estoque. */
@@ -30,7 +37,7 @@ export interface RegisterWithdrawalInput {
 /** Corpo do UpdateWithdrawalCommand. Só a retirada mais recente do beneficiário pode ser editada. */
 export interface UpdateWithdrawalInput {
   pointId: string
-  categoryIds: string[]
+  items: WithdrawalItemEntryInput[]
   notes?: string | null
   basketTemplateId?: string | null
   basketQuantity?: number | null

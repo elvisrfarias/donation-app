@@ -58,4 +58,14 @@ public interface ICollectionPointRepository
     Task<IReadOnlyList<Category>> GetCategoriesByIdsAsync(
         IReadOnlyCollection<CategoryId> categoryIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Itens de estoque (de quaisquer pontos) cujos ids aparecem em um conjunto de retiradas. Usada
+    /// para denormalizar nome/unidade no histórico municipal de um beneficiário, que abrange vários
+    /// pontos e, portanto, catálogos de item diferentes — igual <see cref="GetCategoriesByIdsAsync"/>,
+    /// mas para o item em si em vez da categoria dele.
+    /// </summary>
+    Task<IReadOnlyList<StockItem>> GetStockItemsByIdsAsync(
+        IReadOnlyCollection<StockItemId> stockItemIds,
+        CancellationToken cancellationToken = default);
 }

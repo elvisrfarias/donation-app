@@ -42,9 +42,10 @@ public class RemoveBasketTemplateHandlerTests
         var point = GivenPoint();
         var categoryId = TestData.EnsureCategory(point);
         var rice = point.AddStockItem("Arroz", "kg", categoryId, 10, 0, 5, true).Value;
+        var clothing = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
         var templateId = point.CreateBasketTemplate("Cesta", [(rice, 2)]).Value;
         point.RegisterWithdrawal(
-            TestData.Beneficiary(), [categoryId], 0, TestData.Now, null, (templateId, 1));
+            TestData.Beneficiary(), [TestData.Item(clothing)], 0, TestData.Now, null, (templateId, 1));
 
         var result = await CreateSut().Handle(
             new RemoveBasketTemplateCommand(point.Id.Value, templateId.Value), CancellationToken.None);

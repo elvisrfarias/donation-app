@@ -50,9 +50,25 @@ const dashboard: CollectionPointDashboard = {
     {
       withdrawalId: 'w-1',
       beneficiaryName: 'Maria Souza',
-      categories: [
-        { categoryId: 'cat-food', categoryName: 'Alimentos', categoryIcon: 'apple' },
-        { categoryId: 'cat-clothing', categoryName: 'Roupas', categoryIcon: 'shirt' },
+      items: [
+        {
+          stockItemId: 'item-rice',
+          itemName: 'Arroz 1kg',
+          unit: 'kg',
+          categoryId: 'cat-food',
+          categoryName: 'Alimentos',
+          categoryIcon: 'apple',
+          quantity: 2,
+        },
+        {
+          stockItemId: 'item-shirt',
+          itemName: 'Camiseta',
+          unit: 'un',
+          categoryId: 'cat-clothing',
+          categoryName: 'Roupas',
+          categoryIcon: 'shirt',
+          quantity: 1,
+        },
       ],
       occurredAtUtc: '2026-06-20T14:00:00Z',
     },

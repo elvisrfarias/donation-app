@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { CheckCircle2, Minus, PackagePlus, PackageSearch, Pencil, Plus, ShoppingBasket } from 'lucide-react'
+import { CheckCircle2, Minus, PackagePlus, PackageSearch, Pencil, Plus, ShoppingBasket, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { beneficiaryService } from '@/models/services'
@@ -7,7 +7,6 @@ import {
   cycleTypeLabels,
   type Beneficiary,
   type BasketTemplate,
-  type Category,
   type CollectionPoint,
   type Withdrawal,
 } from '@/models/types'
@@ -22,29 +21,22 @@ import {
 } from '@/viewmodels'
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { ModalComponent } from '@/views/components/modal'
-import { FALLBACK_ICON, ICON_BY_KEY } from '@/views/components/stock/categoryIcons'
 import {
   activeBasketTemplates,
   insufficientItemsForQuantity,
   unitsByItemId,
 } from '@/views/components/stock/basketDraft'
-import { clampQuantity, parseQuantity, sumQuantitiesByCategory } from '@/views/components/stock/stockDraft'
-import { CategoryBadges } from '@/views/components/withdrawal/CategoryBadge'
+import { clampQuantity, parseQuantity } from '@/views/components/stock/stockDraft'
 import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
 import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
-import { availableWithdrawalCategories } from '@/views/components/withdrawal/withdrawalCategories'
+import { WithdrawalItemBadges } from '@/views/components/withdrawal/WithdrawalItemBadge'
 import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  FormField,
-  SectionTitle,
-  Select,
-  TagBox,
-  Textarea,
-  type TagBoxOption,
-} from '@/views/components/ui'
+  availableQuantityForItem,
+  availableWithdrawalItems,
+  insufficientWithdrawalItems,
+  type WithdrawalDraftItem,
+} from '@/views/components/withdrawal/withdrawalItems'
+import { Alert, Badge, Button, Card, FormField, SectionTitle, Select, Textarea } from '@/views/components/ui'
 
 const withdrawalDateFormatter = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
@@ -64,12 +56,12 @@ function withdrawalColumns(currentPointId: string): ColumnDef<Withdrawal>[] {
       ),
     },
     {
-      id: 'categories',
+      id: 'items',
       header: 'Itens',
       accessorFn: (withdrawal) =>
-        withdrawal.categories.map((category) => category.categoryName).join(', '),
+        withdrawal.items.map((item) => `${item.itemName} x${item.quantity}`).join(', '),
       meta: { label: 'Itens', filterPlaceholder: 'Filtrar item…' },
-      cell: ({ row }) => <CategoryBadges categories={row.original.categories} />,
+      cell: ({ row }) => <WithdrawalItemBadges items={row.original.items} />,
     },
     {
       id: 'point',
@@ -97,24 +89,10 @@ function withdrawalColumns(currentPointId: string): ColumnDef<Withdrawal>[] {
   ]
 }
 
-function categoryOptionsOf(
-  availableCategories: Category[],
-  quantities: Record<string, number>,
-): TagBoxOption[] {
-  return availableCategories.map((category) => {
-    const Icon = ICON_BY_KEY[category.icon] ?? FALLBACK_ICON
-    return {
-      value: category.id,
-      label: `${category.name} (${quantities[category.id] ?? 0})`,
-      icon: <Icon className="size-4 text-stone-500" aria-hidden />,
-    }
-  })
-}
-
-function describeCategoriesHint(categories: string[], hasAnyItem: boolean): string {
+function describeItemsHint(items: WithdrawalDraftItem[], hasAnyItem: boolean): string {
   if (!hasAnyItem) return 'Este ponto não tem nenhum item em estoque no momento.'
-  if (categories.length === 0) return 'Escolha ao menos um item disponível.'
-  return 'Sem limite por ciclo — a retirada fica registrada no histórico.'
+  if (items.length === 0) return 'Escolha ao menos um item disponível.'
+  return 'Sem limite por ciclo — cada item dado desconta do estoque deste ponto.'
 }
 
 const MAX_NOTES_LENGTH = 500
@@ -320,13 +298,79 @@ function BasketSection({
   )
 }
 
+function WithdrawalItemRow({
+  item,
+  max,
+  disabled,
+  onChangeQuantity,
+  onRemove,
+}: {
+  item: WithdrawalDraftItem
+  max: number
+  disabled: boolean
+  onChangeQuantity: (quantity: number) => void
+  onRemove: () => void
+}) {
+  return (
+    <li className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-stone-900">{item.itemName}</p>
+        <p className="text-xs text-stone-500">{item.unit}</p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={`Diminuir quantidade de ${item.itemName}`}
+          disabled={disabled || item.quantity <= 1}
+          onClick={() => onChangeQuantity(Math.max(1, item.quantity - 1))}
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-600 ring-1 ring-stone-200 ring-inset hover:bg-stone-50 disabled:opacity-40"
+        >
+          <Minus className="size-3.5" />
+        </button>
+        <input
+          type="number"
+          min={1}
+          max={max}
+          inputMode="numeric"
+          value={item.quantity}
+          disabled={disabled}
+          aria-label={`Quantidade de ${item.itemName}`}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) =>
+            onChangeQuantity(Math.max(1, Math.min(max, parseQuantity(event.target.value))))
+          }
+          className="h-8 w-14 [appearance:textfield] rounded-lg border border-stone-200 text-center text-sm font-semibold tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+        <button
+          type="button"
+          aria-label={`Aumentar quantidade de ${item.itemName}`}
+          disabled={disabled || item.quantity >= max}
+          onClick={() => onChangeQuantity(Math.min(max, item.quantity + 1))}
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-600 ring-1 ring-stone-200 ring-inset hover:bg-stone-50 disabled:opacity-40"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      </div>
+      <button
+        type="button"
+        aria-label={`Remover ${item.itemName}`}
+        disabled={disabled}
+        onClick={onRemove}
+        className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600"
+      >
+        <X className="size-4" />
+      </button>
+    </li>
+  )
+}
+
 interface WithdrawalFormModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description: string
   point: CollectionPoint
-  initialCategories: string[]
+  initialItems: WithdrawalDraftItem[]
   initialNotes: string
   initialBasketTemplateId?: string | null
   initialBasketQuantity?: number | null
@@ -336,7 +380,11 @@ interface WithdrawalFormModalProps {
   errorMessage?: string
   isConflictError?: boolean
   onErrorReset: () => void
-  onSubmit: (categoryIds: string[], notes: string | null, basket: SelectedBasket | null) => Promise<void>
+  onSubmit: (
+    items: { stockItemId: string; quantity: number }[],
+    notes: string | null,
+    basket: SelectedBasket | null,
+  ) => Promise<void>
 }
 
 function WithdrawalFormModal({
@@ -345,7 +393,7 @@ function WithdrawalFormModal({
   title,
   description,
   point,
-  initialCategories,
+  initialItems,
   initialNotes,
   initialBasketTemplateId,
   initialBasketQuantity,
@@ -357,11 +405,15 @@ function WithdrawalFormModal({
   onErrorReset,
   onSubmit,
 }: WithdrawalFormModalProps) {
-  const availableCategories = useMemo(() => availableWithdrawalCategories(point), [point])
-  const quantities = useMemo(() => sumQuantitiesByCategory(point.stockItems), [point])
-  const hasAnyItemInStock = availableCategories.length > 0
+  const availableItems = useMemo(() => availableWithdrawalItems(point), [point])
+  const hasAnyItemInStock = availableItems.length > 0
+  const stockItemsById = useMemo(
+    () => new Map(point.stockItems.map((item) => [item.id, item])),
+    [point],
+  )
 
-  const [categories, setCategories] = useState<string[]>(initialCategories)
+  const [items, setItems] = useState<WithdrawalDraftItem[]>(initialItems)
+  const [itemPicker, setItemPicker] = useState('')
   const [notes, setNotes] = useState(initialNotes)
   const [basketTemplateId, setBasketTemplateId] = useState(initialBasketTemplateId ?? '')
   const [basketQuantity, setBasketQuantity] = useState(initialBasketQuantity ?? 1)
@@ -371,13 +423,45 @@ function WithdrawalFormModal({
     // Reinicia o rascunho do formulário sempre que a modal reabre (para o mesmo componente
     // persistente, não um remount) — reset intencional, não sincronização com uma fonte externa.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCategories(initialCategories)
+    setItems(initialItems)
+    setItemPicker('')
     setNotes(initialNotes)
     setBasketTemplateId(initialBasketTemplateId ?? '')
     setBasketQuantity(initialBasketQuantity ?? 1)
     onErrorReset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  const reservedByStockItemId = useMemo(
+    () => Object.fromEntries(initialItems.map((item) => [item.stockItemId, item.quantity])),
+    [initialItems],
+  )
+
+  const pickableItems = availableItems.filter(
+    (item) => !items.some((draftItem) => draftItem.stockItemId === item.id),
+  )
+
+  function addItem(stockItemId: string) {
+    const stockItem = point.stockItems.find((item) => item.id === stockItemId)
+    if (!stockItem) return
+    setItems((previous) => [
+      ...previous,
+      { stockItemId: stockItem.id, itemName: stockItem.name, unit: stockItem.unit, quantity: 1 },
+    ])
+    setItemPicker('')
+  }
+
+  function changeItemQuantity(stockItemId: string, quantity: number) {
+    setItems((previous) =>
+      previous.map((item) => (item.stockItemId === stockItemId ? { ...item, quantity } : item)),
+    )
+  }
+
+  function removeItem(stockItemId: string) {
+    setItems((previous) => previous.filter((item) => item.stockItemId !== stockItemId))
+  }
+
+  const insufficientItems = insufficientWithdrawalItems(items, stockItemsById, reservedByStockItemId)
 
   const activeTemplates = useMemo(() => activeBasketTemplates(point.basketTemplates), [point])
   const units = useMemo(() => unitsByItemId(point.stockItems), [point])
@@ -388,7 +472,7 @@ function WithdrawalFormModal({
       insufficientItemsForQuantity(selectedTemplate.feasibility.missing, basketQuantity, units).length > 0)
 
   const notesTooLong = notes.length > MAX_NOTES_LENGTH
-  const canSubmit = categories.length > 0 && !basketBlocked && !notesTooLong
+  const canSubmit = items.length > 0 && insufficientItems.length === 0 && !basketBlocked && !notesTooLong
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -396,7 +480,11 @@ function WithdrawalFormModal({
     const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
     if (!parsed.success) return
     const basket = selectedTemplate ? { templateId: selectedTemplate.id, quantity: basketQuantity } : null
-    await onSubmit(categories, parsed.data.notes || null, basket)
+    await onSubmit(
+      items.map((item) => ({ stockItemId: item.stockItemId, quantity: item.quantity })),
+      parsed.data.notes || null,
+      basket,
+    )
   }
 
   return (
@@ -404,21 +492,58 @@ function WithdrawalFormModal({
       <form onSubmit={submit} className="space-y-4">
         <FormField
           label="Itens da retirada"
-          htmlFor="withdrawal-categories"
+          htmlFor="withdrawal-item-picker"
           required
-          hint={describeCategoriesHint(categories, hasAnyItemInStock)}
+          hint={describeItemsHint(items, hasAnyItemInStock)}
         >
-          <TagBox
-            id="withdrawal-categories"
+          <Select
+            id="withdrawal-item-picker"
             aria-label="Itens da retirada"
-            options={categoryOptionsOf(availableCategories, quantities)}
-            value={categories}
-            placeholder="Selecione os itens retirados…"
-            disabled={!hasAnyItemInStock}
-            invalid={categories.length === 0}
-            onValueChange={setCategories}
-          />
+            value={itemPicker}
+            placeholder="Adicionar item retirado…"
+            disabled={!hasAnyItemInStock || pickableItems.length === 0}
+            invalid={items.length === 0}
+            onValueChange={addItem}
+          >
+            {pickableItems.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} ({item.unit}) · {item.quantity} em estoque
+              </option>
+            ))}
+          </Select>
         </FormField>
+
+        {items.length === 0 ? (
+          <Alert tone="info">Nenhum item adicionado ainda.</Alert>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((item) => (
+              <WithdrawalItemRow
+                key={item.stockItemId}
+                item={item}
+                max={availableQuantityForItem(
+                  stockItemsById.get(item.stockItemId) ?? { quantity: 0 },
+                  reservedByStockItemId[item.stockItemId] ?? 0,
+                )}
+                disabled={isPending}
+                onChangeQuantity={(quantity) => changeItemQuantity(item.stockItemId, quantity)}
+                onRemove={() => removeItem(item.stockItemId)}
+              />
+            ))}
+          </ul>
+        )}
+
+        {insufficientItems.length > 0 && (
+          <Alert tone="warning" title="Estoque insuficiente">
+            <ul className="list-inside list-disc">
+              {insufficientItems.map((item) => (
+                <li key={item.stockItemId}>
+                  Faltam {formatMissingAmount(item.missingAmount, item.unit)} de {item.itemName}
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        )}
 
         <BasketSection
           point={point}
@@ -661,7 +786,7 @@ export function RegisterWithdrawalPage() {
           title="Registrar retirada"
           description={`${beneficiary.name} · ${point.name}`}
           point={point}
-          initialCategories={[]}
+          initialItems={[]}
           initialNotes=""
           isEditing={false}
           cycleLimitReached={!!limitReached}
@@ -669,12 +794,12 @@ export function RegisterWithdrawalPage() {
           errorMessage={registerWithdrawal.error?.displayMessage}
           isConflictError={registerWithdrawal.error?.isConflict}
           onErrorReset={registerWithdrawal.reset}
-          onSubmit={async (categoryIds, notes, basket) => {
+          onSubmit={async (items, notes, basket) => {
             try {
               await registerWithdrawal.register({
                 pointId: point.id,
                 beneficiaryId: beneficiary.id,
-                categoryIds,
+                items,
                 notes,
                 ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
               })
@@ -695,7 +820,12 @@ export function RegisterWithdrawalPage() {
           title="Editar retirada"
           description={`${beneficiary?.name ?? ''} · ${point.name}`}
           point={point}
-          initialCategories={editingWithdrawal.categories.map((category) => category.categoryId)}
+          initialItems={editingWithdrawal.items.map((item) => ({
+            stockItemId: item.stockItemId,
+            itemName: item.itemName,
+            unit: item.unit,
+            quantity: item.quantity,
+          }))}
           initialNotes={editingWithdrawal.notes ?? ''}
           initialBasketTemplateId={editingWithdrawal.basketTemplateId}
           initialBasketQuantity={editingWithdrawal.basketQuantity}
@@ -705,13 +835,13 @@ export function RegisterWithdrawalPage() {
           errorMessage={updateWithdrawal.error?.displayMessage}
           isConflictError={updateWithdrawal.error?.isConflict}
           onErrorReset={updateWithdrawal.reset}
-          onSubmit={async (categoryIds, notes, basket) => {
+          onSubmit={async (items, notes, basket) => {
             try {
               await updateWithdrawal.update({
                 withdrawalId: editingWithdrawal.id,
                 input: {
                   pointId: point.id,
-                  categoryIds,
+                  items,
                   notes,
                   ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
                 },
