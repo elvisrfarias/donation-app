@@ -87,7 +87,7 @@ export function ComboBoxInput({
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(option)}
-                className="w-full rounded-lg px-2.5 py-2 text-left text-sm text-stone-700 hover:bg-brand-50 hover:text-brand-700"
+                className="hover:bg-brand-50 hover:text-brand-700 w-full rounded-lg px-2.5 py-2 text-left text-sm text-stone-700"
               >
                 {option}
               </button>

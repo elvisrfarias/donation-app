@@ -37,7 +37,11 @@ export function useAutoSaveStockQuantities(pointId: string, items: StockItem[]) 
       let changed = false
       const next = { ...previous }
       for (const item of items) {
-        if (item.id in next && !(item.id in pendingRef.current) && next[item.id] === item.quantity) {
+        if (
+          item.id in next &&
+          !(item.id in pendingRef.current) &&
+          next[item.id] === item.quantity
+        ) {
           delete next[item.id]
           changed = true
         }

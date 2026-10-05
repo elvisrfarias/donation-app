@@ -93,7 +93,9 @@ describe('describeNextBasketGap', () => {
     const missing = [gap({ itemId: 'shirt', itemName: 'Camiseta', neededForNextBasket: 3 })]
     const units = unitsByItemId([{ id: 'shirt', unit: 'un' } as StockItem])
 
-    expect(describeNextBasketGap(missing, units)).toBe('Faltam 3 de Camiseta para montar mais 1 cesta.')
+    expect(describeNextBasketGap(missing, units)).toBe(
+      'Faltam 3 de Camiseta para montar mais 1 cesta.',
+    )
   })
 
   it('devolve null quando nada falta para a próxima cesta', () => {

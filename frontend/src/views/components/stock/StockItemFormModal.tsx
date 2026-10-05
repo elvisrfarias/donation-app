@@ -62,10 +62,18 @@ interface StockItemFormModalProps {
 export function StockItemFormModal({ point, item, open, onClose }: StockItemFormModalProps) {
   const isEditing = item !== null
   const categories = point.categories
-  const { createStockItem, isPending: isCreating, error: createError, reset: resetCreate } =
-    useCreateStockItem()
-  const { updateStockItem, isPending: isUpdating, error: updateError, reset: resetUpdate } =
-    useUpdateStockItem()
+  const {
+    createStockItem,
+    isPending: isCreating,
+    error: createError,
+    reset: resetCreate,
+  } = useCreateStockItem()
+  const {
+    updateStockItem,
+    isPending: isUpdating,
+    error: updateError,
+    reset: resetUpdate,
+  } = useUpdateStockItem()
 
   const [values, setValues] = useState<StockItemFormValues>(() =>
     item ? valuesFromItem(item) : defaultValues(categories[0]?.id ?? ''),
@@ -75,7 +83,8 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
   // Se o catálogo de categorias estava vazio quando o formulário abriu (categoryId ainda ''), e uma
   // categoria acabou de ser criada (ex.: via "Criar categoria" abaixo), usa a primeira como padrão —
   // derivado no render, sem precisar sincronizar o rascunho via efeito.
-  const selectedCategoryId = values.categoryId !== '' ? values.categoryId : (categories[0]?.id ?? '')
+  const selectedCategoryId =
+    values.categoryId !== '' ? values.categoryId : (categories[0]?.id ?? '')
 
   const isPending = isCreating || isUpdating
   const error = createError ?? updateError
@@ -228,9 +237,7 @@ export function StockItemFormModal({ point, item, open, onClose }: StockItemForm
                 value={values.initialQuantity}
                 disabled={isPending}
                 onFocus={(event) => event.target.select()}
-                onChange={(event) =>
-                  set('initialQuantity', parseQuantity(event.target.value))
-                }
+                onChange={(event) => set('initialQuantity', parseQuantity(event.target.value))}
                 className="focus:border-brand-500 focus:ring-brand-500/10 h-11 w-full rounded-xl border border-stone-200 px-3.5 text-center text-sm font-semibold text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50"
               />
             </FormField>

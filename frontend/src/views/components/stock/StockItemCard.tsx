@@ -88,7 +88,7 @@ export function StockItemCard({
                 style={{ width: `${progressPercent(quantity, item.goal)}%` }}
               />
             </div>
-            <span className="text-[11px] tabular-nums text-stone-400">meta {item.goal}</span>
+            <span className="text-[11px] text-stone-400 tabular-nums">meta {item.goal}</span>
           </div>
         )}
       </div>

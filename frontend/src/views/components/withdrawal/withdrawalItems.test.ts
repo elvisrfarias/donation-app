@@ -70,13 +70,17 @@ describe('insufficientWithdrawalItems', () => {
   ])
 
   it('sem itens insuficientes quando a quantidade cabe no estoque', () => {
-    const items: WithdrawalDraftItem[] = [{ stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 2 }]
+    const items: WithdrawalDraftItem[] = [
+      { stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 2 },
+    ]
 
     expect(insufficientWithdrawalItems(items, stockItemsById)).toEqual([])
   })
 
   it('aponta o item quando a quantidade pedida excede o estoque disponível', () => {
-    const items: WithdrawalDraftItem[] = [{ stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 5 }]
+    const items: WithdrawalDraftItem[] = [
+      { stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 5 },
+    ]
 
     expect(insufficientWithdrawalItems(items, stockItemsById)).toEqual([
       { stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', missingAmount: 3 },
@@ -84,7 +88,9 @@ describe('insufficientWithdrawalItems', () => {
   })
 
   it('na edição, considera a reserva desta mesma retirada antes de bloquear', () => {
-    const items: WithdrawalDraftItem[] = [{ stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 5 }]
+    const items: WithdrawalDraftItem[] = [
+      { stockItemId: 'rice', itemName: 'Arroz', unit: 'kg', quantity: 5 },
+    ]
 
     expect(insufficientWithdrawalItems(items, stockItemsById, { rice: 3 })).toEqual([])
   })

@@ -122,7 +122,9 @@ function AdminMenu({ items }: { items: NavItem[] }) {
 export function AppLayout() {
   const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
-  const adminNavItems: NavItem[] = isAdmin ? [collectionPointsNavItem, usersNavItem] : [usersNavItem]
+  const adminNavItems: NavItem[] = isAdmin
+    ? [collectionPointsNavItem, usersNavItem]
+    : [usersNavItem]
   const mobileNavItems: NavItem[] = isManager ? [...mainNavItems, adminMobileNavItem] : mainNavItems
 
   const handleLogout = async () => {

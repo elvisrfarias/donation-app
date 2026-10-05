@@ -289,7 +289,9 @@ describe('RegisterWithdrawalPage', () => {
     await addItem(dialog, /Camiseta \(un\)/)
 
     expect(within(dialog).getByText('Camiseta')).toBeInTheDocument()
-    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(1)
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(
+      1,
+    )
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeEnabled()
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remover Camiseta' }))
@@ -510,7 +512,9 @@ describe('RegisterWithdrawalPage', () => {
         basketQuantity: 1,
       }),
     )
-    expect(await screen.findByText(/Restam 5 cestas completas de "Cesta básica padrão"/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Restam 5 cestas completas de "Cesta básica padrão"/),
+    ).toBeInTheDocument()
   })
 
   it('bloqueia o registro quando o estoque não é suficiente para a quantidade de cestas escolhida', async () => {
@@ -543,7 +547,9 @@ describe('RegisterWithdrawalPage', () => {
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Aumentar quantidade de cestas' }))
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Aumentar quantidade de cestas' }),
+    )
 
     expect(within(dialog).getByText('Estoque insuficiente para esta cesta')).toBeInTheDocument()
     expect(within(dialog).getByText(/Faltam 1 kg de Arroz 1kg/)).toBeInTheDocument()
@@ -708,7 +714,9 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await screen.findByRole('dialog', { name: /editar retirada/i })
 
     expect(within(dialog).getByText('Camiseta')).toBeInTheDocument()
-    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(2)
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Camiseta' })).toHaveValue(
+      2,
+    )
     expect(within(dialog).getByText('Tênis')).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/Observações/)).toHaveValue('Nota original')
 
@@ -752,12 +760,16 @@ describe('RegisterWithdrawalPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Editar retirada' }))
     const dialog = await screen.findByRole('dialog', { name: /editar retirada/i })
 
-    const increment = within(dialog).getByRole('button', { name: 'Aumentar quantidade de Arroz 1kg' })
+    const increment = within(dialog).getByRole('button', {
+      name: 'Aumentar quantidade de Arroz 1kg',
+    })
     for (let i = 0; i < 5; i++) {
       await userEvent.click(increment)
     }
 
-    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Arroz 1kg' })).toHaveValue(8)
+    expect(within(dialog).getByRole('spinbutton', { name: 'Quantidade de Arroz 1kg' })).toHaveValue(
+      8,
+    )
     expect(increment).toBeDisabled()
     expect(within(dialog).queryByText('Estoque insuficiente')).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /editar retirada/i })).toBeEnabled()

@@ -1,5 +1,14 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { CheckCircle2, Minus, PackagePlus, PackageSearch, Pencil, Plus, ShoppingBasket, X } from 'lucide-react'
+import {
+  CheckCircle2,
+  Minus,
+  PackagePlus,
+  PackageSearch,
+  Pencil,
+  Plus,
+  ShoppingBasket,
+  X,
+} from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { beneficiaryService } from '@/models/services'
@@ -36,7 +45,16 @@ import {
   insufficientWithdrawalItems,
   type WithdrawalDraftItem,
 } from '@/views/components/withdrawal/withdrawalItems'
-import { Alert, Badge, Button, Card, FormField, SectionTitle, Select, Textarea } from '@/views/components/ui'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  FormField,
+  SectionTitle,
+  Select,
+  Textarea,
+} from '@/views/components/ui'
 
 const withdrawalDateFormatter = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
@@ -258,7 +276,9 @@ function BasketSection({
                 inputMode="numeric"
                 value={basketQuantity}
                 onFocus={(event) => event.target.select()}
-                onChange={(event) => onChangeQuantity(Math.max(1, parseQuantity(event.target.value)))}
+                onChange={(event) =>
+                  onChangeQuantity(Math.max(1, parseQuantity(event.target.value)))
+                }
                 className="h-10 w-16 [appearance:textfield] rounded-xl border border-stone-200 text-center text-sm font-semibold tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button
@@ -461,25 +481,34 @@ function WithdrawalFormModal({
     setItems((previous) => previous.filter((item) => item.stockItemId !== stockItemId))
   }
 
-  const insufficientItems = insufficientWithdrawalItems(items, stockItemsById, reservedByStockItemId)
+  const insufficientItems = insufficientWithdrawalItems(
+    items,
+    stockItemsById,
+    reservedByStockItemId,
+  )
 
   const activeTemplates = useMemo(() => activeBasketTemplates(point.basketTemplates), [point])
   const units = useMemo(() => unitsByItemId(point.stockItems), [point])
-  const selectedTemplate = activeTemplates.find((template) => template.id === basketTemplateId) ?? null
+  const selectedTemplate =
+    activeTemplates.find((template) => template.id === basketTemplateId) ?? null
   const basketBlocked =
     selectedTemplate !== null &&
     (cycleLimitReached ||
-      insufficientItemsForQuantity(selectedTemplate.feasibility.missing, basketQuantity, units).length > 0)
+      insufficientItemsForQuantity(selectedTemplate.feasibility.missing, basketQuantity, units)
+        .length > 0)
 
   const notesTooLong = notes.length > MAX_NOTES_LENGTH
-  const canSubmit = items.length > 0 && insufficientItems.length === 0 && !basketBlocked && !notesTooLong
+  const canSubmit =
+    items.length > 0 && insufficientItems.length === 0 && !basketBlocked && !notesTooLong
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!canSubmit) return
     const parsed = registerWithdrawalSchema.safeParse({ notes: notes.trim() })
     if (!parsed.success) return
-    const basket = selectedTemplate ? { templateId: selectedTemplate.id, quantity: basketQuantity } : null
+    const basket = selectedTemplate
+      ? { templateId: selectedTemplate.id, quantity: basketQuantity }
+      : null
     await onSubmit(
       items.map((item) => ({ stockItemId: item.stockItemId, quantity: item.quantity })),
       parsed.data.notes || null,
@@ -658,7 +687,9 @@ export function RegisterWithdrawalPage() {
    */
   async function describeRemainingBaskets(templateId: string): Promise<string | null> {
     const refreshed = await refetchPoint()
-    const template = refreshed.data?.basketTemplates.find((candidate) => candidate.id === templateId)
+    const template = refreshed.data?.basketTemplates.find(
+      (candidate) => candidate.id === templateId,
+    )
     if (!template) return null
     const count = template.feasibility.completeBaskets
     return `Restam ${count} ${count === 1 ? 'cesta completa' : 'cestas completas'} de "${template.name}" neste ponto.`
@@ -801,7 +832,10 @@ export function RegisterWithdrawalPage() {
                 beneficiaryId: beneficiary.id,
                 items,
                 notes,
-                ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
+                ...(basket && {
+                  basketTemplateId: basket.templateId,
+                  basketQuantity: basket.quantity,
+                }),
               })
             } catch {
               return
@@ -843,7 +877,10 @@ export function RegisterWithdrawalPage() {
                   pointId: point.id,
                   items,
                   notes,
-                  ...(basket && { basketTemplateId: basket.templateId, basketQuantity: basket.quantity }),
+                  ...(basket && {
+                    basketTemplateId: basket.templateId,
+                    basketQuantity: basket.quantity,
+                  }),
                 },
               })
             } catch {

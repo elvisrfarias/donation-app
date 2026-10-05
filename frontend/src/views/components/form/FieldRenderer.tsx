@@ -61,7 +61,13 @@ function TextControl({
 }: ControlProps<Extract<BoundFieldConfig, { type: 'text' | 'email' | 'password' }>>) {
   const error = fieldError(field)
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <Input
         id={id}
         type={config.type}
@@ -83,10 +89,20 @@ function TextControl({
   )
 }
 
-function DateControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'date' }>>) {
+function DateControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'date' }>>) {
   const error = fieldError(field)
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <DatePicker
         id={id}
         value={(field.state.value as string | undefined) ?? ''}
@@ -99,10 +115,20 @@ function DateControl({ field, id, config }: ControlProps<Extract<BoundFieldConfi
   )
 }
 
-function NumberControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'number' }>>) {
+function NumberControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'number' }>>) {
   const error = fieldError(field)
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <Input
         id={id}
         type="number"
@@ -123,10 +149,20 @@ function NumberControl({ field, id, config }: ControlProps<Extract<BoundFieldCon
   )
 }
 
-function TextareaControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'textarea' }>>) {
+function TextareaControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'textarea' }>>) {
   const error = fieldError(field)
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <Textarea
         id={id}
         placeholder={config.placeholder}
@@ -141,10 +177,20 @@ function TextareaControl({ field, id, config }: ControlProps<Extract<BoundFieldC
   )
 }
 
-function SelectControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'select' }>>) {
+function SelectControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'select' }>>) {
   const error = fieldError(field)
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <Select
         value={(field.state.value as string | undefined) ?? ''}
         onValueChange={(v) => field.handleChange(v)}
@@ -182,7 +228,13 @@ function MultiSelectControl({
   }
 
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <div className="flex flex-wrap gap-2" role="group" aria-invalid={!!error}>
         {config.options.map((option) => {
           const active = selected.includes(option.value)
@@ -194,10 +246,10 @@ function MultiSelectControl({
               disabled={config.disabled || option.disabled}
               onClick={() => toggle(option.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition-colors',
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition-colors ring-inset',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 active
-                  ? 'bg-brand-600 text-white ring-brand-600'
+                  ? 'bg-brand-600 ring-brand-600 text-white'
                   : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50',
               )}
             >
@@ -227,7 +279,9 @@ function AutoCompleteControl({
   const filteredOptions = normalizedQuery
     ? config.options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
     : config.options
-  const hasExactMatch = config.options.some((option) => option.label.toLowerCase() === normalizedQuery)
+  const hasExactMatch = config.options.some(
+    (option) => option.label.toLowerCase() === normalizedQuery,
+  )
   const showCreate = !!config.onCreate && normalizedQuery.length > 0 && !hasExactMatch
 
   function changeOpen(next: boolean) {
@@ -248,7 +302,13 @@ function AutoCompleteControl({
   }
 
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       <Popover open={open} onOpenChange={changeOpen}>
         <PopoverTrigger asChild>
           <button
@@ -260,14 +320,16 @@ function AutoCompleteControl({
             disabled={config.disabled}
             onBlur={field.handleBlur}
             className={cn(
-              'flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-input bg-white px-3.5 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
-              'hover:border-stone-300 focus-visible:border-brand-500 focus-visible:ring-4 focus-visible:ring-brand-500/10',
+              'border-input flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-white px-3.5 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+              'focus-visible:border-brand-500 focus-visible:ring-brand-500/10 hover:border-stone-300 focus-visible:ring-4',
               'disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400',
               'aria-invalid:border-red-300 aria-invalid:focus-visible:border-red-500 aria-invalid:focus-visible:ring-red-500/10',
               selected ? 'text-stone-900' : 'text-stone-400',
             )}
           >
-            <span className="truncate">{selected?.label ?? config.placeholder ?? 'Selecione…'}</span>
+            <span className="truncate">
+              {selected?.label ?? config.placeholder ?? 'Selecione…'}
+            </span>
             <ChevronsUpDownIcon className="size-4 shrink-0 text-stone-400" />
           </button>
         </PopoverTrigger>
@@ -295,7 +357,10 @@ function AutoCompleteControl({
                     }}
                   >
                     <CheckIcon
-                      className={cn('text-brand-600', option.value === value ? 'opacity-100' : 'opacity-0')}
+                      className={cn(
+                        'text-brand-600',
+                        option.value === value ? 'opacity-100' : 'opacity-0',
+                      )}
                     />
                     {option.label}
                   </CommandItem>
@@ -321,7 +386,11 @@ function AutoCompleteControl({
   )
 }
 
-function CheckboxControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'checkbox' }>>) {
+function CheckboxControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'checkbox' }>>) {
   const error = fieldError(field)
   return (
     <div className="flex flex-col gap-1.5">
@@ -347,7 +416,11 @@ function CheckboxControl({ field, id, config }: ControlProps<Extract<BoundFieldC
   )
 }
 
-function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConfig, { type: 'image' }>>) {
+function ImageControl({
+  field,
+  id,
+  config,
+}: ControlProps<Extract<BoundFieldConfig, { type: 'image' }>>) {
   const error = fieldError(field)
   const value: unknown = field.state.value
   const file = value instanceof File ? value : undefined
@@ -361,7 +434,13 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
   const previewUrl = filePreview ?? config.previewUrl ?? null
 
   return (
-    <FieldShell id={id} label={config.label} hint={config.hint} error={error} required={config.required}>
+    <FieldShell
+      id={id}
+      label={config.label}
+      hint={config.hint}
+      error={error}
+      required={config.required}
+    >
       {previewUrl ? (
         <div className="space-y-2">
           <div className="relative w-fit">
@@ -384,7 +463,7 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
           <label
             htmlFor={id}
             className={cn(
-              'inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700',
+              'text-brand-600 hover:text-brand-700 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium transition-colors',
               config.disabled && 'pointer-events-none opacity-50',
             )}
           >
@@ -396,7 +475,7 @@ function ImageControl({ field, id, config }: ControlProps<Extract<BoundFieldConf
         <label
           htmlFor={id}
           className={cn(
-            'flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-input bg-stone-50 text-stone-500 transition-colors',
+            'border-input flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-stone-50 text-stone-500 transition-colors',
             'hover:border-brand-300 hover:text-brand-600',
             config.disabled && 'pointer-events-none opacity-50',
           )}

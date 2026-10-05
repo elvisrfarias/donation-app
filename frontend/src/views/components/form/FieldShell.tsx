@@ -14,7 +14,15 @@ interface FieldShellProps {
 }
 
 /** Estrutura visual compartilhada pelos campos: rótulo + controle + dica/erro. */
-export function FieldShell({ id, label, hint, error, required, className, children }: FieldShellProps) {
+export function FieldShell({
+  id,
+  label,
+  hint,
+  error,
+  required,
+  className,
+  children,
+}: FieldShellProps) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (

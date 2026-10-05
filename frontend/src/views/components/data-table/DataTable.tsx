@@ -227,7 +227,11 @@ export function DataTable<TData, TValue>({
           {hideableColumns.length > 0 && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="secondary" size="sm" leftIcon={<SlidersHorizontalIcon className="size-4" />}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<SlidersHorizontalIcon className="size-4" />}
+                >
                   Colunas
                 </Button>
               </PopoverTrigger>
@@ -236,7 +240,7 @@ export function DataTable<TData, TValue>({
                 {hideableColumns.map((column) => (
                   <label
                     key={column.id}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-stone-700 hover:bg-accent"
+                    className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-stone-700"
                   >
                     <Checkbox
                       checked={column.getIsVisible()}
@@ -252,7 +256,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div
-        className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-card"
+        className="shadow-card overflow-hidden rounded-2xl border border-stone-200 bg-white"
         style={{ ['--dt-max-h' as string]: maxHeight }}
       >
         <Table containerClassName="max-h-[var(--dt-max-h)] overflow-y-auto">
@@ -372,7 +376,8 @@ export function DataTable<TData, TValue>({
           </div>
 
           <span className="text-xs text-stone-500">
-            Página {table.getState().pagination.pageIndex + 1} de {Math.max(table.getPageCount(), 1)}
+            Página {table.getState().pagination.pageIndex + 1} de{' '}
+            {Math.max(table.getPageCount(), 1)}
           </span>
 
           <div className="flex items-center gap-1">

@@ -9,7 +9,9 @@ export function inactiveBasketTemplates(templates: BasketTemplate[]): BasketTemp
 }
 
 /** Quantas cestas o estoque atual de um item permite montar, isoladamente (o mesmo cálculo do backend). */
-export function basketsPossibleForItem(gap: Pick<BasketItemGap, 'currentQuantity' | 'requiredPerBasket'>): number {
+export function basketsPossibleForItem(
+  gap: Pick<BasketItemGap, 'currentQuantity' | 'requiredPerBasket'>,
+): number {
   if (gap.requiredPerBasket <= 0) return Number.POSITIVE_INFINITY
   return Math.floor(gap.currentQuantity / gap.requiredPerBasket)
 }
@@ -17,7 +19,9 @@ export function basketsPossibleForItem(gap: Pick<BasketItemGap, 'currentQuantity
 /** Ids dos itens "gargalo": os que sozinhos limitam o total de cestas completas da receita. */
 export function bottleneckItemIds(missing: BasketItemGap[], completeBaskets: number): Set<string> {
   return new Set(
-    missing.filter((gap) => basketsPossibleForItem(gap) === completeBaskets).map((gap) => gap.itemId),
+    missing
+      .filter((gap) => basketsPossibleForItem(gap) === completeBaskets)
+      .map((gap) => gap.itemId),
   )
 }
 
@@ -50,7 +54,10 @@ export function joinNaturally(parts: string[]): string {
  * Frase pronta para o subtítulo do hero da aba Cestas: o que falta para montar mais uma cesta a
  * partir da receita selecionada. `null` quando não falta nada (estoque já abundante).
  */
-export function describeNextBasketGap(missing: BasketItemGap[], units: UnitByItemId): string | null {
+export function describeNextBasketGap(
+  missing: BasketItemGap[],
+  units: UnitByItemId,
+): string | null {
   const gaps = missingForNextBasket(missing)
   if (gaps.length === 0) return null
 

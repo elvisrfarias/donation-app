@@ -1,4 +1,4 @@
-# Doação App — Gestão de Pontos de Doação/Coleta
+# Bondade — Gestão de Pontos de Doação/Coleta
 
 Sistema de gerenciamento de pontos de doação/coleta (cesta básica, roupas, etc.) com foco em
 **rastreabilidade por beneficiário** e **controle de equidade** entre beneficiários.

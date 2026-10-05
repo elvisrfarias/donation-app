@@ -86,7 +86,11 @@ function AutoSaveIndicator({
     return (
       <span className="flex items-center gap-2 text-xs font-medium text-red-600">
         {errorMessage ?? 'Falha ao salvar'}
-        <button type="button" onClick={onRetry} className="font-semibold underline hover:no-underline">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="font-semibold underline hover:no-underline"
+        >
           Tentar novamente
         </button>
       </span>
@@ -172,7 +176,10 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
   const isSearching = trimmedSearch.length > 0
   const hasCategories = point.categories.length > 0
 
-  const allGroups = useMemo(() => groupByCategory(items, point.categories), [items, point.categories])
+  const allGroups = useMemo(
+    () => groupByCategory(items, point.categories),
+    [items, point.categories],
+  )
   const visibleGroups = useMemo(() => {
     if (!isSearching) return allGroups
     const term = normalize(trimmedSearch)
@@ -236,7 +243,11 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <SummaryStat label="Itens no catálogo" value={items.length} />
-          <SummaryStat label="Itens em falta" value={countByStatus(items, 'out')} tone="text-red-600" />
+          <SummaryStat
+            label="Itens em falta"
+            value={countByStatus(items, 'out')}
+            tone="text-red-600"
+          />
           <SummaryStat
             label="Itens com estoque baixo"
             value={countByStatus(items, 'low')}
@@ -316,7 +327,12 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
             description="Crie a primeira categoria deste ponto para começar a organizar o catálogo de estoque."
             action={
               canEdit && (
-                <Button type="button" variant="brand" size="sm" onClick={() => openCategoryManager(true)}>
+                <Button
+                  type="button"
+                  variant="brand"
+                  size="sm"
+                  onClick={() => openCategoryManager(true)}
+                >
                   Criar categoria
                 </Button>
               )
@@ -332,18 +348,19 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
           </Alert>
         )}
 
-        {hasCategories && visibleGroups.map((group) => (
-          <CategorySection
-            key={group.category.id}
-            group={group}
-            quantityFor={quantityFor}
-            disabled={!canEdit}
-            onQuantityChange={setQuantity}
-            onCommit={saveNow}
-            onEdit={openEditForm}
-            onRemove={confirmRemove}
-          />
-        ))}
+        {hasCategories &&
+          visibleGroups.map((group) => (
+            <CategorySection
+              key={group.category.id}
+              group={group}
+              quantityFor={quantityFor}
+              disabled={!canEdit}
+              onQuantityChange={setQuantity}
+              onCommit={saveNow}
+              onEdit={openEditForm}
+              onRemove={confirmRemove}
+            />
+          ))}
       </div>
 
       {!canEdit && (

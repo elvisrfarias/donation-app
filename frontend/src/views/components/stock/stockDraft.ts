@@ -30,7 +30,10 @@ export interface StockItemCategoryGroup {
 /** Agrupa os itens do catálogo pelas categorias reais do ponto, ordenadas por nome — inclusive as
  *  que ainda não têm nenhum item, para que uma categoria recém-criada apareça vazia e o gestor
  *  possa adicionar o primeiro item nela. */
-export function groupByCategory(items: StockItem[], categories: Category[]): StockItemCategoryGroup[] {
+export function groupByCategory(
+  items: StockItem[],
+  categories: Category[],
+): StockItemCategoryGroup[] {
   return [...categories]
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
     .map((category) => ({

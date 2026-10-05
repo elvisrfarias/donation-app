@@ -37,7 +37,7 @@ export function StatCard({
     const style: CSSProperties = { backgroundImage: `linear-gradient(135deg, ${from}, ${to})` }
     return (
       <div
-        className="relative overflow-hidden rounded-3xl p-5 text-white shadow-lift"
+        className="shadow-lift relative overflow-hidden rounded-3xl p-5 text-white"
         style={style}
       >
         <span className="pointer-events-none absolute -top-8 -right-6 size-28 rounded-full bg-white/15 blur-xl" />
@@ -56,13 +56,13 @@ export function StatCard({
   }
 
   return (
-    <Card className="group p-5 transition-shadow hover:shadow-lift">
+    <Card className="group hover:shadow-lift p-5 transition-shadow">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-stone-500">{label}</p>
         {icon && (
           <span
             className={cn(
-              'grid size-10 place-items-center rounded-2xl bg-brand-50 text-brand-600 transition-colors',
+              'bg-brand-50 text-brand-600 grid size-10 place-items-center rounded-2xl transition-colors',
               'group-hover:bg-brand-600 group-hover:text-white',
             )}
           >

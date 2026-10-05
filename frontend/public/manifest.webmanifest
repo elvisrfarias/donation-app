@@ -1,7 +1,7 @@
 {
-  "name": "Doação App — Pontos de Coleta",
-  "short_name": "Doação App",
-  "description": "Mapa e gestão de pontos de doação e coleta para pessoas em vulnerabilidade.",
+  "name": "Bondade — Pontos de Doação e Coleta",
+  "short_name": "Bondade",
+  "description": "Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

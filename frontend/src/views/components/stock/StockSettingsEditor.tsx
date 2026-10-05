@@ -174,7 +174,10 @@ function SettingsCategorySection({
           </span>
         </span>
         <ChevronDown
-          className={cn('size-4 shrink-0 text-stone-400 transition-transform', expanded && 'rotate-180')}
+          className={cn(
+            'size-4 shrink-0 text-stone-400 transition-transform',
+            expanded && 'rotate-180',
+          )}
         />
       </button>
       {expanded && (

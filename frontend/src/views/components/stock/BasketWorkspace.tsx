@@ -38,10 +38,10 @@ function TemplateSelector({
             aria-checked={isSelected}
             onClick={() => onSelect(template.id)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-inset transition-colors',
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ring-1 transition-colors ring-inset',
               isSelected
-                ? 'bg-brand-600 text-white ring-brand-600'
-                : 'bg-white text-stone-600 ring-stone-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200',
+                ? 'bg-brand-600 ring-brand-600 text-white'
+                : 'hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 bg-white text-stone-600 ring-stone-200',
             )}
           >
             {template.name}
@@ -55,7 +55,13 @@ function TemplateSelector({
   )
 }
 
-function BasketHero({ template, units }: { template: BasketTemplate; units: Record<string, string> }) {
+function BasketHero({
+  template,
+  units,
+}: {
+  template: BasketTemplate
+  units: Record<string, string>
+}) {
   const { completeBaskets, missing } = template.feasibility
   const gapMessage = describeNextBasketGap(missing, units)
 
@@ -66,7 +72,7 @@ function BasketHero({ template, units }: { template: BasketTemplate; units: Reco
           <ShoppingBasket className="size-7" />
         </span>
         <div>
-          <p className="text-4xl font-extrabold tabular-nums text-stone-900">{completeBaskets}</p>
+          <p className="text-4xl font-extrabold text-stone-900 tabular-nums">{completeBaskets}</p>
           <p className="text-sm font-semibold text-stone-600">
             {completeBaskets === 1 ? 'cesta completa disponível' : 'cestas completas disponíveis'}
             {' · '}
@@ -122,13 +128,13 @@ function BasketBreakdownTable({ template }: { template: BasketTemplate }) {
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                  <td className="px-4 py-3 text-right text-stone-600 tabular-nums">
                     {gap.requiredPerBasket}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                  <td className="px-4 py-3 text-right text-stone-600 tabular-nums">
                     {gap.currentQuantity}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-stone-900">
+                  <td className="px-4 py-3 text-right font-semibold text-stone-900 tabular-nums">
                     {Number.isFinite(possible) ? possible : '—'}
                   </td>
                   <td className="px-4 py-3">

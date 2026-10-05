@@ -95,7 +95,8 @@ export function AddressLocationField({ form }: { form: AnyFormApi }) {
             <span className="text-stone-600">
               Local marcado no mapa
               <span className="ml-1 text-xs text-stone-400">
-                ({(values.latitude as number).toFixed(5)}, {(values.longitude as number).toFixed(5)})
+                ({(values.latitude as number).toFixed(5)}, {(values.longitude as number).toFixed(5)}
+                )
               </span>
             </span>
           </>

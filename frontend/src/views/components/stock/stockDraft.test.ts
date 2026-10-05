@@ -54,9 +54,28 @@ function stockItem(
 }
 
 const items: StockItem[] = [
-  stockItem({ id: 'food-1', category: CATEGORY_FOOD, name: 'Arroz', quantity: 12, goal: 50, status: 'ok' }),
-  stockItem({ id: 'clothing-1', category: CATEGORY_CLOTHING, name: 'Camiseta', quantity: 3, status: 'low' }),
-  stockItem({ id: 'footwear-1', category: CATEGORY_FOOTWEAR, name: 'Tênis', quantity: 0, status: 'out' }),
+  stockItem({
+    id: 'food-1',
+    category: CATEGORY_FOOD,
+    name: 'Arroz',
+    quantity: 12,
+    goal: 50,
+    status: 'ok',
+  }),
+  stockItem({
+    id: 'clothing-1',
+    category: CATEGORY_CLOTHING,
+    name: 'Camiseta',
+    quantity: 3,
+    status: 'low',
+  }),
+  stockItem({
+    id: 'footwear-1',
+    category: CATEGORY_FOOTWEAR,
+    name: 'Tênis',
+    quantity: 0,
+    status: 'out',
+  }),
   stockItem({
     id: 'toys-1',
     category: CATEGORY_TOYS,
@@ -67,7 +86,9 @@ const items: StockItem[] = [
   }),
 ]
 
-const pointWithRule = { withdrawalRule: { type: 'Weekly', maxWithdrawalsPerCycle: 2 } } as CollectionPoint
+const pointWithRule = {
+  withdrawalRule: { type: 'Weekly', maxWithdrawalsPerCycle: 2 },
+} as CollectionPoint
 
 describe('stockDraft — quantidades', () => {
   it('interpreta o texto digitado como inteiro entre zero e o máximo', () => {
@@ -129,9 +150,27 @@ describe('stockDraft — quantidades', () => {
 
   it('soma as cestas completas só das receitas ativas', () => {
     const templates = [
-      { id: 't1', name: 'Cesta 1', items: [], isActive: true, feasibility: { completeBaskets: 3, missing: [] } },
-      { id: 't2', name: 'Cesta 2', items: [], isActive: true, feasibility: { completeBaskets: 2, missing: [] } },
-      { id: 't3', name: 'Cesta 3', items: [], isActive: false, feasibility: { completeBaskets: 10, missing: [] } },
+      {
+        id: 't1',
+        name: 'Cesta 1',
+        items: [],
+        isActive: true,
+        feasibility: { completeBaskets: 3, missing: [] },
+      },
+      {
+        id: 't2',
+        name: 'Cesta 2',
+        items: [],
+        isActive: true,
+        feasibility: { completeBaskets: 2, missing: [] },
+      },
+      {
+        id: 't3',
+        name: 'Cesta 3',
+        items: [],
+        isActive: false,
+        feasibility: { completeBaskets: 10, missing: [] },
+      },
     ] satisfies BasketTemplate[]
 
     expect(totalCompleteBaskets(templates)).toBe(5)
@@ -142,7 +181,11 @@ describe('stockDraft — configurações', () => {
   it('monta o draft de configurações a partir do catálogo', () => {
     const draft = toSettingsDraft(items)
 
-    expect(draft['food-1']).toEqual({ goal: 50, alertThreshold: DEFAULT_ALERT_THRESHOLD, isTracked: true })
+    expect(draft['food-1']).toEqual({
+      goal: 50,
+      alertThreshold: DEFAULT_ALERT_THRESHOLD,
+      isTracked: true,
+    })
     expect(draft['toys-1'].isTracked).toBe(false)
   })
 

@@ -93,18 +93,19 @@ function TemplateRow({
         </div>
         {canEdit && (
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm" leftIcon={<Pencil className="size-4" />} onClick={onEdit}>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<Pencil className="size-4" />}
+              onClick={onEdit}
+            >
               Editar
             </Button>
             <Button
               variant="ghost"
               size="sm"
               leftIcon={
-                template.isActive ? (
-                  <PowerOff className="size-4" />
-                ) : (
-                  <Power className="size-4" />
-                )
+                template.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />
               }
               onClick={onToggleActive}
             >
@@ -207,12 +208,24 @@ export function BasketTemplateManagerModal({
   const [itemPicker, setItemPicker] = useState('')
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
-  const { createBasketTemplate, isPending: isCreating, error: createError, reset: resetCreate } =
-    useCreateBasketTemplate()
-  const { updateBasketTemplate, isPending: isUpdating, error: updateError, reset: resetUpdate } =
-    useUpdateBasketTemplate()
-  const { removeBasketTemplate, isPending: isDeleting, error: removeError, reset: resetRemove } =
-    useRemoveBasketTemplate()
+  const {
+    createBasketTemplate,
+    isPending: isCreating,
+    error: createError,
+    reset: resetCreate,
+  } = useCreateBasketTemplate()
+  const {
+    updateBasketTemplate,
+    isPending: isUpdating,
+    error: updateError,
+    reset: resetUpdate,
+  } = useUpdateBasketTemplate()
+  const {
+    removeBasketTemplate,
+    isPending: isDeleting,
+    error: removeError,
+    reset: resetRemove,
+  } = useRemoveBasketTemplate()
 
   useEffect(() => {
     if (!open) return
@@ -324,7 +337,10 @@ export function BasketTemplateManagerModal({
       templateId: template.id,
       input: {
         name: template.name,
-        items: template.items.map((item) => ({ stockItemId: item.stockItemId, quantity: item.quantity })),
+        items: template.items.map((item) => ({
+          stockItemId: item.stockItemId,
+          quantity: item.quantity,
+        })),
         isActive: !template.isActive,
       },
     })
@@ -409,7 +425,9 @@ export function BasketTemplateManagerModal({
               value={form.name}
               maxLength={120}
               disabled={isSubmitting}
-              onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, name: event.target.value }))
+              }
               placeholder="Ex.: Cesta básica padrão"
               className="focus:border-brand-500 focus:ring-brand-500/10 h-11 w-full rounded-xl border border-stone-200 px-3.5 text-sm text-stone-900 transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50"
             />
@@ -475,7 +493,12 @@ export function BasketTemplateManagerModal({
           {validationError && <p className="text-xs font-medium text-red-600">{validationError}</p>}
 
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={() => setMode('list')} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setMode('list')}
+              disabled={isSubmitting}
+            >
               Voltar
             </Button>
             <Button

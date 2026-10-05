@@ -57,7 +57,13 @@ export function UsersPage() {
 
   const createFields: FormFieldConfig[] = [
     { name: 'email', type: 'email', label: 'E-mail', required: true },
-    { name: 'password', type: 'password', label: 'Senha', required: true, hint: 'Mínimo de 8 caracteres.' },
+    {
+      name: 'password',
+      type: 'password',
+      label: 'Senha',
+      required: true,
+      hint: 'Mínimo de 8 caracteres.',
+    },
     ...userFields,
   ]
 
@@ -90,7 +96,9 @@ export function UsersPage() {
       accessorKey: 'fullName',
       header: 'Nome',
       meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
-      cell: ({ getValue }) => <span className="font-medium text-stone-900">{getValue<string>()}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-medium text-stone-900">{getValue<string>()}</span>
+      ),
     },
     {
       accessorKey: 'email',
@@ -106,7 +114,8 @@ export function UsersPage() {
     },
     {
       id: 'collectionPoint',
-      accessorFn: (row) => (row.collectionPointId ? pointNameById.get(row.collectionPointId) ?? '—' : '—'),
+      accessorFn: (row) =>
+        row.collectionPointId ? (pointNameById.get(row.collectionPointId) ?? '—') : '—',
       header: 'Ponto de coleta',
       meta: { label: 'Ponto de coleta', filterPlaceholder: 'Filtrar ponto…' },
     },

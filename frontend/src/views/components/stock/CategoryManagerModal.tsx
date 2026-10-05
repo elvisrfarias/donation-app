@@ -63,7 +63,12 @@ function CategoryRow({
         </div>
         {canEdit && (
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm" leftIcon={<Pencil className="size-4" />} onClick={onEdit}>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<Pencil className="size-4" />}
+              onClick={onEdit}
+            >
               Editar
             </Button>
             <Button
@@ -112,15 +117,15 @@ function IconPicker({
             disabled={disabled}
             onClick={() => onChange(key)}
             className={cn(
-              'relative grid size-11 shrink-0 place-items-center rounded-xl ring-1 ring-inset transition-colors disabled:opacity-40',
+              'relative grid size-11 shrink-0 place-items-center rounded-xl ring-1 transition-colors ring-inset disabled:opacity-40',
               isSelected
-                ? 'bg-brand-600 text-white ring-brand-600'
-                : 'bg-white text-stone-600 ring-stone-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200',
+                ? 'bg-brand-600 ring-brand-600 text-white'
+                : 'hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 bg-white text-stone-600 ring-stone-200',
             )}
           >
             <Icon className="size-5" />
             {isSelected && (
-              <Check className="absolute -top-1 -right-1 size-3.5 rounded-full bg-white text-brand-600" />
+              <Check className="text-brand-600 absolute -top-1 -right-1 size-3.5 rounded-full bg-white" />
             )}
           </button>
         )
@@ -141,12 +146,24 @@ export function CategoryManagerModal({
   const [form, setForm] = useState<CategoryFormState>(emptyForm())
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
-  const { createCategory, isPending: isCreating, error: createError, reset: resetCreate } =
-    useCreateCategory()
-  const { updateCategory, isPending: isUpdating, error: updateError, reset: resetUpdate } =
-    useUpdateCategory()
-  const { removeCategory, isPending: isDeleting, error: removeError, reset: resetRemove } =
-    useRemoveCategory()
+  const {
+    createCategory,
+    isPending: isCreating,
+    error: createError,
+    reset: resetCreate,
+  } = useCreateCategory()
+  const {
+    updateCategory,
+    isPending: isUpdating,
+    error: updateError,
+    reset: resetUpdate,
+  } = useUpdateCategory()
+  const {
+    removeCategory,
+    isPending: isDeleting,
+    error: removeError,
+    reset: resetRemove,
+  } = useRemoveCategory()
 
   useEffect(() => {
     if (!open) return
@@ -277,7 +294,9 @@ export function CategoryManagerModal({
               value={form.name}
               maxLength={120}
               disabled={isSubmitting}
-              onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, name: event.target.value }))
+              }
               placeholder="Ex.: Alimentos"
               className="focus:border-brand-500 focus:ring-brand-500/10 h-11 w-full rounded-xl border border-stone-200 px-3.5 text-sm text-stone-900 transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50"
             />
@@ -294,7 +313,12 @@ export function CategoryManagerModal({
           {validationError && <p className="text-xs font-medium text-red-600">{validationError}</p>}
 
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={() => setMode('list')} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setMode('list')}
+              disabled={isSubmitting}
+            >
               Voltar
             </Button>
             <Button

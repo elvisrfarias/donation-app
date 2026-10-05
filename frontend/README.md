@@ -1,6 +1,6 @@
-# Doação App — Frontend
+# Bondade — Frontend
 
-SPA do Doação App: mapa público de pontos de coleta (OpenStreetMap) + área de gestão
+SPA da Bondade: mapa público de pontos de coleta (OpenStreetMap) + área de gestão
 (pontos, famílias/beneficiários e registro de retiradas com a regra de equidade).
 
 ## Stack
