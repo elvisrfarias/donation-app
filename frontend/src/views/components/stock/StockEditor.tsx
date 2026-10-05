@@ -224,7 +224,7 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
 
   const removeConflictMessage =
     removeError?.isConflict && removeTarget
-      ? `"${removeTarget.name}" está em uma receita de cesta — remova-o da receita antes de excluí-lo.`
+      ? `"${removeTarget.name}" está em uma cesta montada — remova-o da cesta antes de excluí-lo.`
       : (removeError?.displayMessage ?? null)
 
   return (
@@ -376,7 +376,7 @@ export function StockEditor({ point, canEdit, onViewBaskets }: StockEditorProps)
           className="text-brand-700 flex items-center gap-1.5 text-xs font-medium hover:underline"
         >
           <ShoppingBasket className="size-3.5" />
-          Ver receitas de cesta na aba Cestas
+          Ver cestas montadas na aba Cestas
         </button>
       )}
 

@@ -7,7 +7,7 @@ import {
   Map,
   MapPin,
   PackageCheck,
-  Shield,
+  Settings,
   ShieldUser,
   UserPlus,
 } from 'lucide-react'
@@ -49,8 +49,8 @@ const usersNavItem: NavItem = {
 
 const adminMobileNavItem: NavItem = {
   to: ADMIN_ROUTE_PREFIX,
-  label: 'Admin',
-  icon: Shield,
+  label: 'Configurações',
+  icon: Settings,
   end: false,
 }
 
@@ -102,8 +102,8 @@ function AdminMenu({ items }: { items: NavItem[] }) {
           isOnAdminRoute ? 'text-white' : 'text-white/65 hover:bg-white/10 hover:text-white',
         )}
       >
-        <Shield className="size-5 text-white/55 group-hover:text-white" />
-        Admin
+        <Settings className="size-5 text-white/55 group-hover:text-white" />
+        Configurações
         <ChevronDown
           className={cn('ml-auto size-4 transition-transform', isExpanded && 'rotate-180')}
         />
@@ -122,6 +122,7 @@ function AdminMenu({ items }: { items: NavItem[] }) {
 export function AppLayout() {
   const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
+  const { pathname: currentPathname } = useLocation()
   const adminNavItems: NavItem[] = isAdmin
     ? [collectionPointsNavItem, usersNavItem]
     : [usersNavItem]
@@ -189,7 +190,12 @@ export function AppLayout() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">
-          <Outlet />
+          <div
+            key={currentPathname}
+            className="animate-in fade-in slide-in-from-bottom-3 duration-300 ease-out"
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
 

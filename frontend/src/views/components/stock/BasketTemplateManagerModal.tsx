@@ -51,8 +51,8 @@ function formFromTemplate(template: BasketTemplate): RecipeFormState {
 }
 
 function validate(form: RecipeFormState): string | null {
-  if (form.name.trim().length === 0) return 'Informe o nome da receita.'
-  if (form.items.length === 0) return 'Adicione ao menos um item à receita.'
+  if (form.name.trim().length === 0) return 'Informe o nome da cesta.'
+  if (form.items.length === 0) return 'Adicione ao menos um item à cesta.'
   if (form.items.some((item) => item.quantity <= 0)) {
     return 'A quantidade de cada item deve ser maior que zero.'
   }
@@ -184,7 +184,7 @@ function RecipeItemRow({
       </div>
       <button
         type="button"
-        aria-label={`Remover ${item.itemName} da receita`}
+        aria-label={`Remover ${item.itemName} da cesta`}
         disabled={disabled}
         onClick={onRemove}
         className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600"
@@ -347,7 +347,7 @@ export function BasketTemplateManagerModal({
   }
 
   async function confirmDelete(template: BasketTemplate) {
-    if (!window.confirm(`Remover a receita "${template.name}"?`)) return
+    if (!window.confirm(`Remover a cesta "${template.name}"?`)) return
     resetRemove()
     setDeleteTargetId(template.id)
     try {
@@ -364,15 +364,15 @@ export function BasketTemplateManagerModal({
       onOpenChange={(nextOpen) => !nextOpen && onClose()}
       title={
         mode === 'list'
-          ? 'Gerenciar receitas de cesta'
+          ? 'Gerenciar cestas'
           : editingTemplate
-            ? `Editar receita · ${editingTemplate.name}`
-            : 'Nova receita de cesta'
+            ? `Editar cesta · ${editingTemplate.name}`
+            : 'Montar nova cesta'
       }
       description={
         mode === 'list'
-          ? 'Crie, edite, ative/desative ou remova as receitas de cesta básica deste ponto.'
-          : 'Monte a receita escolhendo itens do catálogo de estoque e a quantidade de cada um por cesta.'
+          ? 'Monte, edite, ative/desative ou remova as cestas básicas deste ponto.'
+          : 'Monte a cesta escolhendo itens do catálogo de estoque e a quantidade de cada um por cesta.'
       }
       size="lg"
     >
@@ -385,15 +385,15 @@ export function BasketTemplateManagerModal({
               leftIcon={<Plus className="size-4" />}
               onClick={openCreateForm}
             >
-              Nova receita
+              Montar nova cesta
             </Button>
           )}
 
           {orderedTemplates.length === 0 ? (
             <EmptyState
               icon={<ShoppingBasket className="size-6" />}
-              title="Nenhuma receita cadastrada"
-              description="Crie a primeira receita de cesta deste ponto."
+              title="Nenhuma cesta montada"
+              description="Monte a primeira cesta deste ponto."
             />
           ) : (
             <ul className="space-y-2">
@@ -418,7 +418,7 @@ export function BasketTemplateManagerModal({
         <form onSubmit={submitForm} className="space-y-4 py-1">
           {submitError && <Alert tone="error">{submitError.displayMessage}</Alert>}
 
-          <FormField label="Nome da receita" htmlFor="basket-template-name" required>
+          <FormField label="Nome da cesta" htmlFor="basket-template-name" required>
             <input
               id="basket-template-name"
               type="text"
@@ -442,19 +442,19 @@ export function BasketTemplateManagerModal({
                   setForm((previous) => ({ ...previous, isActive: checked === true }))
                 }
               />
-              Receita ativa
+              Cesta ativa
             </label>
           )}
 
           <FormField
-            label="Itens da receita"
+            label="Itens da cesta"
             htmlFor="basket-template-item-picker"
             required
             hint="Escolha um item do catálogo de estoque e defina quantos são necessários por cesta."
           >
             <Select
               id="basket-template-item-picker"
-              aria-label="Adicionar item à receita"
+              aria-label="Adicionar item à cesta"
               value={itemPicker}
               placeholder="Adicionar item…"
               disabled={isSubmitting || pickableItems.length === 0}
@@ -486,8 +486,8 @@ export function BasketTemplateManagerModal({
 
           <Alert tone={previewBaskets > 0 ? 'success' : 'info'} className={cn('font-medium')}>
             {form.items.length === 0
-              ? 'Adicione itens para ver a viabilidade desta receita.'
-              : `Essa receita permitiria montar ${previewBaskets} ${previewBaskets === 1 ? 'cesta' : 'cestas'} hoje.`}
+              ? 'Adicione itens para ver a viabilidade desta cesta.'
+              : `Essa cesta permitiria montar ${previewBaskets} ${previewBaskets === 1 ? 'cesta' : 'cestas'} hoje.`}
           </Alert>
 
           {validationError && <p className="text-xs font-medium text-red-600">{validationError}</p>}
@@ -509,7 +509,7 @@ export function BasketTemplateManagerModal({
               disabled={!!validationError || isSubmitting}
               className="flex-1"
             >
-              {editingTemplate ? 'Salvar receita' : 'Criar receita'}
+              {editingTemplate ? 'Salvar cesta' : 'Montar cesta'}
             </Button>
           </div>
         </form>

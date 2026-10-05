@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AnyFieldApi } from '@tanstack/react-form'
 import { CheckIcon, ChevronsUpDownIcon, ImagePlus, PlusIcon, X } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePicker } from '@/views/components/ui/DatePicker'
+import { Spinner } from '@/views/components/ui/feedback'
 import { RequiredMark } from '@/views/components/ui/RequiredMark'
 import { maskCep } from '@/lib/cepInput'
 import { maskCpf } from '@/lib/cpfInput'
@@ -54,12 +55,38 @@ function applyMask(mask: InputMask | undefined, text: string): string {
   return mask ? inputMasks[mask](text) : text
 }
 
+/** Só mostra o indicador se a busca ainda estiver em andamento depois desse tempo — evita um
+ *  flash do spinner quando `onValueChange` resolve na hora (ex.: CEP incompleto). */
+const LOADING_INDICATOR_DELAY_MS = 150
+
+/** Dispara `onValueChange` e, se ele devolver uma promise, acende `onLoadingChange` enquanto ela
+ *  não resolve — sem bloquear a digitação nem desabilitar o campo. Descarta o resultado de uma
+ *  chamada que não é mais a mais recente (o usuário já digitou de novo por cima). */
+function useAsyncValueChange(onLoadingChange: (loading: boolean) => void) {
+  const requestIdRef = useRef(0)
+
+  return (result: void | Promise<void>) => {
+    if (!result || typeof result.then !== 'function') return
+    const requestId = ++requestIdRef.current
+    const delay = setTimeout(() => {
+      if (requestIdRef.current === requestId) onLoadingChange(true)
+    }, LOADING_INDICATOR_DELAY_MS)
+    result.finally(() => {
+      clearTimeout(delay)
+      if (requestIdRef.current === requestId) onLoadingChange(false)
+    })
+  }
+}
+
 function TextControl({
   field,
   id,
   config,
 }: ControlProps<Extract<BoundFieldConfig, { type: 'text' | 'email' | 'password' }>>) {
   const error = fieldError(field)
+  const [isLoading, setIsLoading] = useState(false)
+  const trackAsyncValueChange = useAsyncValueChange(setIsLoading)
+
   return (
     <FieldShell
       id={id}
@@ -68,23 +95,30 @@ function TextControl({
       error={error}
       required={config.required}
     >
-      <Input
-        id={id}
-        type={config.type}
-        placeholder={config.placeholder}
-        autoComplete={config.autoComplete}
-        maxLength={config.maxLength}
-        disabled={config.disabled}
-        aria-invalid={!!error}
-        value={(field.state.value as string | undefined) ?? ''}
-        inputMode={config.mask ? 'numeric' : undefined}
-        onChange={(e) => {
-          const value = applyMask(config.mask, e.target.value)
-          field.handleChange(value)
-          config.onValueChange?.(value, field.form)
-        }}
-        onBlur={field.handleBlur}
-      />
+      <div className="relative">
+        <Input
+          id={id}
+          type={config.type}
+          placeholder={config.placeholder}
+          autoComplete={config.autoComplete}
+          maxLength={config.maxLength}
+          disabled={config.disabled}
+          aria-invalid={!!error}
+          aria-busy={isLoading}
+          className={cn(isLoading && 'pr-10')}
+          value={(field.state.value as string | undefined) ?? ''}
+          inputMode={config.mask ? 'numeric' : undefined}
+          onChange={(e) => {
+            const value = applyMask(config.mask, e.target.value)
+            field.handleChange(value)
+            trackAsyncValueChange(config.onValueChange?.(value, field.form))
+          }}
+          onBlur={field.handleBlur}
+        />
+        {isLoading && (
+          <Spinner className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2" />
+        )}
+      </div>
     </FieldShell>
   )
 }

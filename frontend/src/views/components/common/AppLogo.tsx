@@ -12,7 +12,14 @@ export function AppLogo({
 }) {
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
-      <span className="from-brand-400 to-brand-600 grid size-9 place-items-center rounded-xl bg-linear-to-br text-white shadow-sm ring-1 ring-white/20 ring-inset">
+      <span
+        className={cn(
+          'grid size-9 place-items-center rounded-xl shadow-sm ring-1 ring-inset',
+          inverted
+            ? 'text-brand-700 bg-white ring-white/40'
+            : 'from-brand-400 to-brand-600 bg-linear-to-br text-white ring-white/20',
+        )}
+      >
         <HeartHandshake className="size-5" />
       </span>
       {!compact && (
@@ -23,13 +30,10 @@ export function AppLogo({
               inverted ? 'text-white' : 'text-stone-900',
             )}
           >
-            Bon<span className="text-brand-500">dade</span>
+            Bon<span className={inverted ? 'text-brand-200' : 'text-brand-500'}>dade</span>
           </p>
           <p
-            className={cn(
-              'text-[11px] font-medium',
-              inverted ? 'text-stone-400' : 'text-stone-500',
-            )}
+            className={cn('text-[11px] font-medium', inverted ? 'text-white/70' : 'text-stone-500')}
           >
             Pontos de Coleta
           </p>

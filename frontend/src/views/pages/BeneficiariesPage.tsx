@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Save, UserPlus } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { isoToBrazilian } from '@/lib/dateInput'
 import { ApiError } from '@/models/api/problemDetails'
 import { beneficiaryService } from '@/models/services'
@@ -36,83 +36,106 @@ import {
 import { PendingKinshipsEditor } from '@/views/components/beneficiaries/PendingKinshipsEditor'
 import { FormComponent } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
-import { Alert, Badge, Button, SectionTitle } from '@/views/components/ui'
+import { Alert, Badge, Button, SectionTitle, Select } from '@/views/components/ui'
 
 const LAST_POINT_KEY = 'doacao.lastRegistrationPointId'
 
-const beneficiaryColumns: ColumnDef<Beneficiary>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Nome',
-    meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
-    cell: ({ getValue }) => (
-      <span className="font-medium text-stone-800">{getValue<string>()}</span>
-    ),
-  },
-  {
-    accessorKey: 'cpf',
-    header: 'CPF',
-    meta: { label: 'CPF', filterPlaceholder: 'Filtrar CPF…' },
-    cell: ({ getValue }) => (
-      <span className="whitespace-nowrap tabular-nums">{getValue<string>()}</span>
-    ),
-  },
-  {
-    accessorKey: 'email',
-    header: 'E-mail',
-    meta: { label: 'E-mail', filterPlaceholder: 'Filtrar e-mail…' },
-    cell: ({ getValue }) => {
-      const value = getValue<string | null | undefined>()
-      return value ? (
-        <span className="text-stone-600">{value}</span>
-      ) : (
-        <Badge tone="amber">Sem e-mail</Badge>
-      )
-    },
-  },
-  {
-    id: 'phones',
-    header: 'Contatos',
-    accessorFn: (beneficiary) => beneficiary.phones.join(' · '),
-    meta: { label: 'Contatos', filterPlaceholder: 'Filtrar telefone…' },
-    cell: ({ row }) =>
-      row.original.phones.length > 0 ? (
-        <ul className="space-y-1.5">
-          {row.original.phones.map((phone) => (
-            <li key={phone} className="flex items-center gap-2 whitespace-nowrap">
-              <span className="whitespace-nowrap text-stone-600 tabular-nums">{phone}</span>
-              <WhatsAppLink phone={phone} personName={row.original.name} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <span className="text-stone-400">—</span>
+/** Coluna "Ponto(s)" só faz sentido pra quem vê beneficiários de mais de um ponto (o admin) — um
+ *  gestor já só vê os do próprio ponto, então repetir o nome em toda linha não ajudaria. */
+function beneficiaryColumns(options: {
+  showPointsColumn: boolean
+  pointNameById: Record<string, string>
+}): ColumnDef<Beneficiary>[] {
+  const columns: ColumnDef<Beneficiary>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Nome',
+      meta: { label: 'Nome', filterPlaceholder: 'Filtrar nome…' },
+      cell: ({ getValue }) => (
+        <span className="font-medium text-stone-800">{getValue<string>()}</span>
       ),
-  },
-  {
-    accessorKey: 'birthDate',
-    header: 'Nascimento',
-    meta: { label: 'Nascimento' },
-    cell: ({ getValue }) => {
-      const value = getValue<string | null | undefined>()
-      return value ? (
-        <span className="text-stone-600">{isoToBrazilian(value)}</span>
-      ) : (
-        <span className="text-stone-400">—</span>
-      )
     },
-  },
-  {
-    accessorKey: 'isActive',
-    header: 'Status',
-    enableColumnFilter: false,
-    meta: { label: 'Status', align: 'center' },
-    cell: ({ getValue }) => {
-      const active = getValue<boolean>()
-      return <Badge tone={active ? 'green' : 'slate'}>{active ? 'Ativo' : 'Inativo'}</Badge>
+  ]
+
+  if (options.showPointsColumn) {
+    columns.push({
+      id: 'points',
+      header: 'Ponto(s)',
+      accessorFn: (beneficiary) =>
+        beneficiary.linkedPointIds.map((id) => options.pointNameById[id] ?? id).join(', '),
+      meta: { label: 'Ponto(s)', filterPlaceholder: 'Filtrar ponto…' },
+      cell: ({ getValue }) => <span className="text-stone-600">{getValue<string>()}</span>,
+    })
+  }
+
+  columns.push(
+    {
+      accessorKey: 'cpf',
+      header: 'CPF',
+      meta: { label: 'CPF', filterPlaceholder: 'Filtrar CPF…' },
+      cell: ({ getValue }) => (
+        <span className="whitespace-nowrap tabular-nums">{getValue<string>()}</span>
+      ),
     },
-  },
-]
+    {
+      accessorKey: 'email',
+      header: 'E-mail',
+      meta: { label: 'E-mail', filterPlaceholder: 'Filtrar e-mail…' },
+      cell: ({ getValue }) => {
+        const value = getValue<string | null | undefined>()
+        return value ? (
+          <span className="text-stone-600">{value}</span>
+        ) : (
+          <Badge tone="amber">Sem e-mail</Badge>
+        )
+      },
+    },
+    {
+      id: 'phones',
+      header: 'Contatos',
+      accessorFn: (beneficiary) => beneficiary.phones.join(' · '),
+      meta: { label: 'Contatos', filterPlaceholder: 'Filtrar telefone…' },
+      cell: ({ row }) =>
+        row.original.phones.length > 0 ? (
+          <ul className="space-y-1.5">
+            {row.original.phones.map((phone) => (
+              <li key={phone} className="flex items-center gap-2 whitespace-nowrap">
+                <span className="whitespace-nowrap text-stone-600 tabular-nums">{phone}</span>
+                <WhatsAppLink phone={phone} personName={row.original.name} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-stone-400">—</span>
+        ),
+    },
+    {
+      accessorKey: 'birthDate',
+      header: 'Nascimento',
+      meta: { label: 'Nascimento' },
+      cell: ({ getValue }) => {
+        const value = getValue<string | null | undefined>()
+        return value ? (
+          <span className="text-stone-600">{isoToBrazilian(value)}</span>
+        ) : (
+          <span className="text-stone-400">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      enableColumnFilter: false,
+      meta: { label: 'Status', align: 'center' },
+      cell: ({ getValue }) => {
+        const active = getValue<boolean>()
+        return <Badge tone={active ? 'green' : 'slate'}>{active ? 'Ativo' : 'Inativo'}</Badge>
+      },
+    },
+  )
+
+  return columns
+}
 
 interface ExistingBeneficiary {
   beneficiary: Beneficiary
@@ -128,6 +151,7 @@ export function BeneficiariesPage() {
   const { addKinship } = useAddBeneficiaryKinship()
   const linkBeneficiary = useLinkBeneficiaryToPoint()
 
+  const [pointFilter, setPointFilter] = useState('')
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false)
   const [editingBeneficiary, setEditingBeneficiary] = useState<Beneficiary | null>(null)
   const [pendingKinships, setPendingKinships] = useState<AddBeneficiaryKinshipInput[]>([])
@@ -135,6 +159,18 @@ export function BeneficiariesPage() {
   const [existing, setExisting] = useState<ExistingBeneficiary | null>(null)
 
   const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
+
+  const pointNameById = useMemo(
+    () => Object.fromEntries(points.map((p) => [p.id, p.name])),
+    [points],
+  )
+  const columns = useMemo(
+    () => beneficiaryColumns({ showPointsColumn: isAdmin, pointNameById }),
+    [isAdmin, pointNameById],
+  )
+  const visibleBeneficiaries = pointFilter
+    ? beneficiaries.filter((b) => b.linkedPointIds.includes(pointFilter))
+    : beneficiaries
 
   const lastPointId =
     typeof localStorage !== 'undefined' ? localStorage.getItem(LAST_POINT_KEY) : null
@@ -300,30 +336,62 @@ export function BeneficiariesPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-stone-900">Beneficiários cadastrados</h2>
-        {isManager ? (
-          <Button
-            variant="brand"
-            leftIcon={<UserPlus className="size-4" />}
-            onClick={openBeneficiary}
-          >
-            Adicionar beneficiário
-          </Button>
-        ) : (
-          <span className="text-sm text-stone-500">
-            Apenas gestores/administradores podem cadastrar beneficiários.
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {isAdmin && points.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="beneficiaries-point-filter"
+                className="text-sm font-medium text-stone-600"
+              >
+                Ponto
+              </label>
+              <Select
+                id="beneficiaries-point-filter"
+                value={pointFilter}
+                onValueChange={setPointFilter}
+                className="w-56"
+              >
+                <option value="">Todos os pontos</option>
+                {points.map((point) => (
+                  <option key={point.id} value={point.id}>
+                    {point.name}
+                  </option>
+                ))}
+              </Select>
+              {pointFilter && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setPointFilter('')}>
+                  Ver todos
+                </Button>
+              )}
+            </div>
+          )}
+          {isManager ? (
+            <Button
+              variant="brand"
+              leftIcon={<UserPlus className="size-4" />}
+              onClick={openBeneficiary}
+            >
+              Adicionar beneficiário
+            </Button>
+          ) : (
+            <span className="text-sm text-stone-500">
+              Apenas gestores/administradores podem cadastrar beneficiários.
+            </span>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="error">{error?.displayMessage}</Alert>}
 
       <DataTable
-        columns={beneficiaryColumns}
-        data={beneficiaries}
+        columns={columns}
+        data={visibleBeneficiaries}
         isLoading={isLoading}
         actions={isManager ? beneficiaryActions : undefined}
         searchPlaceholder="Buscar beneficiário…"
-        emptyMessage="Nenhum beneficiário cadastrado."
+        emptyMessage={
+          pointFilter ? 'Nenhum beneficiário vinculado a este ponto.' : 'Nenhum beneficiário cadastrado.'
+        }
       />
 
       {isManager && (

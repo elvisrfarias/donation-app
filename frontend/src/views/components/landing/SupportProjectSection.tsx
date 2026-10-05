@@ -24,7 +24,7 @@ export function SupportProjectSection() {
 
   return (
     <section id="apoie" className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
-      <Reveal className="from-brand-600 to-brand-800 shadow-lift relative grid items-center gap-10 overflow-hidden rounded-[2rem] bg-linear-to-br p-6 sm:p-10 lg:grid-cols-2 lg:p-14">
+      <Reveal className="from-brand-600 to-brand-800 shadow-lift relative grid items-center gap-10 overflow-hidden rounded-4xl bg-linear-to-br p-6 sm:p-10 lg:grid-cols-2 lg:p-14">
         <span
           aria-hidden
           className="animate-blob-drift absolute -top-24 -left-20 size-72 rounded-full bg-white/10 blur-3xl"

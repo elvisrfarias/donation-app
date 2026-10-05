@@ -138,7 +138,7 @@ describe('previewCompleteBaskets', () => {
     return new Map(items.map((item) => [item.id as string, item as StockItem]))
   }
 
-  it('devolve zero para uma receita sem itens', () => {
+  it('devolve zero para uma cesta sem itens', () => {
     expect(previewCompleteBaskets([], new Map())).toBe(0)
   })
 

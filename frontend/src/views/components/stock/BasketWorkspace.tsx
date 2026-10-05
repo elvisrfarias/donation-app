@@ -27,7 +27,7 @@ function TemplateSelector({
   onSelect: (id: string) => void
 }) {
   return (
-    <div role="radiogroup" aria-label="Receita de cesta" className="flex flex-wrap gap-2">
+    <div role="radiogroup" aria-label="Cesta" className="flex flex-wrap gap-2">
       {templates.map((template) => {
         const isSelected = template.id === selectedId
         return (
@@ -121,7 +121,7 @@ function BasketBreakdownTable({ template }: { template: BasketTemplate }) {
                       {isBottleneck && (
                         <Badge
                           tone="amber"
-                          title="Este item é quem limita o total de cestas: quando ele acabar, você não consegue montar mais nenhuma, mesmo sobrando os outros itens da receita."
+                          title="Este item é quem limita o total de cestas: quando ele acabar, você não consegue montar mais nenhuma, mesmo sobrando os outros itens da cesta."
                         >
                           Limita a cesta
                         </Badge>
@@ -182,8 +182,8 @@ export function BasketWorkspace({ point, canEdit }: BasketWorkspaceProps) {
       <div className="space-y-4">
         <EmptyState
           icon={<ShoppingBasket className="size-6" />}
-          title="Nenhuma receita de cesta cadastrada"
-          description="Cadastre uma receita (ex.: arroz, feijão, açúcar e óleo) para ver quantas cestas completas o estoque atual permite montar."
+          title="Nenhuma cesta montada"
+          description="Monte uma cesta (ex.: arroz, feijão, açúcar e óleo) para ver quantas cestas completas o estoque atual permite montar."
           action={
             canEdit && (
               <Button
@@ -191,7 +191,7 @@ export function BasketWorkspace({ point, canEdit }: BasketWorkspaceProps) {
                 leftIcon={<Plus className="size-4" />}
                 onClick={() => openManager(true)}
               >
-                Criar receita de cesta
+                Montar cesta
               </Button>
             )
           }
@@ -218,8 +218,8 @@ export function BasketWorkspace({ point, canEdit }: BasketWorkspaceProps) {
       {active.length === 0 && (
         <EmptyState
           icon={<ShoppingBasket className="size-6" />}
-          title="Nenhuma receita ativa"
-          description="Todas as receitas deste ponto estão desativadas. Ative uma em “Gerenciar receitas” para ver a viabilidade de montagem."
+          title="Nenhuma cesta ativa"
+          description="Todas as cestas deste ponto estão desativadas. Ative uma em “Gerenciar cestas” para ver a viabilidade de montagem."
         />
       )}
 
@@ -237,7 +237,7 @@ export function BasketWorkspace({ point, canEdit }: BasketWorkspaceProps) {
           leftIcon={<ListChecks className="size-4" />}
           onClick={() => openManager(false)}
         >
-          Gerenciar receitas
+          Gerenciar cestas
         </Button>
       </div>
 

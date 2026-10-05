@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { FormComponent, type FormFieldConfig } from '.'
 
@@ -49,5 +49,65 @@ describe('máscaras dos campos de texto', () => {
     await userEvent.type(screen.getByLabelText('Nome'), 'Maria 123')
 
     expect(screen.getByLabelText('Nome')).toHaveValue('Maria 123')
+  })
+})
+
+describe('indicador de carregamento em onValueChange assíncrono', () => {
+  it('acende depois de um tempo, nunca desabilita o campo, e apaga ao concluir', async () => {
+    let resolveLookup: () => void = () => {}
+    const onValueChange = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveLookup = resolve
+        }),
+    )
+    const fields: FormFieldConfig[] = [{ name: 'cep', type: 'text', label: 'CEP', onValueChange }]
+
+    render(
+      <FormComponent
+        schema={z.object({ cep: z.string() })}
+        defaultValues={{ cep: '' }}
+        fields={fields}
+        onSubmit={() => undefined}
+        submitLabel="Salvar"
+      />,
+    )
+
+    const input = screen.getByLabelText('CEP')
+    await userEvent.type(input, '1')
+
+    expect(onValueChange).toHaveBeenCalled()
+    expect(input).toHaveAttribute('aria-busy', 'false')
+    expect(input).not.toBeDisabled()
+
+    await waitFor(() => expect(input).toHaveAttribute('aria-busy', 'true'))
+    expect(input).not.toBeDisabled()
+
+    await act(async () => {
+      resolveLookup()
+    })
+
+    await waitFor(() => expect(input).toHaveAttribute('aria-busy', 'false'))
+  })
+
+  it('não acende o indicador quando a promise resolve rápido', async () => {
+    const onValueChange = vi.fn(() => Promise.resolve())
+    const fields: FormFieldConfig[] = [{ name: 'cep', type: 'text', label: 'CEP', onValueChange }]
+
+    render(
+      <FormComponent
+        schema={z.object({ cep: z.string() })}
+        defaultValues={{ cep: '' }}
+        fields={fields}
+        onSubmit={() => undefined}
+        submitLabel="Salvar"
+      />,
+    )
+
+    const input = screen.getByLabelText('CEP')
+    await userEvent.type(input, '1')
+    await act(async () => {})
+
+    expect(input).toHaveAttribute('aria-busy', 'false')
   })
 })

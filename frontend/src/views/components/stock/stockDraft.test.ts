@@ -148,7 +148,7 @@ describe('stockDraft — quantidades', () => {
     expect(goalProgress(withReachedGoal)).toEqual({ reached: 1, total: 1 })
   })
 
-  it('soma as cestas completas só das receitas ativas', () => {
+  it('soma as cestas completas só das cestas ativas', () => {
     const templates = [
       {
         id: 't1',

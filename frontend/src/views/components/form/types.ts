@@ -32,8 +32,12 @@ export type InputMask = 'cpf' | 'phone' | 'cep'
 type TextLikeField = BaseField & {
   type: 'text' | 'email' | 'password'
   mask?: InputMask
-  /** Executado após cada alteração (já com a máscara aplicada); útil para preencher outros campos. */
-  onValueChange?: (value: string, form: AnyFormApi) => void
+  /**
+   * Executado após cada alteração (já com a máscara aplicada); útil para preencher outros campos.
+   * Pode ser assíncrono (ex.: buscar um CEP) — enquanto a promise não resolve, o campo mostra um
+   * indicador de carregamento discreto, sem travar a digitação nem desabilitar o campo.
+   */
+  onValueChange?: (value: string, form: AnyFormApi) => void | Promise<void>
   placeholder?: string
   autoComplete?: string
   maxLength?: number

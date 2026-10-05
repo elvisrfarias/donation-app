@@ -361,7 +361,7 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await addItem(dialog, /Camiseta \(un\)/)
 
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
 
     expect(
@@ -458,7 +458,7 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await addItem(dialog, /Camiseta \(un\)/)
 
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
     expect(within(dialog).getByRole('button', { name: /registrar retirada/i })).toBeDisabled()
 
@@ -496,7 +496,7 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await addItem(dialog, /Camiseta \(un\)/)
 
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
     expect(within(dialog).getByText('Estoque disponível para esta cesta.')).toBeInTheDocument()
 
@@ -545,7 +545,7 @@ describe('RegisterWithdrawalPage', () => {
     const dialog = await openAddWithdrawalModal()
     await addItem(dialog, /Camiseta \(un\)/)
 
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Receita de cesta básica/ }))
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Cesta básica/ }))
     await userEvent.click(await screen.findByRole('option', { name: /Cesta básica padrão/ }))
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Aumentar quantidade de cestas' }),

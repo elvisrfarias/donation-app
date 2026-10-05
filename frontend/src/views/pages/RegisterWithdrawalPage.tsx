@@ -198,8 +198,8 @@ function BasketSection({
     return (
       <p className="text-xs text-stone-500">
         {point.basketTemplates.length === 0
-          ? 'Nenhuma receita de cesta cadastrada neste ponto.'
-          : 'Todas as receitas de cesta deste ponto estão desativadas.'}{' '}
+          ? 'Nenhuma cesta montada neste ponto.'
+          : 'Todas as cestas montadas deste ponto estão desativadas.'}{' '}
         <Link
           to={`/app/stock?pointId=${point.id}`}
           className="text-brand-700 font-semibold hover:underline"
@@ -226,16 +226,16 @@ function BasketSection({
 
       {isEditing && (
         <p className="text-xs text-stone-500">
-          A cesta desta retirada já vem selecionada abaixo — trocar a receita ou a quantidade
+          A cesta desta retirada já vem selecionada abaixo — trocar a cesta ou a quantidade
           substitui a cesta anterior; remover a seleção cancela a cesta desta retirada.
         </p>
       )}
 
-      <FormField label="Receita" htmlFor="withdrawal-basket-template">
+      <FormField label="Cesta" htmlFor="withdrawal-basket-template">
         <div className="flex items-center gap-2">
           <Select
             id="withdrawal-basket-template"
-            aria-label="Receita de cesta básica"
+            aria-label="Cesta básica"
             value={basketTemplateId}
             placeholder="Nenhuma"
             className="flex-1"
