@@ -1,5 +1,5 @@
 export const inputBase =
-  'w-full rounded-xl border bg-white px-3.5 text-sm text-stone-900 transition-all duration-150 placeholder:text-stone-400 focus:outline-none disabled:bg-stone-50 disabled:text-stone-400'
+  'w-full rounded-xl border bg-white px-3.5 text-sm text-stone-900 transition-all duration-150 placeholder:text-stone-500 focus:outline-none disabled:bg-stone-50 disabled:text-stone-500'
 
 export function stateRing(invalid?: boolean): string {
   return invalid

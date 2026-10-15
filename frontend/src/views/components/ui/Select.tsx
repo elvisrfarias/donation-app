@@ -108,12 +108,12 @@ export function Select({
             className,
           )}
         >
-          <span className={cn('truncate', !selected && 'text-stone-400')}>
+          <span className={cn('truncate', !selected && 'text-stone-500')}>
             {selected?.label ?? emptyLabel}
           </span>
           <ChevronDown
             className={cn(
-              'size-4 shrink-0 text-stone-400 transition-transform',
+              'size-4 shrink-0 text-stone-500 transition-transform',
               open && 'rotate-180',
             )}
           />

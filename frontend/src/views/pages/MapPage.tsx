@@ -1,10 +1,11 @@
-import { type CSSProperties, useState } from 'react'
+import { type CSSProperties, useRef, useState } from 'react'
 import {
   Building2,
   ChevronLeft,
   ChevronRight,
   Church,
   Clock,
+  HandHeart,
   HeartHandshake,
   Landmark,
   LogIn,
@@ -27,10 +28,11 @@ import { AppLogo } from '@/views/components/common/AppLogo'
 import { CollectionPointsMap } from '@/views/components/map/CollectionPointsMap'
 import { colorByType } from '@/views/components/map/markerIcon'
 import { LandingSections } from '@/views/components/landing/LandingSections'
+import { PledgeDonationModal } from '@/views/components/donations/PledgeDonationModal'
 import { PointReviewsModal } from '@/views/components/reviews/PointReviewsModal'
 import { StarRating } from '@/views/components/reviews/StarRating'
 import { FALLBACK_ICON, ICON_BY_KEY } from '@/views/components/stock/categoryIcons'
-import { CenteredSpinner, EmptyState, Select } from '@/views/components/ui'
+import { Alert, CenteredSpinner, EmptyState, Select } from '@/views/components/ui'
 
 const typeIcon: Record<CollectionPointType, typeof Building2> = {
   Association: Building2,
@@ -48,6 +50,7 @@ const softStyle = (type: CollectionPointType): CSSProperties => {
 }
 
 const PAGE_SIZE = 5
+const SIDE_BY_SIDE_LAYOUT_QUERY = '(min-width: 1024px)'
 
 const navLinks = [
   { href: '#sobre', label: 'Sobre' },
@@ -89,6 +92,14 @@ export function MapPage() {
   const vm = useCollectionPointsMapViewModel()
   const [page, setPage] = useState(0)
   const [reviewsPoint, setReviewsPoint] = useState<CollectionPoint | null>(null)
+  const [pledgePoint, setPledgePoint] = useState<CollectionPoint | null>(null)
+  const mapPanelRef = useRef<HTMLDivElement>(null)
+
+  function revealMapOnSmallScreens() {
+    const isStackedLayout = !window.matchMedia(SIDE_BY_SIDE_LAYOUT_QUERY).matches
+    if (isStackedLayout)
+      mapPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   const filterKey = JSON.stringify(vm.filters)
   const [seenFilterKey, setSeenFilterKey] = useState(filterKey)
@@ -103,10 +114,17 @@ export function MapPage() {
 
   return (
     <div className="bg-canvas">
+      <a href="#conteudo-principal" className="skip-link">
+        Pular para os pontos de doação
+      </a>
       <SiteHeader />
-      <div className="mx-auto max-w-384 px-3 pt-3 sm:px-6 sm:pt-4">
+      <main
+        id="conteudo-principal"
+        tabIndex={-1}
+        className="mx-auto max-w-384 px-3 pt-3 outline-none sm:px-6 sm:pt-4"
+      >
         <div className="animate-in fade-in slide-in-from-bottom-4 shadow-card flex h-[calc(100dvh-12rem)] min-h-136 flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white lg:flex-row">
-          <section className="flex w-full shrink-0 flex-col border-b border-stone-200 bg-white lg:w-112 lg:border-r lg:border-b-0 xl:w-lg">
+          <section className="flex w-full shrink-0 flex-col border-b border-stone-200 bg-white lg:w-md lg:border-r lg:border-b-0 xl:w-lg">
             <div className="border-b border-stone-100 p-4">
               <Select
                 aria-label="Cidade"
@@ -158,6 +176,12 @@ export function MapPage() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">
+              {vm.unlocatablePointName && (
+                <Alert tone="warning" className="mb-2.5">
+                  Não foi possível localizar “{vm.unlocatablePointName}” no mapa. Use o endereço
+                  listado ou o botão de rota.
+                </Alert>
+              )}
               {vm.isLoading ? (
                 <CenteredSpinner label="Carregando pontos…" />
               ) : vm.isError || vm.filtered.length === 0 ? (
@@ -175,7 +199,10 @@ export function MapPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => vm.setSelectedId(item.id)}
+                          onClick={() => {
+                            revealMapOnSmallScreens()
+                            void vm.focusPoint(item.id)
+                          }}
                           className={cn(
                             'flex w-full gap-3.5 rounded-2xl border p-3 text-left transition-all',
                             selected
@@ -234,16 +261,16 @@ export function MapPage() {
                             )}
                             <div className="mt-2 space-y-1">
                               <p className="flex items-center gap-1.5 text-xs text-stone-500">
-                                <MapPin className="size-3.5 shrink-0 text-stone-400" />
+                                <MapPin className="size-3.5 shrink-0 text-stone-500" />
                                 <span className="truncate">{formatAddress(item.address)}</span>
                               </p>
                               <p className="flex items-center gap-1.5 text-xs text-stone-500">
-                                <Phone className="size-3.5 shrink-0 text-stone-400" />
+                                <Phone className="size-3.5 shrink-0 text-stone-500" />
                                 {item.contact.phone}
                               </p>
                               {item.openingHours && (
                                 <p className="flex items-center gap-1.5 text-xs text-stone-500">
-                                  <Clock className="size-3.5 shrink-0 text-stone-400" />
+                                  <Clock className="size-3.5 shrink-0 text-stone-500" />
                                   <span className="truncate">{item.openingHours}</span>
                                 </p>
                               )}
@@ -310,15 +337,23 @@ export function MapPage() {
                           <button
                             type="button"
                             onClick={() => sharePoint(item)}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-stone-500 transition-colors hover:bg-stone-100"
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-stone-500 transition-colors hover:bg-stone-100 sm:min-h-0"
                           >
                             <Share2 className="size-3.5" />
                             Compartilhar
                           </button>
                           <button
                             type="button"
+                            onClick={() => setPledgePoint(item)}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 sm:min-h-0"
+                          >
+                            <HandHeart className="size-3.5" aria-hidden />
+                            Quero doar
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setReviewsPoint(item)}
-                            className="text-brand-600 hover:bg-brand-50 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors"
+                            className="text-brand-600 hover:bg-brand-50 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors sm:min-h-0"
                           >
                             <MessageSquare className="size-3.5" />
                             {item.reviewCount > 0
@@ -334,22 +369,24 @@ export function MapPage() {
             </div>
           </section>
 
-          <div className="relative min-h-64 flex-1">
+          <div ref={mapPanelRef} className="relative min-h-64 flex-1">
             <CollectionPointsMap
               points={vm.filtered}
               selectedId={vm.selectedId}
               onSelect={vm.setSelectedId}
+              focusRequest={vm.focusRequest}
               userLocation={vm.userLocation}
               userAccuracyMeters={vm.locationAccuracyMeters}
               onPickLocation={vm.locationIsApproximate ? vm.pickLocation : undefined}
             />
           </div>
         </div>
-      </div>
+      </main>
 
       <LandingSections />
 
       <PointReviewsModal point={reviewsPoint} onClose={() => setReviewsPoint(null)} />
+      <PledgeDonationModal point={pledgePoint} onClose={() => setPledgePoint(null)} />
     </div>
   )
 }

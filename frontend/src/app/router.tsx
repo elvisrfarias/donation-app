@@ -24,6 +24,12 @@ const CollectionPointsPage = lazyWithReload(() =>
 const StockPage = lazyWithReload(() =>
   import('@/views/pages/StockPage').then((m) => ({ default: m.StockPage })),
 )
+const DonationsPage = lazyWithReload(() =>
+  import('@/views/pages/DonationsPage').then((m) => ({ default: m.DonationsPage })),
+)
+const NoticesPage = lazyWithReload(() =>
+  import('@/views/pages/NoticesPage').then((m) => ({ default: m.NoticesPage })),
+)
 const BeneficiariesPage = lazyWithReload(() =>
   import('@/views/pages/BeneficiariesPage').then((m) => ({ default: m.BeneficiariesPage })),
 )
@@ -74,7 +80,9 @@ export const router = createBrowserRouter([
           {
             path: 'collection-points',
             element: (
-              <ProtectedRoute roles={['Admin']}>{withSuspense(<CollectionPointsPage />)}</ProtectedRoute>
+              <ProtectedRoute roles={['Admin']}>
+                {withSuspense(<CollectionPointsPage />)}
+              </ProtectedRoute>
             ),
           },
           { path: 'users', element: withSuspense(<UsersPage />) },
@@ -82,6 +90,22 @@ export const router = createBrowserRouter([
       },
       { path: 'stock', element: withSuspense(<StockPage />) },
       { path: 'beneficiaries', element: withSuspense(<BeneficiariesPage />) },
+      {
+        path: 'donations',
+        element: (
+          <ProtectedRoute roles={['Admin', 'PointManager']}>
+            {withSuspense(<DonationsPage />)}
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'notices',
+        element: (
+          <ProtectedRoute roles={['Admin', 'PointManager']}>
+            {withSuspense(<NoticesPage />)}
+          </ProtectedRoute>
+        ),
+      },
       { path: 'withdrawals/new', element: withSuspense(<RegisterWithdrawalPage />) },
       {
         path: 'collection-points',

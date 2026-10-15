@@ -247,6 +247,103 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.ToTable("withdrawals", (string)null);
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.Donations.Donation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at_utc");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DonorName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("donor_name");
+
+                    b.Property<string>("DonorPhone")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)")
+                        .HasColumnName("donor_phone");
+
+                    b.Property<Guid>("PointId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_point_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PointId", "CreatedAtUtc");
+
+                    b.ToTable("donations", (string)null);
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Notices.PointNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("audience");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("author_name");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("message");
+
+                    b.Property<Guid>("PointId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_point_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PointId", "IsArchived", "CreatedAtUtc");
+
+                    b.ToTable("point_notices", (string)null);
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1023,6 +1120,24 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Donations.Donation", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
+                        .WithMany()
+                        .HasForeignKey("PointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Notices.PointNotice", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.CollectionPoints.CollectionPoint", null)
+                        .WithMany()
+                        .HasForeignKey("PointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DoacaoApp.Domain.Reviews.Review", b =>

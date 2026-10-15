@@ -1,5 +1,7 @@
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Beneficiaries;
+using DoacaoApp.Domain.Donations;
+using DoacaoApp.Domain.Notices;
 using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -33,3 +35,9 @@ public sealed class BasketTemplateIdConverter()
 
 public sealed class CategoryIdConverter()
     : ValueConverter<CategoryId, Guid>(id => id.Value, value => CategoryId.From(value));
+
+public sealed class DonationIdConverter()
+    : ValueConverter<DonationId, Guid>(id => id.Value, value => DonationId.From(value));
+
+public sealed class NoticeIdConverter()
+    : ValueConverter<NoticeId, Guid>(id => id.Value, value => NoticeId.From(value));

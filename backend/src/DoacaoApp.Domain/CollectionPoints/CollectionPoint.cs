@@ -279,6 +279,30 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
         return Result.Success;
     }
 
+    /// <summary>Soma quantidades recebidas (ex.: doações) ao estoque de vários itens. Aplica tudo ou nada.</summary>
+    public ErrorOr<Success> ReceiveStock(IReadOnlyDictionary<StockItemId, int> receivedQuantities)
+    {
+        foreach (var (itemId, quantity) in receivedQuantities)
+        {
+            if (_stockItems.All(item => item.Id != itemId))
+            {
+                return DomainErrors.CollectionPoint.StockItemNotFound;
+            }
+
+            if (quantity <= 0)
+            {
+                return DomainErrors.CollectionPoint.NonPositiveQuantity;
+            }
+        }
+
+        foreach (var (itemId, quantity) in receivedQuantities)
+        {
+            _stockItems.Single(item => item.Id == itemId).Increase(quantity);
+        }
+
+        return Result.Success;
+    }
+
     /// <summary>Substitui em bloco meta/aviso/monitoramento de vários itens (aba "Metas e avisos"). Aplica tudo ou nada.</summary>
     public ErrorOr<Success> ReplaceStockItemSettings(
         IReadOnlyDictionary<StockItemId, (int Goal, int AlertThreshold, bool IsTracked)> settings)

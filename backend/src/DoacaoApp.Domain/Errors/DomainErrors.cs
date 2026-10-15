@@ -53,6 +53,9 @@ public static class DomainErrors
         public static Error StockItemUnitRequired =>
             Error.Validation("CollectionPoint.StockItemUnitRequired", "A unidade do item de estoque é obrigatória.");
 
+        public static Error NonPositiveQuantity =>
+            Error.Validation("CollectionPoint.NonPositiveQuantity", "A quantidade recebida deve ser maior que zero.");
+
         public static Error NegativeQuantity =>
             Error.Validation("CollectionPoint.NegativeQuantity", "A quantidade não pode ser negativa.");
 
@@ -184,6 +187,37 @@ public static class DomainErrors
             Error.Validation("Review.CommentTooLong", $"O comentário excede o limite de {max} caracteres.");
 
         public static Error NotFound => Error.NotFound("Review.NotFound", "Avaliação não encontrada.");
+    }
+
+    public static class Donation
+    {
+        public static Error DonorRequired => Error.Validation("Donation.DonorRequired", "Informe o nome de quem vai doar.");
+
+        public static Error DescriptionRequired =>
+            Error.Validation("Donation.DescriptionRequired", "Descreva o que será doado.");
+
+        public static Error DescriptionTooLong(int max) =>
+            Error.Validation("Donation.DescriptionTooLong", $"A descrição excede o limite de {max} caracteres.");
+
+        public static Error AlreadyClosed =>
+            Error.Conflict("Donation.AlreadyClosed", "Esta doação já foi recebida ou cancelada.");
+
+        public static Error NotFound => Error.NotFound("Donation.NotFound", "Doação não encontrada.");
+    }
+
+    public static class Notice
+    {
+        public static Error TitleRequired => Error.Validation("Notice.TitleRequired", "O título do aviso é obrigatório.");
+
+        public static Error MessageRequired => Error.Validation("Notice.MessageRequired", "A mensagem do aviso é obrigatória.");
+
+        public static Error TitleTooLong(int max) =>
+            Error.Validation("Notice.TitleTooLong", $"O título excede o limite de {max} caracteres.");
+
+        public static Error MessageTooLong(int max) =>
+            Error.Validation("Notice.MessageTooLong", $"A mensagem excede o limite de {max} caracteres.");
+
+        public static Error NotFound => Error.NotFound("Notice.NotFound", "Aviso não encontrado.");
     }
 
     public static class Withdrawal

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy, Heart } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { PIX_COPY_AND_PASTE_CODE, PIX_KEY, PIX_RECEIVER_NAME } from '@/lib/donationPix'
+import { PIX_COPY_AND_PASTE_CODE, PIX_RECEIVER_NAME } from '@/lib/donationPix'
 import { Reveal } from '@/views/components/common/Reveal'
 import { Button } from '@/views/components/ui'
 
@@ -58,9 +58,6 @@ export function SupportProjectSection() {
             />
           </div>
           <p className="mt-4 text-sm font-semibold text-stone-900">{PIX_RECEIVER_NAME}</p>
-          <p className="mt-0.5 text-xs text-stone-500">
-            Chave Pix: <span className="font-medium text-stone-700">{PIX_KEY}</span>
-          </p>
           <Button
             className="mt-5 w-full"
             size="lg"

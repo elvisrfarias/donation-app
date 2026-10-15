@@ -2,10 +2,12 @@ import { useState } from 'react'
 import {
   Boxes,
   ChevronDown,
+  HandHeart,
   LayoutDashboard,
   LogOut,
   Map,
   MapPin,
+  Megaphone,
   PackageCheck,
   Settings,
   ShieldUser,
@@ -14,7 +16,7 @@ import {
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { cn, initials } from '@/lib/utils'
 import { roleLabels } from '@/models/types/auth'
-import { useAuth } from '@/viewmodels'
+import { useAuth, usePointDonations } from '@/viewmodels'
 import { AppLogo } from '@/views/components/common/AppLogo'
 
 interface NavItem {
@@ -22,6 +24,7 @@ interface NavItem {
   label: string
   icon: typeof LayoutDashboard
   end: boolean
+  badge?: number
 }
 
 const ADMIN_ROUTE_PREFIX = '/app/admin'
@@ -32,6 +35,20 @@ const mainNavItems: NavItem[] = [
   { to: '/app/beneficiaries', label: 'Beneficiários', icon: UserPlus, end: false },
   { to: '/app/withdrawals/new', label: 'Registrar Retirada', icon: PackageCheck, end: false },
 ]
+
+const donationsNavItem: NavItem = {
+  to: '/app/donations',
+  label: 'Doações',
+  icon: HandHeart,
+  end: false,
+}
+
+const noticesNavItem: NavItem = {
+  to: '/app/notices',
+  label: 'Mural de Avisos',
+  icon: Megaphone,
+  end: false,
+}
 
 const collectionPointsNavItem: NavItem = {
   to: `${ADMIN_ROUTE_PREFIX}/collection-points`,
@@ -79,6 +96,12 @@ function SidebarLink({ item, nested = false }: { item: NavItem; nested?: boolean
             )}
           />
           {item.label}
+          {item.badge ? (
+            <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 text-[11px] font-bold text-stone-900">
+              {item.badge}
+              <span className="sr-only"> pendentes</span>
+            </span>
+          ) : null}
         </>
       )}
     </NavLink>
@@ -123,10 +146,19 @@ export function AppLayout() {
   const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
   const { pathname: currentPathname } = useLocation()
+  const ownPointId = isAdmin ? null : (user?.collectionPointId ?? null)
+  const { donations } = usePointDonations(isManager ? ownPointId : null)
+  const pendingDonations = donations.filter((donation) => donation.status === 'Pledged').length
+  const donationsItem: NavItem = { ...donationsNavItem, badge: pendingDonations }
   const adminNavItems: NavItem[] = isAdmin
     ? [collectionPointsNavItem, usersNavItem]
     : [usersNavItem]
-  const mobileNavItems: NavItem[] = isManager ? [...mainNavItems, adminMobileNavItem] : mainNavItems
+  const sidebarNavItems: NavItem[] = isManager
+    ? [...mainNavItems, donationsItem, noticesNavItem]
+    : mainNavItems
+  const mobileNavItems: NavItem[] = isManager
+    ? [...mainNavItems, donationsItem, adminMobileNavItem]
+    : mainNavItems
 
   const handleLogout = async () => {
     await logout()
@@ -135,11 +167,14 @@ export function AppLayout() {
 
   return (
     <div className="bg-canvas flex h-dvh overflow-hidden">
+      <a href="#conteudo-principal" className="skip-link">
+        Pular para o conteúdo
+      </a>
       <aside className="from-sidebar to-sidebar-deep hidden w-64 shrink-0 flex-col overflow-y-auto bg-linear-to-b px-4 py-6 lg:flex">
         <AppLogo className="px-1" inverted />
 
-        <nav className="mt-9 flex flex-1 flex-col gap-1.5">
-          {mainNavItems.map((item) => (
+        <nav aria-label="Navegação principal" className="mt-9 flex flex-1 flex-col gap-1.5">
+          {sidebarNavItems.map((item) => (
             <SidebarLink key={item.to} item={item} />
           ))}
           {isManager && <AdminMenu items={adminNavItems} />}
@@ -189,7 +224,11 @@ export function AppLayout() {
           </button>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">
+        <main
+          id="conteudo-principal"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto p-4 pb-24 outline-none sm:p-6 lg:p-8 lg:pb-8"
+        >
           <div
             key={currentPathname}
             className="animate-in fade-in slide-in-from-bottom-3 duration-300 ease-out"
@@ -199,7 +238,10 @@ export function AppLayout() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-stone-200 bg-white/90 backdrop-blur-md lg:hidden">
+      <nav
+        aria-label="Navegação principal"
+        className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-stone-200 bg-white/90 backdrop-blur-md lg:hidden"
+      >
         {mobileNavItems.map((item) => (
           <NavLink
             key={item.to}
@@ -208,12 +250,15 @@ export function AppLayout() {
             className={({ isActive }) =>
               cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors',
-                isActive ? 'text-brand-600' : 'text-stone-400',
+                isActive ? 'text-brand-600' : 'text-stone-500',
               )
             }
           >
             <item.icon className="size-5" />
-            <span className="max-w-full truncate px-1">{item.label.split(' ')[0]}</span>
+            <span className="max-w-full truncate px-1">
+              {item.label.split(' ')[0]}
+              {item.badge ? ` (${item.badge})` : ''}
+            </span>
           </NavLink>
         ))}
       </nav>

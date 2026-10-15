@@ -26,6 +26,16 @@ export const queryKeys = {
         ? (['collection-points', pointId, 'dashboard', from, to] as const)
         : (['collection-points', pointId, 'dashboard'] as const),
   },
+  donations: {
+    byPoint: (pointId: string) => ['donations', pointId] as const,
+  },
+  notices: {
+    public: (pointId: string) => ['notices', 'public', pointId] as const,
+    network: ['notices', 'network'] as const,
+  },
+  activity: {
+    byPoint: (pointId: string) => ['activity', pointId] as const,
+  },
   beneficiaries: {
     all: ['beneficiaries', 'all'] as const,
     byId: (id: string) => ['beneficiaries', id] as const,
@@ -38,4 +48,5 @@ export const queryKeys = {
     all: ['users', 'all'] as const,
   },
   geocode: (query: string) => ['geocode', query] as const,
+  geocodeAddress: (query: string) => ['geocode-address', query] as const,
 }

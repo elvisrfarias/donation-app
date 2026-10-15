@@ -90,7 +90,7 @@ const collectionPointColumns: ColumnDef<CollectionPoint>[] = [
     meta: { label: 'Itens', filterPlaceholder: 'Filtrar item…' },
     cell: ({ row }) => {
       const categories = row.original.categories
-      if (categories.length === 0) return <span className="text-xs text-stone-400">—</span>
+      if (categories.length === 0) return <span className="text-xs text-stone-500">—</span>
       return (
         <div className="flex max-w-56 flex-wrap gap-1">
           {categories.map((category) => {

@@ -87,7 +87,7 @@ export function TagBox({
             className,
           )}
         >
-          {selected.length === 0 && <span className="text-stone-400">{placeholder}</span>}
+          {selected.length === 0 && <span className="text-stone-500">{placeholder}</span>}
           {selected.map((option) => (
             <span
               key={option.value}
@@ -107,7 +107,7 @@ export function TagBox({
           ))}
           <ChevronDown
             className={cn(
-              'absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-400 transition-transform',
+              'absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500 transition-transform',
               open && 'rotate-180',
             )}
           />

@@ -7,4 +7,12 @@ export interface LatLng {
 export interface Geocoded<T> {
   item: T
   position: LatLng | null
+  /** Verdadeiro quando só foi possível localizar a cidade (o pin marca o centro dela, não o endereço). */
+  approximate?: boolean
+}
+
+/** Posição resolvida para um endereço, indicando se ela é só a da cidade. */
+export interface GeocodedAddress {
+  position: LatLng
+  approximate: boolean
 }

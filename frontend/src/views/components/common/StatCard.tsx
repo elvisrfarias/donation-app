@@ -71,7 +71,7 @@ export function StatCard({
         )}
       </div>
       <p className="mt-3 text-3xl font-bold tracking-tight text-stone-900 tabular-nums">{value}</p>
-      {hint && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
     </Card>
   )
 }

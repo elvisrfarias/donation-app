@@ -112,7 +112,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-stone-300 bg-white/60 px-6 py-14 text-center">
       {icon && (
-        <div className="shadow-card grid size-12 place-items-center rounded-2xl bg-white text-stone-400 ring-1 ring-stone-100">
+        <div className="shadow-card grid size-12 place-items-center rounded-2xl bg-white text-stone-500 ring-1 ring-stone-100">
           {icon}
         </div>
       )}

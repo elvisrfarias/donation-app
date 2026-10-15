@@ -40,7 +40,7 @@ const stepperButton =
   'grid size-9 shrink-0 place-items-center rounded-lg text-stone-600 ring-1 ring-stone-200 transition-colors ring-inset hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-600 disabled:hover:ring-stone-200'
 
 const iconButton =
-  'grid size-8 shrink-0 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700'
+  'grid size-8 shrink-0 place-items-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700'
 
 function progressPercent(quantity: number, goal: number): number {
   return Math.min(100, Math.round((quantity / goal) * 100))
@@ -63,7 +63,7 @@ export function StockItemCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <p className="truncate text-sm font-semibold text-stone-900">{item.name}</p>
-          <span className="shrink-0 text-xs font-medium text-stone-400">{item.unit}</span>
+          <span className="shrink-0 text-xs font-medium text-stone-500">{item.unit}</span>
           <span
             className={cn(
               'inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset',
@@ -88,7 +88,7 @@ export function StockItemCard({
                 style={{ width: `${progressPercent(quantity, item.goal)}%` }}
               />
             </div>
-            <span className="text-[11px] text-stone-400 tabular-nums">meta {item.goal}</span>
+            <span className="text-[11px] text-stone-500 tabular-nums">meta {item.goal}</span>
           </div>
         )}
       </div>
@@ -117,7 +117,7 @@ export function StockItemCard({
           onFocus={(event) => event.target.select()}
           onBlur={onCommit}
           aria-label={`Quantidade de ${item.name}`}
-          className="focus:border-brand-500 focus:ring-brand-500/10 h-9 w-16 [appearance:textfield] rounded-lg border border-stone-200 text-center text-sm font-semibold text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="focus:border-brand-500 focus:ring-brand-500/10 h-9 w-16 [appearance:textfield] rounded-lg border border-stone-200 text-center text-sm font-semibold text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
         <button
           type="button"

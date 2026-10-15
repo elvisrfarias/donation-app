@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryClient'
 import type { ApiError } from '@/models/api/problemDetails'
 import { collectionPointService, geocodingService } from '@/models/services'
@@ -8,6 +8,7 @@ import {
   type CollectionPoint,
   type CollectionPointType,
   type Geocoded,
+  type GeocodedAddress,
   type LatLng,
 } from '@/models/types'
 
@@ -15,6 +16,13 @@ export interface MapFilters {
   search: string
   type: CollectionPointType | 'all'
   city: string | 'all'
+}
+
+/** Pedido para levar a câmera do mapa até um ponto. O `nonce` muda a cada clique, para que
+ *  clicar de novo no mesmo ponto também refaça o voo e reabra o popup. */
+export interface FocusRequest {
+  id: string
+  nonce: number
 }
 
 export type LocatedCollectionPoint = Geocoded<CollectionPoint> & { distanceKm: number | null }
@@ -48,6 +56,7 @@ function haversineKm(a: LatLng, b: LatLng): number {
  * antigos sem coordenadas. Expõe a lista filtrável, a ordenação (ranking) e a seleção.
  */
 export function useCollectionPointsMapViewModel() {
+  const queryClient = useQueryClient()
   const [sortByRating, setSortByRating] = useState(false)
 
   const pointsQuery = useQuery<CollectionPoint[], ApiError>({
@@ -65,8 +74,8 @@ export function useCollectionPointsMapViewModel() {
       const query = formatAddress(p.address)
       const hasStored = storedPosition(p) !== null
       return {
-        queryKey: queryKeys.geocode(query),
-        queryFn: () => geocodingService.geocode(query),
+        queryKey: queryKeys.geocodeAddress(query),
+        queryFn: () => geocodingService.geocodeAddress(p.address),
         staleTime: Infinity,
         gcTime: Infinity,
         enabled: !hasStored,
@@ -76,15 +85,23 @@ export function useCollectionPointsMapViewModel() {
 
   const geocoded: Geocoded<CollectionPoint>[] = useMemo(
     () =>
-      points.map((item, i) => ({
-        item,
-        position: storedPosition(item) ?? geocodeQueries[i]?.data ?? null,
-      })),
+      points.map((item, i) => {
+        const stored = storedPosition(item)
+        const resolved = geocodeQueries[i]?.data
+        return {
+          item,
+          position: stored ?? resolved?.position ?? null,
+          approximate: stored === null && (resolved?.approximate ?? false),
+        }
+      }),
     [points, geocodeQueries],
   )
 
   const [filters, setFilters] = useState<MapFilters>(EMPTY_FILTERS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
+  const [unlocatablePointName, setUnlocatablePointName] = useState<string | null>(null)
+  const focusCounter = useRef(0)
   const [userLocation, setUserLocation] = useState<LatLng | null>(null)
   const [locationAccuracyMeters, setLocationAccuracyMeters] = useState<number | null>(null)
   const [locating, setLocating] = useState(false)
@@ -125,6 +142,33 @@ export function useCollectionPointsMapViewModel() {
       { enableHighAccuracy: true, maximumAge: 0, timeout: LOCATE_TIMEOUT_MS },
     )
     stopTimer.current = setTimeout(stopLocating, LOCATE_TIMEOUT_MS)
+  }
+
+  async function resolvePosition(point: CollectionPoint): Promise<LatLng | null> {
+    const known = geocoded.find((entry) => entry.item.id === point.id)?.position
+    if (known) return known
+
+    const found = await geocodingService.geocodeAddress(point.address, { urgent: true })
+    queryClient.setQueryData<GeocodedAddress | null>(
+      queryKeys.geocodeAddress(formatAddress(point.address)),
+      found,
+    )
+    return found?.position ?? null
+  }
+
+  async function focusPoint(id: string) {
+    const point = points.find((candidate) => candidate.id === id)
+    setSelectedId(id)
+    setUnlocatablePointName(null)
+    if (!point) return
+
+    const position = await resolvePosition(point)
+    if (!position) {
+      setUnlocatablePointName(point.name)
+      return
+    }
+    focusCounter.current += 1
+    setFocusRequest({ id, nonce: focusCounter.current })
   }
 
   function pickLocation(position: LatLng) {
@@ -185,6 +229,9 @@ export function useCollectionPointsMapViewModel() {
     resetFilters: () => setFilters(EMPTY_FILTERS),
     selectedId,
     setSelectedId,
+    focusRequest,
+    focusPoint,
+    unlocatablePointName,
     total: points.length,
     located,
     geocodingPending,

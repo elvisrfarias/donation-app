@@ -39,6 +39,7 @@ frontend fica em `http://localhost:3000`, a API em `http://localhost:8080`.
 - [Testes](#testes)
 - [Documentação da API (Scalar)](#documentação-da-api-scalar)
 - [Endpoints](#endpoints)
+- [Documentação de extensão (3C, requisitos, UML, usabilidade)](docs/README.md)
 - [Autenticação, roles e o porquê do BCrypt](#autenticação-roles-e-o-porquê-do-bcrypt)
 - [Observabilidade](#observabilidade)
 - [Object Storage (MinIO/S3)](#object-storage-minios3)
@@ -114,6 +115,8 @@ doacao-app/
 │   │   ├── CollectionPoints/      # CollectionPoint (root, com Stock), Withdrawal, eventos, repo
 │   │   ├── Beneficiaries/         # Beneficiary (root), vínculos, eventos, repo
 │   │   ├── Reviews/               # Review (root) — avaliação pública de um ponto
+│   │   ├── Donations/             # Donation (root) — doação prometida a um ponto
+│   │   ├── Notices/               # PointNotice (root) — aviso do mural de um ponto
 │   │   ├── Storage/                # StoredFile (root) — metadado de arquivo em object storage
 │   │   └── Errors/                # DomainErrors (catálogo de erros)
 │   ├── DoacaoApp.Application/
@@ -122,6 +125,9 @@ doacao-app/
 │   │   ├── CollectionPoints/      # Commands, Queries, Contracts, EventHandlers (inclui estoque)
 │   │   ├── Beneficiaries/         # Commands, Queries, Contracts, EventHandlers
 │   │   ├── Reviews/               # CreateReview, ModerateReview, ListReviewsForPoint
+│   │   ├── Donations/             # PledgeDonation, ReceiveDonation, CancelDonation, ListPointDonations
+│   │   ├── Notices/               # PublishNotice, ArchiveNotice, ListPublicNotices, ListNetworkNotices
+│   │   ├── Activity/              # GetPointActivityFeed (feed de percepção do gestor)
 │   │   └── Storage/                # UploadImage, DeleteFile, GetStoredFile, ListFilesByOwner
 │   ├── DoacaoApp.Infrastructure/
 │   │   ├── Persistence/           # AppDbContext, Configurations, Repositories,
@@ -159,6 +165,12 @@ doacao-app/
 - **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia o beneficiário por Id.
 - **Review** (Aggregate Root) — avaliação pública de um `CollectionPoint` (nota 1–5 + comentário
   opcional), com moderação (`Hide`/`Restore`) e contagem de denúncias (`Report`).
+- **Donation** (Aggregate Root) — doação prometida por alguém da comunidade a um `CollectionPoint`
+  (`Pledged` → `Received` ou `Cancelled`, uma única vez). Receber com itens soma ao estoque do ponto
+  (`CollectionPoint.ReceiveStock`, tudo ou nada).
+- **PointNotice** (Aggregate Root) — aviso do mural de um ponto, para a comunidade (`Public`) ou só para a
+  rede de gestores (`Managers`); arquivamento lógico. O feed de atividade do gestor é uma consulta que
+  reúne doações, avisos, avaliações e alertas de estoque.
 - **StoredFile** (Aggregate Root) — metadado de um arquivo (tipicamente foto de ponto de coleta) em
   object storage S3-compatível; vínculo com o dono via `OwnerType`/`OwnerId` (sem FK) e exclusão como
   soft-delete (`MarkDeleted`). Ver [Object Storage](#object-storage-minios3).
@@ -271,6 +283,8 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | GET | `/api/public/collection-points/{pointId}/reviews` | Avaliações visíveis de um ponto |
 | POST | `/api/public/collection-points/{pointId}/reviews` | Cria uma avaliação (nota + comentário) |
 | POST | `/api/public/reviews/{reviewId}/report` | Denuncia uma avaliação |
+| GET | `/api/public/collection-points/{pointId}/notices` | Avisos públicos do mural de um ponto |
+| POST | `/api/public/collection-points/{pointId}/donations` | Avisa que pretende doar (nome, telefone opcional, descrição) |
 | GET | `/health`, `/health/ready` | Health checks |
 
 ### Autenticação (Minimal API, com rate limit)
@@ -304,6 +318,13 @@ O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints
 | GET | `/api/files/{id}` | autenticado (metadado + URL pré-assinada) |
 | GET | `/api/files?ownerType=&ownerId=` | autenticado (arquivos de um dono) |
 | DELETE | `/api/files/{id}` | Admin (soft-delete) |
+| GET | `/api/collection-points/{id}/donations` | Admin, PointManager (só o próprio ponto) |
+| POST | `/api/collection-points/{id}/donations/{donationId}/receive` | Admin, PointManager (confirma o recebimento; `receivedStock` opcional soma os itens ao estoque, tudo ou nada; 409 se já fechada) |
+| POST | `/api/collection-points/{id}/donations/{donationId}/cancel` | Admin, PointManager (409 se já fechada) |
+| GET | `/api/notices` | Admin, PointManager (mural da rede: avisos de todos os pontos) |
+| POST | `/api/collection-points/{id}/notices` | Admin, PointManager (`audience`: `Public` ou `Managers`) |
+| DELETE | `/api/collection-points/{id}/notices/{noticeId}` | Admin, PointManager (arquiva o aviso) |
+| GET | `/api/collection-points/{id}/activity` | Admin, PointManager (doações, avisos, avaliações e alertas de estoque recentes) |
 | POST | `/api/reviews/{id}/hide` | Admin (moderação) |
 | POST | `/api/reviews/{id}/restore` | Admin (moderação) |
 

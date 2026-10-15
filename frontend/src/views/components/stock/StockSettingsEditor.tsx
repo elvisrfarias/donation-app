@@ -32,7 +32,7 @@ interface StockSettingsEditorProps {
 }
 
 const numberInput =
-  'focus:border-brand-500 focus:ring-brand-500/10 h-10 w-full [appearance:textfield] rounded-xl border border-stone-200 px-3 text-center text-sm font-semibold text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-400 aria-invalid:border-red-300 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+  'focus:border-brand-500 focus:ring-brand-500/10 h-10 w-full [appearance:textfield] rounded-xl border border-stone-200 px-3 text-center text-sm font-semibold text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-500 aria-invalid:border-red-300 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 
 const rowGrid = 'grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_7rem_7rem_7rem]'
 
@@ -175,7 +175,7 @@ function SettingsCategorySection({
         </span>
         <ChevronDown
           className={cn(
-            'size-4 shrink-0 text-stone-400 transition-transform',
+            'size-4 shrink-0 text-stone-500 transition-transform',
             expanded && 'rotate-180',
           )}
         />
@@ -185,7 +185,7 @@ function SettingsCategorySection({
           <div
             className={cn(
               rowGrid,
-              'hidden pb-2 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid',
+              'hidden pb-2 text-xs font-semibold tracking-wide text-stone-500 uppercase sm:grid',
             )}
           >
             <span>Item</span>
@@ -342,7 +342,7 @@ export function StockSettingsEditor({ point, canEdit }: StockSettingsEditorProps
                 })
               }
               onFocus={(event) => event.target.select()}
-              className="focus:border-brand-500 focus:ring-brand-500/10 h-11 w-full rounded-xl border border-stone-200 px-3.5 text-sm text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-400 aria-invalid:border-red-300"
+              className="focus:border-brand-500 focus:ring-brand-500/10 h-11 w-full rounded-xl border border-stone-200 px-3.5 text-sm text-stone-900 tabular-nums transition-all focus:ring-4 focus:outline-none disabled:bg-stone-50 disabled:text-stone-500 aria-invalid:border-red-300"
             />
           </FormField>
         </div>

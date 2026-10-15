@@ -152,6 +152,18 @@ todos os pontos, mas o limite aplicado é o do ponto onde a retirada acontece. V
   (`ReplaceStockSettings`, coluna JSON `stock_settings`). Só as consultas de gestão devolvem as configurações;
   a lista pública não as expõe.
 
+### Colaboração (Donations, Notices, Activity)
+
+- **`Donation`** (Aggregate Root, `Domain/Donations`) — doação prometida pelo público (`POST /api/public/...`)
+  e fechada pelo gestor (`MarkReceived`/`Cancel`, só uma vez). `ReceiveDonationHandler` aplica
+  `CollectionPoint.ReceiveStock` **antes** de fechar a doação, para uma falha de estoque não deixar a doação
+  fechada. O telefone do doador é `PhoneNumber?` e só aparece na área autenticada.
+- **`PointNotice`** (Aggregate Root, `Domain/Notices`) — mural do ponto; `Audience` `Public` (visível no mapa)
+  ou `Managers` (só `GET /api/notices`, a rede). Arquivamento lógico (`Archive`).
+- **`GetPointActivityFeedQuery`** — feed de percepção do gestor, composto na Application a partir de doações,
+  avisos, avaliações e itens de estoque abaixo do `AlertThreshold`. Não há tabela própria.
+- Como em `Review`, ambos referenciam o ponto por Id. Mapeamento do mapa ao modelo 3C em `docs/mapeamento-3c.md`.
+
 ## Convenções de mapeamento EF (onde as coisas dão errado)
 
 - **IDs fortemente tipados** (`BeneficiaryId`, `CollectionPointId`, etc. — `readonly record struct`): convertidos

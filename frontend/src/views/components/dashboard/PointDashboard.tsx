@@ -2,7 +2,9 @@ import {
   ArrowUpRight,
   Boxes,
   ClipboardList,
+  HandHeart,
   HeartHandshake,
+  Megaphone,
   PackageCheck,
   Star,
   Users,
@@ -28,6 +30,7 @@ import {
   type WithdrawalsSeriesPoint,
 } from '@/models/types'
 import { useCollectionPoint, useCollectionPointDashboard } from '@/viewmodels'
+import { ActivityFeedCard } from '@/views/components/activity/ActivityFeedCard'
 import { StatCard } from '@/views/components/common/StatCard'
 import { WithdrawalItemBadges } from '@/views/components/withdrawal/WithdrawalItemBadge'
 import { DashboardHeader } from './DashboardHeader'
@@ -279,13 +282,25 @@ const pointQuickLinks = [
     description: 'Cadastre e edite quem o ponto atende.',
     icon: Users,
   },
+  {
+    to: '/app/donations',
+    label: 'Doações',
+    description: 'Confirme o que a comunidade vai doar.',
+    icon: HandHeart,
+  },
+  {
+    to: '/app/notices',
+    label: 'Mural de Avisos',
+    description: 'Comunique necessidades e combine com a rede.',
+    icon: Megaphone,
+  },
 ]
 
 function PointQuickLinks() {
   return (
     <div>
       <h2 className="mb-3 text-sm font-semibold text-stone-500">Atalhos</h2>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         {pointQuickLinks.map((link) => (
           <Link key={link.to} to={link.to} className="group">
             <Card className="hover:shadow-lift flex h-full flex-col p-5 transition-shadow">
@@ -377,6 +392,7 @@ function PointDashboardBody({
         <StockOverviewCard point={point} />
         <RecentWithdrawalsCard dashboard={dashboard} />
       </div>
+      <ActivityFeedCard pointId={pointId} />
       <PointQuickLinks />
     </div>
   )

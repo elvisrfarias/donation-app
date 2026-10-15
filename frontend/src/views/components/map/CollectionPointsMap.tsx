@@ -19,6 +19,7 @@ import {
   type Geocoded,
   type LatLng,
 } from '@/models/types'
+import type { FocusRequest } from '@/viewmodels/useCollectionPointsMapViewModel'
 import { Badge } from '@/views/components/ui'
 import { StarRating } from '@/views/components/reviews/StarRating'
 import { BaseMapTiles } from './BaseMapTiles'
@@ -28,6 +29,7 @@ interface Props {
   points: Geocoded<CollectionPoint>[]
   selectedId: string | null
   onSelect: (id: string | null) => void
+  focusRequest?: FocusRequest | null
   userLocation?: LatLng | null
   userAccuracyMeters?: number | null
   onPickLocation?: (position: LatLng) => void
@@ -65,23 +67,50 @@ function hasPosition(point: Geocoded<CollectionPoint>): point is LocatedPoint {
   return point.position !== null
 }
 
-/** Anima a câmera até o ponto selecionado na lista e abre o seu tooltip. */
-function FlyToSelected({
+const FOCUS_MIN_ZOOM = 16
+const FOCUS_FLIGHT_SECONDS = 1.1
+const ALREADY_THERE_METERS = 5
+
+/**
+ * Atende o pedido de foco vindo da lista: voa até o pin com zoom e, quando a câmera termina de
+ * assentar, abre o popup (abrir durante o voo faria o autopan brigar com a animação). Cada
+ * pedido é atendido uma única vez, mesmo que os pontos mudem de lugar enquanto são geocodificados.
+ */
+function FocusOnRequest({
   points,
-  selectedId,
+  request,
   markerRefs,
-}: Pick<Props, 'points' | 'selectedId'> & { markerRefs: MarkerRegistry }) {
+}: Pick<Props, 'points'> & {
+  request: FocusRequest | null | undefined
+  markerRefs: MarkerRegistry
+}) {
   const map = useMap()
+  const handledNonce = useRef<number | null>(null)
+
   useEffect(() => {
-    if (!selectedId) return
-    const target = points.find((p) => p.item.id === selectedId)
-    if (target?.position) {
-      map.flyTo([target.position.lat, target.position.lng], Math.max(map.getZoom(), 15), {
-        duration: 0.8,
-      })
-      markerRefs.current[selectedId]?.openPopup()
+    if (!request || handledNonce.current === request.nonce) return
+    const target = points.find((p) => p.item.id === request.id)
+    if (!target?.position) return
+
+    handledNonce.current = request.nonce
+    const destination = L.latLng(target.position.lat, target.position.lng)
+    const zoom = Math.max(map.getZoom(), FOCUS_MIN_ZOOM)
+    const openPopup = () => markerRefs.current[request.id]?.openPopup()
+
+    const alreadyThere =
+      map.getZoom() === zoom && map.getCenter().distanceTo(destination) < ALREADY_THERE_METERS
+    if (alreadyThere) {
+      openPopup()
+      return
     }
-  }, [selectedId, points, map, markerRefs])
+
+    map.once('moveend', openPopup)
+    map.flyTo(destination, zoom, { duration: FOCUS_FLIGHT_SECONDS })
+    return () => {
+      map.off('moveend', openPopup)
+    }
+  }, [request, points, map, markerRefs])
+
   return null
 }
 
@@ -109,6 +138,7 @@ export function CollectionPointsMap({
   points,
   selectedId,
   onSelect,
+  focusRequest,
   userLocation,
   userAccuracyMeters,
   onPickLocation,
@@ -127,7 +157,7 @@ export function CollectionPointsMap({
       <BaseMapTiles />
       <ZoomControl position="bottomright" />
 
-      {located.map(({ item, position }) => (
+      {located.map(({ item, position, approximate }) => (
         <Marker
           key={item.id}
           position={[position!.lat, position!.lng]}
@@ -154,6 +184,12 @@ export function CollectionPointsMap({
                 <Badge tone="brand">{collectionPointTypeLabels[item.type]}</Badge>
               </div>
               <p className="text-sm text-stone-600">{formatAddress(item.address)}</p>
+              {approximate && (
+                <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-800 ring-1 ring-amber-200 ring-inset">
+                  Localização aproximada: o pin marca o centro de {item.address.city}. Use “Como
+                  chegar” para o endereço exato.
+                </p>
+              )}
               {item.description && (
                 <p className="line-clamp-3 text-xs text-stone-500">{item.description}</p>
               )}
@@ -246,7 +282,7 @@ export function CollectionPointsMap({
       )}
 
       <FitToPoints points={points} />
-      <FlyToSelected points={points} selectedId={selectedId} markerRefs={markerRefs} />
+      <FocusOnRequest points={points} request={focusRequest} markerRefs={markerRefs} />
       <FlyToUser position={userLocation} />
       {onPickLocation && <PickLocationOnClick onPick={onPickLocation} />}
     </MapContainer>

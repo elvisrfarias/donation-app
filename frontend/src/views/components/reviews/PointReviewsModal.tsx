@@ -4,6 +4,7 @@ import type { CollectionPoint } from '@/models/types'
 import { useReviewsViewModel } from '@/viewmodels'
 import { ModalComponent } from '@/views/components/modal'
 import { Alert, Button, CenteredSpinner, EmptyState, Input, Textarea } from '@/views/components/ui'
+import { PublicNoticesList } from '@/views/components/notices/PublicNoticesList'
 import { StarRating } from './StarRating'
 
 interface Props {
@@ -81,9 +82,11 @@ function PointReviewsBody({ point }: { point: CollectionPoint }) {
         <p className="text-sm leading-relaxed text-stone-600">{point.description}</p>
       )}
 
+      <PublicNoticesList pointId={point.id} />
+
       {point.openingHours && (
         <p className="flex items-center gap-2 text-sm text-stone-500">
-          <Clock className="size-4 shrink-0 text-stone-400" />
+          <Clock className="size-4 shrink-0 text-stone-500" />
           {point.openingHours}
         </p>
       )}
@@ -169,7 +172,7 @@ function PointReviewsBody({ point }: { point: CollectionPoint }) {
 
       <div className="space-y-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
-          <MessageSquare className="size-4 text-stone-400" />
+          <MessageSquare className="size-4 text-stone-500" />
           Comentários
         </h3>
 
@@ -189,7 +192,7 @@ function PointReviewsBody({ point }: { point: CollectionPoint }) {
               <li key={review.id} className="rounded-2xl border border-stone-200 p-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-semibold text-stone-900">{review.authorName}</p>
-                  <span className="shrink-0 text-xs text-stone-400">
+                  <span className="shrink-0 text-xs text-stone-500">
                     {formatDate(review.createdAtUtc)}
                   </span>
                 </div>
@@ -197,12 +200,12 @@ function PointReviewsBody({ point }: { point: CollectionPoint }) {
                 {review.comment && <p className="mt-2 text-sm text-stone-600">{review.comment}</p>}
                 <div className="mt-2 flex justify-end">
                   {reported.has(review.id) ? (
-                    <span className="text-[11px] text-stone-400">Denúncia enviada</span>
+                    <span className="text-[11px] text-stone-500">Denúncia enviada</span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => reportReview(review.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-400 transition-colors hover:text-red-600"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-500 transition-colors hover:text-red-600"
                     >
                       <Flag className="size-3" />
                       Denunciar

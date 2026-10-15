@@ -45,7 +45,7 @@ function TemplateSelector({
             )}
           >
             {template.name}
-            <span className={cn('tabular-nums', isSelected ? 'text-white/80' : 'text-stone-400')}>
+            <span className={cn('tabular-nums', isSelected ? 'text-white/80' : 'text-stone-500')}>
               ({template.feasibility.completeBaskets})
             </span>
           </button>

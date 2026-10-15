@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Beneficiaries.Contracts;
-using DoacaoApp.Application.Storage.Contracts;
 using FluentAssertions;
 using Xunit;
 
@@ -49,41 +48,86 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         pointResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var point = (await pointResponse.Content.ReadFromJsonAsync<CollectionPointResponse>())!;
 
+        var basketTemplateId = await SetUpBasketAsync(client, point.Id);
+
         var beneficiaryResponse = await client.PostAsJsonAsync("/api/beneficiaries", new
         {
             name = "João Silva",
             cpf = "111.444.777-35",
             email = "joao@example.com",
             phones = new[] { "11987654321" },
-            birthDate = (string?)null,
+            address = (object?)null,
+            birthDate = "1990-05-20",
             registeredByPointId = point.Id,
         });
         beneficiaryResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var beneficiary = (await beneficiaryResponse.Content.ReadFromJsonAsync<BeneficiaryResponse>())!;
 
-        var firstWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
-        {
-            pointId = point.Id,
-            beneficiaryId = beneficiary.Id,
-            category = "Food",
-            occurredAtUtc = (string?)null,
-            notes = "Cesta básica",
-        });
+        var firstWithdrawal = await client.PostAsJsonAsync("/api/withdrawals",
+            BasketWithdrawal(point.Id, beneficiary.Id, basketTemplateId, "Cesta básica"));
         firstWithdrawal.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var secondWithdrawal = await client.PostAsJsonAsync("/api/withdrawals", new
-        {
-            pointId = point.Id,
-            beneficiaryId = beneficiary.Id,
-            category = "Food",
-            occurredAtUtc = (string?)null,
-            notes = "Tentativa repetida",
-        });
+        var secondWithdrawal = await client.PostAsJsonAsync("/api/withdrawals",
+            BasketWithdrawal(point.Id, beneficiary.Id, basketTemplateId, "Tentativa repetida"));
         secondWithdrawal.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         var publicList = await client.GetFromJsonAsync<List<CollectionPointResponse>>("/api/public/collection-points");
         publicList.Should().ContainSingle(p => p.Id == point.Id)
             .Which.ImageUrl.Should().NotBeNullOrEmpty();
+    }
+
+    private static object BasketWithdrawal(Guid pointId, Guid beneficiaryId, (Guid StockItemId, Guid TemplateId) basket, string notes) =>
+        new
+        {
+            pointId,
+            beneficiaryId,
+            items = new[] { new { stockItemId = basket.StockItemId, quantity = 1 } },
+            occurredAtUtc = (string?)null,
+            notes,
+            basketTemplateId = basket.TemplateId,
+            basketQuantity = 1,
+        };
+
+    private static async Task<(Guid StockItemId, Guid TemplateId)> SetUpBasketAsync(HttpClient client, Guid pointId)
+    {
+        (await client.PutAsJsonAsync($"/api/collection-points/{pointId}/withdrawal-rule", new
+        {
+            cycleType = 3,
+            maxWithdrawalsPerCycle = 1,
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var category = await PostPointAsync(client, pointId, "categories", new { name = "Alimentos", icon = "food" });
+        var categoryId = category.GetProperty("categories")[0].GetProperty("id").GetGuid();
+
+        var withItem = await PostPointAsync(client, pointId, "stock-items", new
+        {
+            name = "Arroz 1kg",
+            unit = "un",
+            categoryId,
+            initialQuantity = 100,
+            goal = 0,
+            alertThreshold = 5,
+            isTracked = true,
+        });
+        var stockItemId = withItem.GetProperty("stockItems")[0].GetProperty("id").GetGuid();
+
+        var withTemplate = await PostPointAsync(client, pointId, "basket-templates", new
+        {
+            name = "Cesta básica",
+            items = new[] { new { stockItemId, quantity = 1 } },
+        });
+        var templateId = withTemplate.GetProperty("basketTemplates")[0].GetProperty("id").GetGuid();
+
+        return (stockItemId, templateId);
+    }
+
+    private static async Task<System.Text.Json.JsonElement> PostPointAsync(
+        HttpClient client, Guid pointId, string resource, object body)
+    {
+        var response = await client.PostAsJsonAsync($"/api/collection-points/{pointId}/{resource}", body);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Created);
+        using var json = await System.Text.Json.JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        return json.RootElement.Clone();
     }
 
     [Fact]
@@ -123,8 +167,8 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
         var response = await client.PostAsync("/api/files", content);
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var file = (await response.Content.ReadFromJsonAsync<StoredFileResponse>())!;
-        return file.Id;
+        using var json = await System.Text.Json.JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        return json.RootElement.GetProperty("id").GetGuid();
     }
 
     private static readonly byte[] MinimalPng = Convert.FromBase64String(

@@ -156,7 +156,7 @@ export function DatePicker({
               type="button"
               aria-label="Limpar data"
               onClick={clear}
-              className="grid size-8 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+              className="grid size-8 place-items-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700"
             >
               <X className="size-4" />
             </button>

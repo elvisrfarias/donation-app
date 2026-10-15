@@ -100,7 +100,7 @@ function withdrawalColumns(currentPointId: string): ColumnDef<Withdrawal>[] {
             {notes}
           </span>
         ) : (
-          <span className="text-stone-400">—</span>
+          <span className="text-stone-500">—</span>
         )
       },
     },
@@ -376,7 +376,7 @@ function WithdrawalItemRow({
         aria-label={`Remover ${item.itemName}`}
         disabled={disabled}
         onClick={onRemove}
-        className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600"
+        className="grid size-8 shrink-0 place-items-center rounded-lg text-stone-500 hover:bg-red-50 hover:text-red-600"
       >
         <X className="size-4" />
       </button>

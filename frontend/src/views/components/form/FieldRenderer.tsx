@@ -356,15 +356,15 @@ function AutoCompleteControl({
             className={cn(
               'border-input flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-white px-3.5 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
               'focus-visible:border-brand-500 focus-visible:ring-brand-500/10 hover:border-stone-300 focus-visible:ring-4',
-              'disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400',
+              'disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-500',
               'aria-invalid:border-red-300 aria-invalid:focus-visible:border-red-500 aria-invalid:focus-visible:ring-red-500/10',
-              selected ? 'text-stone-900' : 'text-stone-400',
+              selected ? 'text-stone-900' : 'text-stone-500',
             )}
           >
             <span className="truncate">
               {selected?.label ?? config.placeholder ?? 'Selecione…'}
             </span>
-            <ChevronsUpDownIcon className="size-4 shrink-0 text-stone-400" />
+            <ChevronsUpDownIcon className="size-4 shrink-0 text-stone-500" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">

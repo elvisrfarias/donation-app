@@ -148,7 +148,7 @@ function PickerBody({ initialPosition, initialQuery, onCancel, onConfirm }: Body
       </div>
 
       <div className="flex items-start gap-2 rounded-xl bg-stone-50 px-3 py-2 text-sm text-stone-600 ring-1 ring-stone-200 ring-inset">
-        <MapPin className="mt-0.5 size-4 shrink-0 text-stone-400" />
+        <MapPin className="mt-0.5 size-4 shrink-0 text-stone-500" />
         <span className="min-w-0">
           {position
             ? resolving

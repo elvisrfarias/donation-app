@@ -200,7 +200,7 @@ export function DataTable<TData, TValue>({
       <div className="flex flex-wrap items-center gap-2">
         {searchable && (
           <div className="relative max-w-xs flex-1">
-            <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400" />
+            <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-500" />
             <Input
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
@@ -292,7 +292,7 @@ export function DataTable<TData, TValue>({
                           ) : sorted === 'desc' ? (
                             <ArrowDownIcon className="size-3.5" />
                           ) : (
-                            <ChevronsUpDownIcon className="size-3.5 text-stone-400" />
+                            <ChevronsUpDownIcon className="size-3.5 text-stone-500" />
                           )}
                         </button>
                       ) : (

@@ -106,7 +106,7 @@ function beneficiaryColumns(options: {
             ))}
           </ul>
         ) : (
-          <span className="text-stone-400">—</span>
+          <span className="text-stone-500">—</span>
         ),
     },
     {
@@ -118,7 +118,7 @@ function beneficiaryColumns(options: {
         return value ? (
           <span className="text-stone-600">{isoToBrazilian(value)}</span>
         ) : (
-          <span className="text-stone-400">—</span>
+          <span className="text-stone-500">—</span>
         )
       },
     },

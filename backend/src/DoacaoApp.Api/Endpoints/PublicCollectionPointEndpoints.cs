@@ -1,6 +1,10 @@
 using DoacaoApp.Api.Common;
 using DoacaoApp.Application.CollectionPoints.Contracts;
 using DoacaoApp.Application.CollectionPoints.Queries;
+using DoacaoApp.Application.Donations.Commands;
+using DoacaoApp.Application.Donations.Contracts;
+using DoacaoApp.Application.Notices.Contracts;
+using DoacaoApp.Application.Notices.Queries;
 using DoacaoApp.Application.Reviews.Commands;
 using DoacaoApp.Application.Reviews.Contracts;
 using DoacaoApp.Application.Reviews.Queries;
@@ -9,8 +13,8 @@ using MediatR;
 namespace DoacaoApp.Api.Endpoints;
 
 /// <summary>
-/// Parte pública do sistema: pontos de coleta e as avaliações da comunidade
-/// (Minimal API, anônimo).
+/// Parte pública do sistema: pontos de coleta, avaliações da comunidade, mural de avisos e
+/// doações prometidas (Minimal API, anônimo).
 /// </summary>
 public static class PublicCollectionPointEndpoints
 {
@@ -56,9 +60,33 @@ public static class PublicCollectionPointEndpoints
             .WithTags("Público")
             .WithSummary("Denuncia uma avaliação inadequada para moderação.");
 
+        app.MapGet("/api/public/collection-points/{pointId:guid}/notices",
+                async (Guid pointId, ISender sender, CancellationToken ct) =>
+                    (await sender.Send(new ListPublicNoticesQuery(pointId), ct))
+                    .Match(value => Results.Ok(value)))
+            .AllowAnonymous()
+            .WithTags("Público")
+            .Produces<IReadOnlyList<NoticeResponse>>()
+            .WithSummary("Lista os avisos públicos do mural de um ponto de coleta.");
+
+        app.MapPost("/api/public/collection-points/{pointId:guid}/donations",
+                async (Guid pointId, PledgeDonationRequest request, ISender sender, CancellationToken ct) =>
+                    (await sender.Send(
+                        new PledgeDonationCommand(pointId, request.DonorName, request.DonorPhone, request.Description), ct))
+                    .Match(value => Results.Created(
+                        $"/api/collection-points/{pointId}/donations/{value.Id}", value)))
+            .AllowAnonymous()
+            .WithTags("Público")
+            .Produces<DonationResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .WithSummary("Avisa um ponto de coleta de que alguém pretende doar.");
+
         return app;
     }
 }
 
 /// <summary>Corpo do POST de avaliação (o ponto vem da rota).</summary>
 public sealed record CreateReviewRequest(string AuthorName, int Rating, string? Comment);
+
+/// <summary>Corpo do POST de doação prometida (o ponto vem da rota).</summary>
+public sealed record PledgeDonationRequest(string DonorName, string? DonorPhone, string Description);

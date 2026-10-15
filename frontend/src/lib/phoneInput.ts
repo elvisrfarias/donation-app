@@ -13,3 +13,8 @@ export function maskPhone(text: string): string {
   const suffix = number.slice(prefixLength)
   return `(${areaCode}) ${prefix}${suffix ? `-${suffix}` : ''}`
 }
+
+export function isValidPhone(text: string): boolean {
+  const digitCount = text.replace(/\D/g, '').length
+  return digitCount === LANDLINE_DIGITS || digitCount === MAX_PHONE_DIGITS
+}
