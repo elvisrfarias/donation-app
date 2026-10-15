@@ -29,3 +29,5 @@ logs/
 # Configuração local do Claude Code (guardrails pessoais: ask p/ remoção e escrita no banco)
 .claude/settings.local.json
 .claude/hooks/guard-db-and-rm.sh
+
+.env.prod

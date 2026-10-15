@@ -1,14 +1,28 @@
 # Aplicado automaticamente pelo `docker compose` em cima do docker-compose.yml.
-# Ajustes de desenvolvimento (não usar em produção).
+# Ajustes de desenvolvimento (não usar em produção): publica as portas no host.
 services:
   api:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      # Logs SQL detalhados em dev.
       Serilog__MinimumLevel__Override__Microsoft.EntityFrameworkCore.Database.Command: Information
     build:
       target: runtime
+    ports:
+      - "${API_HTTP_PORT:-8080}:8080"
 
   postgres:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
+
+  minio:
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+
+  pgadmin:
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-3000}:8080"

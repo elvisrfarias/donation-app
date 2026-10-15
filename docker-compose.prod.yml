@@ -1,0 +1,40 @@
+# Produção (VPS única): docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Apenas o Caddy publica portas (80/443). Banco, MinIO, API e frontend ficam só na rede interna.
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: doacao-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      APP_DOMAIN: ${APP_DOMAIN}
+      STORAGE_DOMAIN: ${STORAGE_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - minio
+    networks:
+      - doacao-net
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      RunMigrationsOnStartup: "true"
+      SeedData__Enabled: ${SeedData__Enabled:-false}
+      AllowedHosts: ${APP_DOMAIN}
+      Storage__PublicUrl: https://${STORAGE_DOMAIN}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy_data:
+  caddy_config:

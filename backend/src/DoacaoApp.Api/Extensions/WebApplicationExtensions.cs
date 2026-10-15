@@ -25,8 +25,7 @@ public static class WebApplicationExtensions
 
         app.UseIpRateLimiting();
 
-        app.MapOpenApi();
-        app.MapScalarApiReference();
+        MapApiDocumentationOutsideProduction(app);
 
         app.UseAuthentication();
         app.UseAuthorization();
@@ -46,6 +45,17 @@ public static class WebApplicationExtensions
         });
 
         return app;
+    }
+
+    private static void MapApiDocumentationOutsideProduction(WebApplication app)
+    {
+        if (app.Environment.IsProduction())
+        {
+            return;
+        }
+
+        app.MapOpenApi();
+        app.MapScalarApiReference();
     }
 
     /// <summary>

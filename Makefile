@@ -87,9 +87,9 @@ db-update: ## Aplica as migrations no banco (lê ConnectionStrings__Database do 
 # reinicia TODA a stack (down + build + up), sem precisar encadear comandos.
 #   DEV  = base + override (API em Development) + frontend Vite com HMR.
 #   PROD = somente a base (frontend nginx + API em Production), sem overrides de dev.
-COMPOSE_DEV  := docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml
+COMPOSE_DEV  := docker compose --profile dev -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml
 # Força Production mesmo que o .env (voltado a dev) defina ASPNETCORE_ENVIRONMENT=Development.
-COMPOSE_PROD := ASPNETCORE_ENVIRONMENT=Production docker compose -f docker-compose.yml
+COMPOSE_PROD := docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml
 
 env: ## Cria o .env a partir do .env.example (se não existir)
 	@test -f .env || cp .env.example .env
@@ -112,13 +112,13 @@ dev-reset: env ## Igual ao dev, mas APAGA os volumes (banco + arquivos) e re-see
 dev-logs: ## Acompanha os logs de desenvolvimento (frontend Vite + API)
 	$(COMPOSE_DEV) logs -f frontend api
 
-prod: env ## Reinicia TODA a stack de produção (frontend nginx + API em Production)
+prod: ## Reinicia TODA a stack de produção (frontend nginx + API em Production)
 	$(COMPOSE_PROD) down --remove-orphans
 	$(COMPOSE_PROD) up -d --build
 	@$(COMPOSE_PROD) ps
-	@printf '\n  Stack de PRODUÇÃO no ar (porta segue FRONTEND_PORT do .env; padrão 3000):\n    Frontend (nginx)  http://localhost:3000\n    API               http://localhost:8080\n  Logs: make prod-logs\n\n'
+	@printf '\n  Stack de PRODUÇÃO no ar (Caddy + HTTPS). Logs: make prod-logs\n\n'
 
-prod-reset: env ## Igual ao prod, mas APAGA os volumes (zera e re-seeda) — exige CONFIRM=yes; faz backup antes
+prod-reset: ## Igual ao prod, mas APAGA os volumes (zera e re-seeda) — exige CONFIRM=yes; faz backup antes
 	@test "$(CONFIRM)" = "yes" || { echo "Isso apaga TODOS os dados de PRODUÇÃO (banco + arquivos). Rode: make prod-reset CONFIRM=yes"; exit 1; }
 	@$(MAKE) backup
 	$(COMPOSE_PROD) down -v --remove-orphans
@@ -150,7 +150,8 @@ backup: backup-db backup-storage ## Backup completo: banco (pg_dump) + arquivos 
 
 backup-db: ## Backup do Postgres -> backups/db-<timestamp>.dump
 	@mkdir -p $(BACKUP_DIR)
-	docker exec doacao-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc' > $(BACKUP_DIR)/db-$(STAMP).dump
+	docker exec doacao-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc' > $(BACKUP_DIR)/db-$(STAMP).dump \
+	  || { rm -f $(BACKUP_DIR)/db-$(STAMP).dump; echo "Falha no pg_dump; backup descartado."; exit 1; }
 	@echo "Backup do banco salvo em $(BACKUP_DIR)/db-$(STAMP).dump"
 
 backup-storage: ## Backup dos arquivos do MinIO -> backups/storage-<timestamp>.tar.gz
