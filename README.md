@@ -1,433 +1,337 @@
 # Dooa — Gestão de Pontos de Doação/Coleta
 
-Sistema de gerenciamento de pontos de doação/coleta (cesta básica, roupas, etc.) com foco em
-**rastreabilidade por beneficiário** e **controle de equidade** entre beneficiários.
+Sistema para gerenciar pontos de doação/coleta (cestas básicas, roupas, calçados…) com **rastreabilidade
+por beneficiário** e **controle de equidade** entre os pontos de um município.
 
-> Regra central: **todos os pontos de coleta do município compartilham o histórico de retiradas**.
-> Se a Família Silva já retirou no Ponto A neste ciclo, o Ponto B é impedido de liberar uma nova
-> retirada além do limite — a verificação considera o histórico de **todos** os pontos.
+> **Regra central:** todos os pontos de coleta do município compartilham o histórico de retiradas. Se um
+> beneficiário já retirou cestas no Ponto A neste ciclo, o Ponto B é impedido de liberar uma retirada
+> além do limite — a verificação soma o histórico de **todos** os pontos.
 
-Construído com **.NET 9 / C# 13**, **Clean Architecture + DDD + CQRS**, **EF Core 9 + PostgreSQL 16**.
-O **frontend** (em [`frontend/`](frontend/)) é uma SPA **React 19 + Vite 8 + TypeScript** com
-arquitetura **MVVM**, **Tailwind CSS** e mapa em **OpenStreetMap** (react-leaflet) — detalhes em
-[frontend/README.md](frontend/README.md).
+Além do controle de retiradas, o sistema tem um lado público e colaborativo: mapa de pontos, avaliações,
+mural de avisos e promessas de doação (ver [Colaboração](#colaboração-público-e-rede-de-gestores)).
+
+| Camada | Tecnologia |
+|---|---|
+| Backend | .NET 9 / C# 13, Clean Architecture + DDD + CQRS (MediatR), EF Core 9 + PostgreSQL 16 |
+| Frontend | React 19 + Vite 8 + TypeScript, MVVM, Tailwind v4, mapa OpenStreetMap — ver [frontend/README.md](frontend/README.md) |
+| Infra | Docker Compose, MinIO/S3 (imagens), Caddy (TLS em produção) |
+
+## Início rápido
+
+Pré-requisito: **Docker + Docker Compose** (não é preciso SDK .NET nem Node locais).
+
+```bash
+cp .env.example .env     # ajuste senhas e segredos
+make dev                 # stack completa com hot reload do frontend
+```
+
+| Serviço | URL |
+|---|---|
+| Frontend (dev, Vite) | http://localhost:5445 |
+| API | http://localhost:8080 — docs em `/scalar/v1`, health em `/health` |
+| PGAdmin | http://localhost:5050 |
+| Console do MinIO | http://localhost:9001 |
+
+Login inicial (seed de dev, configurável no `.env`): `admin@doacao.local` / `Admin@123456`.
+
+Sem `make`, o equivalente ao modo "produção local" é `docker compose up --build` (frontend em nginx na
+porta 3000). No startup em dev a API aplica as migrations, cria roles + admin e garante o bucket do MinIO.
+
+### Comandos do dia a dia
+
+Rode sempre da raiz; `make help` lista tudo.
+
+| Comando | O que faz |
+|---|---|
+| `make dev` / `make dev-reset` | Reinicia a stack de desenvolvimento (o `-reset` apaga banco e arquivos e re-seeda) |
+| `make dev-logs` | Logs do Vite e da API |
+| `make prod` / `make prod-logs` | Stack de produção (nginx + Caddy) — ver [docs/deploy-hostinger.md](docs/deploy-hostinger.md) |
+| `make test` | Testes unitários (Domain + Application) em container do SDK |
+| `make test-integration` | Testes de integração (exigem Docker no host) |
+| `make migration name=Nome` | Nova migration do EF Core |
+| `make backup` / `make restore-db file=…` | Backup/restauração de banco e arquivos |
+| `make down` | Para a stack mantendo os dados |
+
+## Sumário
+
+- [Estrutura do monorepo](#estrutura-do-monorepo)
+- [Arquitetura](#arquitetura)
+- [Modelo de domínio](#modelo-de-domínio)
+- [Colaboração (público e rede de gestores)](#colaboração-público-e-rede-de-gestores)
+- [Desenvolvimento](#desenvolvimento)
+- [API e endpoints](#api-e-endpoints)
+- [Autenticação e roles](#autenticação-e-roles)
+- [Observabilidade](#observabilidade)
+- [Object Storage](#object-storage-minios3)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Documentação complementar](#documentação-complementar)
+- [Débito técnico conhecido](#débito-técnico-conhecido)
 
 ## Estrutura do monorepo
 
 ```
 .
-├── backend/             # API .NET 9 (Clean Architecture + DDD + CQRS)
-├── frontend/            # SPA React 19 + Vite 8 (MVVM, Tailwind, OpenStreetMap)
-├── docker-compose.yml   # orquestra postgres + minio + api + frontend (+ pgadmin)
-├── Makefile             # atalhos de dev (rode `make help`)
-└── .env / .env.example  # variáveis lidas pelo compose
+├── backend/                  # solution .NET (src/, tests/, Dockerfile)
+│   ├── src/
+│   │   ├── DoacaoApp.Domain/          # agregados, Value Objects, eventos, erros, interfaces de repositório
+│   │   ├── DoacaoApp.Application/     # casos de uso CQRS (Command/Query + Validator + Handler)
+│   │   ├── DoacaoApp.Infrastructure/  # EF Core, repositórios, Identity/JWT, storage S3, seed, migrations
+│   │   └── DoacaoApp.Api/             # Controllers, Minimal APIs, middlewares, Scalar/OpenAPI
+│   └── tests/
+│       ├── DoacaoApp.Domain.Tests/        # Value Objects e regras de domínio
+│       ├── DoacaoApp.Application.Tests/   # handlers (Moq)
+│       └── DoacaoApp.IntegrationTests/    # ponta a ponta com PostgreSQL real (Testcontainers)
+├── frontend/                 # SPA React (MVVM)
+├── docs/                     # documentação do projeto de extensão e deploy
+├── docker-compose.yml        # base: postgres, minio, api, frontend, pgadmin
+├── docker-compose.override.yml  # portas expostas (aplicado automaticamente)
+├── docker-compose.dev.yml    # frontend com Vite + HMR
+├── docker-compose.prod.yml   # produção: só o Caddy publica portas (80/443)
+├── Caddyfile                 # proxy reverso + TLS (Let's Encrypt)
+├── Makefile                  # atalhos (make help)
+└── .env.example / .env.prod.example
 ```
 
-Subir tudo: `cp .env.example .env && make up` (ou `docker compose up --build`). Em seguida o
-frontend fica em `http://localhost:3000`, a API em `http://localhost:8080`.
-
----
-
-## Sumário
-
-- [Arquitetura](#arquitetura)
-- [Stack técnica](#stack-técnica)
-- [Estrutura de pastas](#estrutura-de-pastas)
-- [Modelo de domínio](#modelo-de-domínio)
-- [Como executar](#como-executar)
-- [Migrations](#migrations)
-- [Testes](#testes)
-- [Documentação da API (Scalar)](#documentação-da-api-scalar)
-- [Endpoints](#endpoints)
-- [Documentação de extensão (3C, requisitos, UML, usabilidade)](docs/README.md)
-- [Autenticação, roles e o porquê do BCrypt](#autenticação-roles-e-o-porquê-do-bcrypt)
-- [Observabilidade](#observabilidade)
-- [Object Storage (MinIO/S3)](#object-storage-minios3)
-- [Variáveis de ambiente](#variáveis-de-ambiente-resumo)
-- [Débito técnico conhecido](#débito-técnico-conhecido)
-
----
+Cada módulo do Domain/Application segue a mesma divisão: `CollectionPoints`, `Beneficiaries`, `Reviews`,
+`Donations`, `Notices`, `Activity` (só Application), `Storage` e `Authentication` (só Application/Infrastructure).
 
 ## Arquitetura
 
-Clean Architecture com dependências apontando sempre para dentro:
+Dependências apontam sempre para dentro:
 
 ```
-API  ─►  Infrastructure  ─►  Application  ─►  Domain
-└──────────────────────────────────────────────┘
-        (Domain não depende de ninguém)
+API ─► Infrastructure ─► Application ─► Domain
 ```
 
-- **Domain** — Entities, Value Objects, Domain Events, Aggregates, interfaces de repositório.
-  Sem dependência de framework (só `ErrorOr` e `MediatR.Contracts`).
-- **Application** — Casos de uso (CQRS via **MediatR**), validação (**FluentValidation**),
-  DTOs e o `ValidationBehavior` (pipeline). Result Pattern com **ErrorOr** (sem exceptions para
-  fluxo de negócio).
-- **Infrastructure** — EF Core + PostgreSQL, repositórios, ASP.NET Core Identity (hashing **BCrypt**),
-  JWT + refresh tokens, dispatch de Domain Events (interceptor de `SaveChanges`).
-- **API** — Minimal APIs (auth e parte pública) + Controllers (domínios gerenciais), middlewares
-  (Correlation ID, exception handler), Scalar/OpenAPI, rate limiting, health checks.
-
-### Padrões aplicados
+- **Domain** — sem dependência de framework (só `ErrorOr` e `MediatR.Contracts`).
+- **Application** — casos de uso via **MediatR**, validação com **FluentValidation** (`ValidationBehavior`),
+  escopo por ponto (`CollectionPointScopeBehavior`) e **Result Pattern** (`ErrorOr<T>`: o fluxo de negócio
+  nunca lança exception).
+- **Infrastructure** — EF Core + Npgsql, ASP.NET Core Identity com **BCrypt**, JWT + refresh tokens,
+  dispatch de Domain Events após o commit (interceptor de `SaveChanges`), `AWSSDK.S3`.
+- **API** — Controllers (domínios gerenciais) + Minimal APIs (auth e parte pública), Correlation ID,
+  exception handler global, rate limiting, health checks, Scalar.
 
 | Padrão | Onde |
 |---|---|
-| Aggregates / Aggregate Root | `CollectionPoint`, `Beneficiary` |
-| Value Objects | `Cpf`, `Email`, `PhoneNumber`, `Address`, `ContactInfo`, `WithdrawalCycle` |
-| Strongly-typed IDs | `CollectionPointId`, `BeneficiaryId`, `WithdrawalId` |
-| Domain Events | `CollectionPointCreated`, `WithdrawalRegistered`, `BeneficiaryRegistered` |
-| Result Pattern | `ErrorOr<T>` em todos os fluxos de negócio |
-| CQRS | Commands/Queries + Handlers (MediatR) |
+| Aggregate Roots | `CollectionPoint`, `Beneficiary`, `Review`, `Donation`, `PointNotice`, `StoredFile` |
+| Value Objects (`Create` → `ErrorOr`) | `Cpf`, `Email`, `PhoneNumber`, `Address`, `ContactInfo`, `WithdrawalCycle` |
+| Strongly-typed IDs | `CollectionPointId`, `BeneficiaryId`, `WithdrawalId`, `StockItemId`… |
+| Domain Events | `CollectionPointCreated`, `WithdrawalRegistered`, `BeneficiaryRegistered`… |
 | Repository + Unit of Work | `ICollectionPointRepository`, `IBeneficiaryRepository`, `IUnitOfWork` |
 
----
-
-## Stack técnica
-
-- **.NET 9**, **C# 13** (primary constructors, collection expressions, records para VOs)
-- **ASP.NET Core Web API** (Minimal APIs + Controllers)
-- **EF Core 9** Code-First + **Npgsql** / **PostgreSQL 16**
-- **ASP.NET Core Identity** + **JWT Bearer** + refresh token em banco
-- **BCrypt.Net-Next** (hashing de senha — ver [seção](#autenticação-roles-e-o-porquê-do-bcrypt))
-- **MediatR** (CQRS), **FluentValidation**, **ErrorOr** (Result Pattern)
-- **Serilog** (Console + File), **HealthChecks**, **AspNetCoreRateLimit**, Correlation ID
-- **Scalar** (documentação interativa da API)
-- **AWSSDK.S3** contra **MinIO** (local) / **Amazon S3** (prod) — armazenamento de imagens
-- **xUnit** + **FluentAssertions** + **Moq**; **Testcontainers** (PostgreSQL real)
-
----
-
-## Estrutura de pastas
-
-```
-doacao-app/
-├── DoacaoApp.sln
-├── Directory.Build.props          # props comuns (net9.0, nullable, langversion)
-├── Directory.Packages.props       # Central Package Management (versões)
-├── Dockerfile                     # multi-stage (sdk build -> aspnet alpine)
-├── docker-compose.yml             # api + postgres + minio + frontend + pgadmin
-├── docker-compose.override.yml    # ajustes de dev
-├── .env.example                   # variáveis (copiar para .env)
-├── src/
-│   ├── DoacaoApp.Domain/
-│   │   ├── Common/                # Entity, AggregateRoot, IDomainEvent, IUnitOfWork
-│   │   ├── ValueObjects/          # Cpf, Email, PhoneNumber, Address, ContactInfo, WithdrawalCycle
-│   │   ├── CollectionPoints/      # CollectionPoint (root, com Stock), Withdrawal, eventos, repo
-│   │   ├── Beneficiaries/         # Beneficiary (root), vínculos, eventos, repo
-│   │   ├── Reviews/               # Review (root) — avaliação pública de um ponto
-│   │   ├── Donations/             # Donation (root) — doação prometida a um ponto
-│   │   ├── Notices/               # PointNotice (root) — aviso do mural de um ponto
-│   │   ├── Storage/                # StoredFile (root) — metadado de arquivo em object storage
-│   │   └── Errors/                # DomainErrors (catálogo de erros)
-│   ├── DoacaoApp.Application/
-│   │   ├── Common/                # Behaviors (ValidationBehavior), Abstractions
-│   │   ├── Authentication/        # Commands (Register/Login/Refresh), Roles, AuthErrors
-│   │   ├── CollectionPoints/      # Commands, Queries, Contracts, EventHandlers (inclui estoque)
-│   │   ├── Beneficiaries/         # Commands, Queries, Contracts, EventHandlers
-│   │   ├── Reviews/               # CreateReview, ModerateReview, ListReviewsForPoint
-│   │   ├── Donations/             # PledgeDonation, ReceiveDonation, CancelDonation, ListPointDonations
-│   │   ├── Notices/               # PublishNotice, ArchiveNotice, ListPublicNotices, ListNetworkNotices
-│   │   ├── Activity/              # GetPointActivityFeed (feed de percepção do gestor)
-│   │   └── Storage/                # UploadImage, DeleteFile, GetStoredFile, ListFilesByOwner
-│   ├── DoacaoApp.Infrastructure/
-│   │   ├── Persistence/           # AppDbContext, Configurations, Repositories,
-│   │   │                          # Interceptors, Converters, Seed, Migrations
-│   │   ├── Identity/              # ApplicationUser, BCryptPasswordHasher, IdentityService
-│   │   ├── Authentication/        # JwtOptions, JwtTokenGenerator
-│   │   └── Storage/                # S3FileStorage, StorageBucketInitializer, StorageOptions
-│   └── DoacaoApp.Api/
-│       ├── Controllers/           # CollectionPoints, Beneficiaries, Withdrawals, Reviews, Files
-│       ├── Endpoints/             # Auth, PublicCollectionPoints (Minimal APIs)
-│       ├── Common/                # ApiController, HttpErrorMapping, MinimalApiResults
-│       ├── OpenApi/               # BearerSecuritySchemeTransformer
-│       ├── Services/              # CurrentUser
-│       ├── Middleware/            # CorrelationId, GlobalExceptionHandler
-│       ├── Extensions/            # ServiceCollection + WebApplication
-│       └── Program.cs
-└── tests/
-    ├── DoacaoApp.Domain.Tests/        # VOs + regras de domínio
-    ├── DoacaoApp.Application.Tests/   # use cases (Moq)
-    └── DoacaoApp.IntegrationTests/    # Testcontainers (PostgreSQL real)
-```
-
----
+Convenções de estilo e de mapeamento EF estão em [CLAUDE.md](CLAUDE.md).
 
 ## Modelo de domínio
 
-- **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém `Withdrawal`s
-  e o **estoque** (`Stock`: dicionário `ItemCategory → quantidade`, ex. `Food`, `Clothing`).
-- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município, e-mail e telefone principal obrigatórios, segundo telefone e endereço de residência opcionais (`Email`/`PhoneNumber`/`Address`); uma mesma pessoa pode ser atendida por vários pontos (`BeneficiaryPointLink`) e cada gestor decide vinculá-la ao seu ponto — só os pontos vinculados a enxergam e editam. Mantém uma lista de
-  **vínculos de parentesco** (`BeneficiaryKinship`: beneficiário relacionado + tipo — cônjuge, pai,
-  filho, irmão, avô, neto, tio, sobrinho, primo, sogro, genro/nora, agregado ou outro). Todo vínculo é
-  espelhado automaticamente no outro lado com o tipo inverso e é apenas informativo: não altera a cota
-  de retirada de ninguém. Não existe o conceito de "família". O limite de retiradas não é do beneficiário:
-  é a **regra do ponto** (`CollectionPoint.WithdrawalRule`, tipo do ciclo + máximo por família; padrão 3 por ano).
-- **Withdrawal** (Entity) — vive dentro de `CollectionPoint`. Referencia o beneficiário por Id.
-- **Review** (Aggregate Root) — avaliação pública de um `CollectionPoint` (nota 1–5 + comentário
-  opcional), com moderação (`Hide`/`Restore`) e contagem de denúncias (`Report`).
-- **Donation** (Aggregate Root) — doação prometida por alguém da comunidade a um `CollectionPoint`
-  (`Pledged` → `Received` ou `Cancelled`, uma única vez). Receber com itens soma ao estoque do ponto
-  (`CollectionPoint.ReceiveStock`, tudo ou nada).
-- **PointNotice** (Aggregate Root) — aviso do mural de um ponto, para a comunidade (`Public`) ou só para a
-  rede de gestores (`Managers`); arquivamento lógico. O feed de atividade do gestor é uma consulta que
-  reúne doações, avisos, avaliações e alertas de estoque.
-- **StoredFile** (Aggregate Root) — metadado de um arquivo (tipicamente foto de ponto de coleta) em
-  object storage S3-compatível; vínculo com o dono via `OwnerType`/`OwnerId` (sem FK) e exclusão como
-  soft-delete (`MarkDeleted`). Ver [Object Storage](#object-storage-minios3).
+- **CollectionPoint** (Aggregate Root) — associação, igreja ou entidade pública. Contém, como entidades
+  internas: `Withdrawal`s, **itens de estoque** (`StockItem`: nome, unidade, categoria, quantidade, meta,
+  limite de alerta, se é acompanhado), **categorias** (`Category`, catálogo próprio do ponto, exibido no
+  mapa) e **receitas de cesta** (`BasketTemplate`: quanto de cada item compõe uma cesta). Guarda também a
+  regra de retirada (`WithdrawalRule`), descrição, horário e necessidades.
+- **Beneficiary** (Aggregate Root) — entidade central de rastreabilidade. CPF único no município; e-mail e
+  telefone principal obrigatórios. Uma pessoa pode ser atendida por vários pontos (`BeneficiaryPointLink`),
+  e só os pontos vinculados a enxergam e editam. Vínculos de parentesco (`BeneficiaryKinship`) são só
+  informativos e espelhados no outro lado com o tipo inverso. Não existe o conceito de "família" e o
+  beneficiário não guarda limite algum.
+- **Withdrawal** (Entity do `CollectionPoint`) — uma visita. Pode conter uma **cesta básica** (receita +
+  quantidade, com baixa automática no estoque) e/ou **itens livres** (roupas, calçados…). Referencia o
+  beneficiário por Id.
+- **Review**, **Donation**, **PointNotice**, **StoredFile** — Aggregate Roots próprios, ligados ao ponto
+  por Id (sem navegação).
 
 ### A regra de equidade
 
 ```
-RegisterWithdrawal(beneficiary, retiradasNoCicloEmTodosOsPontos, instante):
-  - ponto deve estar ativo
-  - retiradasNoCicloEmTodosOsPontos < ponto.WithdrawalRule.MaxWithdrawalsPerCycle
+RegisterWithdrawal(beneficiary, retiradasComCestaNoCicloEmTodosOsPontos, instante, ...):
+  - o ponto deve estar ativo
+  - os itens retirados precisam existir no estoque do próprio ponto, em quantidade suficiente
+  - se a retirada inclui cesta básica:
+      retiradasComCestaNoCiclo < ponto.WithdrawalRule.MaxWithdrawalsPerCycle
 ```
 
-A contagem (`retiradasNoCicloEmTodosOsPontos`) é calculada pelo handler via
-`ICollectionPointRepository.CountBeneficiaryWithdrawalsAsync(beneficiaryId, início, fim)`, que consulta a
-tabela `withdrawals` **inteira** (todos os pontos) dentro da janela do ciclo vigente — daí o
-compartilhamento municipal do histórico.
+O agregado decide com base na contagem **recebida por parâmetro**; quem a calcula é o
+`RegisterWithdrawalHandler`, via `ICollectionPointRepository.CountBeneficiaryWithdrawalsAsync(beneficiaryId,
+início, fim)`, que varre a tabela `withdrawals` **inteira** (todos os pontos) na janela do ciclo vigente.
+Assim a regra é testável sem banco e respeita as fronteiras de agregado.
 
----
+- O **histórico** é somado entre todos os pontos, mas o **limite aplicado** é o do ponto onde a retirada
+  acontece (`WithdrawalCycle`: tipo do ciclo + máximo; padrão 3 por ano).
+- Só retiradas com cesta básica contam para o limite; itens livres ficam apenas no histórico.
+- Só a retirada **mais recente** do beneficiário (em qualquer ponto) pode ser corrigida, e só pelo ponto que a fez.
 
-## Como executar
+## Colaboração (público e rede de gestores)
 
-### Pré-requisitos
-- Docker + Docker Compose (a compilação ocorre dentro do container; **não é preciso ter o SDK .NET local**).
+| Recurso | Quem | Descrição |
+|---|---|---|
+| Mapa público | visitante | Pontos ativos com endereço, contato, horário, necessidades e avaliação |
+| Avaliações | visitante / Admin | Nota 1–5 + comentário, com denúncia; moderação por ocultação lógica |
+| Mural de avisos | ponto → comunidade ou rede | `Audience` `Public` (visível no mapa) ou `Managers` (só a rede) |
+| "Quero doar" | visitante → ponto | Doação prometida; o gestor confirma (`receive`, soma ao estoque, tudo ou nada) ou cancela |
+| Feed de atividade | gestor | Doações, avisos, avaliações e alertas de estoque do ponto (sem tabela própria) |
 
-### Subir tudo com Docker
+O mapeamento destes recursos ao Modelo 3C está em [docs/mapeamento-3c.md](docs/mapeamento-3c.md).
+
+## Desenvolvimento
+
+O host só precisa de Docker. Compilação, testes e migrations rodam em containers do SDK .NET 9 com volume
+NuGet persistente (`doacao-nuget`) — o `Makefile` já monta tudo. O SDK .NET 10 do host serve apenas ao editor.
 
 ```bash
-cp .env.example .env          # ajuste as senhas/segredos
-docker compose up --build     # sobe postgres + minio (healthcheck) -> api -> pgadmin + frontend
+make build                         # solution inteira (src + testes)
+make test                          # Domain + Application
+make test-filter FILTER=CpfTests   # um filtro no Domain
+make test-integration              # Testcontainers: exige acesso ao socket do Docker
+make migration name=NomeDaMigration
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:8080  (docs: http://localhost:8080/scalar/v1)
-- Health: http://localhost:8080/health
-- PGAdmin: http://localhost:5050
-- Console do MinIO: http://localhost:9001 (credenciais em `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`)
-- Admin de seed: `admin@doacao.local` / `Admin@123456` (configurável no `.env`)
+**TDD em regra de negócio:** o teste que falha vem antes da implementação, em `Domain.Tests` ou
+`Application.Tests`. Cobertura implementada:
 
-> No startup (dev), a API aplica as **migrations** automaticamente, cria as **roles** + o **admin**
-> e garante o bucket do MinIO (`StorageBucketInitializer`).
+- todos os Value Objects (casos válidos e inválidos, incl. dígitos verificadores do CPF);
+- limite de retirada por ciclo e regras de estoque no agregado;
+- handlers críticos (retirada, cadastro de beneficiário, doações, avisos, autenticação, upload);
+- integração ponta a ponta (`WithdrawalFlowTests`, `CommunityFlowTests`, `ExactLocationTests`).
 
-### Rodar localmente (com SDK .NET 9 instalado)
+O CI (`.github/workflows/ci.yml`) roda build + os três projetos de teste no backend e lint + testes + build no frontend.
 
-```bash
-docker compose up -d postgres
-dotnet run --project src/DoacaoApp.Api
-```
+### Migrations
 
----
+Versionadas em `backend/src/DoacaoApp.Infrastructure/Persistence/Migrations`. Em **dev** são aplicadas no
+startup (`RunMigrationsOnStartup=true`). Crie novas com `make migration name=<Nome>` (os arquivos saem como
+`root`; `make clean` devolve a propriedade). Em produção a flag também está ligada no `docker-compose.prod.yml`.
 
-## Migrations
+## API e endpoints
 
-A migration inicial já está versionada em `src/DoacaoApp.Infrastructure/Persistence/Migrations`.
-
-Em **dev**, são aplicadas no startup (`RunMigrationsOnStartup=true`). Em **produção**, prefira aplicar
-via CLI no deploy:
-
-```bash
-# criar nova migration
-dotnet ef migrations add <Nome> \
-  -p src/DoacaoApp.Infrastructure -s src/DoacaoApp.Api -o Persistence/Migrations
-
-# aplicar
-dotnet ef database update -p src/DoacaoApp.Infrastructure -s src/DoacaoApp.Api
-```
-
-Sem SDK local? Rode o EF dentro de um container do SDK:
-
-```bash
-docker run --rm -v "$PWD":/src -w /src mcr.microsoft.com/dotnet/sdk:9.0 bash -c \
-  "dotnet tool install -g dotnet-ef --version 9.0.0 && export PATH=\$PATH:/root/.dotnet/tools && \
-   dotnet ef migrations add <Nome> -p src/DoacaoApp.Infrastructure -s src/DoacaoApp.Api -o Persistence/Migrations"
-```
-
----
-
-## Testes
-
-```bash
-# tudo (precisa de Docker para os testes de integração com Testcontainers)
-dotnet test
-
-# só unitários (rápidos, sem Docker)
-dotnet test tests/DoacaoApp.Domain.Tests
-dotnet test tests/DoacaoApp.Application.Tests
-```
-
-Cobertura obrigatória implementada:
-- **Todos os Value Objects** (casos felizes + inválidos, incl. dígitos verificadores do CPF)
-- **Regra de limite de retirada por família** (`CollectionPointWithdrawalTests`)
-- **Use cases críticos**: `RegisterWithdrawalHandlerTests`, `RegisterBeneficiaryHandlerTests`
-- **Integração** ponta a ponta com PostgreSQL real (`WithdrawalFlowTests`): login → criar ponto →
-  família → beneficiário → retirada → bloqueio da 2ª retirada no ciclo.
-
----
-
-## Documentação da API (Scalar)
-
-Com a API no ar, acesse **`/scalar/v1`**. O documento OpenAPI cru fica em **`/openapi/v1.json`**.
-O Scalar exibe o botão **Authorize** (esquema Bearer/JWT) para testar endpoints protegidos.
-
----
-
-## Endpoints
+Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authorize** para JWT) e OpenAPI cru em
+`/openapi/v1.json`. Erros seguem **ProblemDetails** (RFC 9110); validações retornam
+**ValidationProblemDetails** (400).
 
 ### Público (anônimo)
+
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/public/collection-points` | Lista pontos de coleta ativos (endereço + contato + estoque) |
-| GET | `/api/public/collection-points/{pointId}/reviews` | Avaliações visíveis de um ponto |
-| POST | `/api/public/collection-points/{pointId}/reviews` | Cria uma avaliação (nota + comentário) |
-| POST | `/api/public/reviews/{reviewId}/report` | Denuncia uma avaliação |
-| GET | `/api/public/collection-points/{pointId}/notices` | Avisos públicos do mural de um ponto |
-| POST | `/api/public/collection-points/{pointId}/donations` | Avisa que pretende doar (nome, telefone opcional, descrição) |
+| GET | `/api/public/collection-points` | Pontos ativos (endereço, contato, estoque público, avaliação) |
+| GET | `/api/public/collection-points/{pointId}/reviews` | Avaliações visíveis |
+| POST | `/api/public/collection-points/{pointId}/reviews` | Cria avaliação |
+| POST | `/api/public/reviews/{reviewId}/report` | Denuncia avaliação |
+| GET | `/api/public/collection-points/{pointId}/notices` | Avisos públicos do mural |
+| POST | `/api/public/collection-points/{pointId}/donations` | Avisa que pretende doar |
 | GET | `/health`, `/health/ready` | Health checks |
 
-### Autenticação (Minimal API, com rate limit)
+### Autenticação (rate limit)
+
 | Método | Rota | Acesso |
 |---|---|---|
 | POST | `/api/auth/login` | anônimo |
 | POST | `/api/auth/refresh` | anônimo (rotaciona o refresh token) |
 | POST | `/api/auth/revoke` | anônimo (logout) |
-| POST | `/api/auth/register` | **Admin** |
+| POST | `/api/auth/register` | Admin |
+| GET / PUT | `/api/auth/users`, `/api/auth/users/{id}` | Admin |
+| POST | `/api/auth/users/{id}/deactivate` | Admin |
 
 ### Gerencial (JWT)
-| Método | Rota | Acesso |
+
+"Gestor" = `PointManager`, que só age no **próprio ponto**; `Admin` age em qualquer um.
+
+| Método | Rota | Acesso / observações |
 |---|---|---|
-| POST | `/api/collection-points` | Admin |
-| PUT | `/api/collection-points/{id}` | Admin |
-| GET | `/api/collection-points/{id}` | Admin, PointManager (gestor só o próprio ponto; inclui estoque e configurações) |
-| PUT | `/api/collection-points/{id}/stock` | Admin, PointManager |
-| PUT | `/api/collection-points/{id}/stock-settings` | Admin, PointManager (metas, avisos de estoque baixo, categorias acompanhadas e a regra de retirada do ponto; gestor só o próprio ponto) |
-| GET | `/api/collection-points/{id}/dashboard` | Admin, PointManager (só o próprio ponto; `?from=&to=` em `yyyy-MM-dd`, padrão o mês atual, máx. 366 dias: retiradas por dia/mês, atendimentos e últimas retiradas) |
-| GET | `/api/beneficiaries` | autenticado (Admin: todos; gestor: os do próprio ponto) |
-| GET | `/api/beneficiaries/{id}` | autenticado (gestor só vê os do próprio ponto) |
-| GET | `/api/beneficiaries/by-cpf/{cpf}` | Admin, PointManager (busca municipal, usada na retirada) |
-| POST | `/api/beneficiaries` | Admin, PointManager |
-| PUT | `/api/beneficiaries/{id}` | Admin, PointManager (gestor só edita os vinculados ao próprio ponto; os dados valem para todos os pontos) |
-| POST | `/api/beneficiaries/{id}/points` | Admin, PointManager (vincula uma pessoa já cadastrada a um ponto; o gestor só vincula ao próprio ponto; 409 se já vinculada) |
-| POST | `/api/beneficiaries/{id}/kinships` | Admin, PointManager (vínculo de parentesco informativo, espelhado no outro beneficiário) |
-| GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, PointManager (histórico + saldo do ciclo pela regra do ponto; gestor só consulta pelo próprio ponto) |
-| POST | `/api/withdrawals` | Admin, PointManager (informa `categories`, lista de itens da visita; cada item precisa ter quantidade positiva no estoque do ponto; só cestas básicas seguem o limite do ciclo, os demais itens são livres e ficam registrados no histórico) |
-| PUT | `/api/withdrawals/{id}` | Admin, PointManager (corrige itens/observações; só a retirada mais recente do beneficiário — em qualquer ponto do município — pode ser editada, e apenas pelo ponto onde ela foi feita) |
-| POST | `/api/files` | Admin, PointManager (upload multipart, máx. 20MB) |
-| GET | `/api/files/{id}` | autenticado (metadado + URL pré-assinada) |
-| GET | `/api/files?ownerType=&ownerId=` | autenticado (arquivos de um dono) |
+| GET | `/api/collection-points`, `/{id}` | Admin, Gestor (detalhe com estoque e configurações) |
+| POST / PUT | `/api/collection-points`, `/{id}` | Admin |
+| GET | `/api/collection-points/{id}/dashboard` | Admin, Gestor (`?from=&to=` em `yyyy-MM-dd`; padrão o mês atual, máx. 366 dias) |
+| POST / PUT / DELETE | `/api/collection-points/{id}/stock-items[/{itemId}]` | Admin, Gestor — catálogo de itens do ponto |
+| PUT | `/api/collection-points/{id}/stock-items/quantities` | Admin, Gestor — ajuste de quantidades |
+| PUT | `/api/collection-points/{id}/stock-items/settings` | Admin, Gestor — metas, alertas e itens acompanhados |
+| POST / PUT / DELETE | `/api/collection-points/{id}/categories[/{categoryId}]` | Admin, Gestor — categorias do ponto |
+| POST / PUT / DELETE | `/api/collection-points/{id}/basket-templates[/{templateId}]` | Admin, Gestor — receitas de cesta |
+| PUT | `/api/collection-points/{id}/withdrawal-rule` | Admin, Gestor — tipo e máximo do ciclo |
+| GET | `/api/beneficiaries`, `/{id}` | autenticado (Admin: todos; gestor: os vinculados ao seu ponto) |
+| GET | `/api/beneficiaries/by-cpf/{cpf}` | Admin, Gestor (busca municipal, usada na retirada) |
+| POST / PUT | `/api/beneficiaries`, `/{id}` | Admin, Gestor (os dados valem para todos os pontos) |
+| POST | `/api/beneficiaries/{id}/points` | Admin, Gestor — vincula pessoa já cadastrada a um ponto (409 se já vinculada) |
+| POST | `/api/beneficiaries/{id}/kinships` | Admin, Gestor — parentesco informativo, espelhado |
+| GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, Gestor — histórico + saldo do ciclo pela regra do ponto |
+| POST | `/api/withdrawals` | Admin, Gestor — cesta (receita + quantidade) e/ou itens livres |
+| PUT | `/api/withdrawals/{id}` | Admin, Gestor — só a retirada mais recente do beneficiário |
+| GET | `/api/collection-points/{id}/donations` | Admin, Gestor |
+| POST | `…/donations/{donationId}/receive` · `/cancel` | Admin, Gestor (409 se já fechada) |
+| GET | `/api/notices` | Admin, Gestor — mural da rede |
+| POST / DELETE | `/api/collection-points/{id}/notices[/{noticeId}]` | Admin, Gestor (`audience`: `Public` ou `Managers`; DELETE arquiva) |
+| GET | `/api/collection-points/{id}/activity` | Admin, Gestor — feed de atividade |
+| POST | `/api/files` · GET `/api/files/{id}` · GET `/api/files?ownerType=&ownerId=` | upload (Admin, Gestor; máx. 20 MB) e consulta (autenticado, URL pré-assinada) |
 | DELETE | `/api/files/{id}` | Admin (soft-delete) |
-| GET | `/api/collection-points/{id}/donations` | Admin, PointManager (só o próprio ponto) |
-| POST | `/api/collection-points/{id}/donations/{donationId}/receive` | Admin, PointManager (confirma o recebimento; `receivedStock` opcional soma os itens ao estoque, tudo ou nada; 409 se já fechada) |
-| POST | `/api/collection-points/{id}/donations/{donationId}/cancel` | Admin, PointManager (409 se já fechada) |
-| GET | `/api/notices` | Admin, PointManager (mural da rede: avisos de todos os pontos) |
-| POST | `/api/collection-points/{id}/notices` | Admin, PointManager (`audience`: `Public` ou `Managers`) |
-| DELETE | `/api/collection-points/{id}/notices/{noticeId}` | Admin, PointManager (arquiva o aviso) |
-| GET | `/api/collection-points/{id}/activity` | Admin, PointManager (doações, avisos, avaliações e alertas de estoque recentes) |
-| POST | `/api/reviews/{id}/hide` | Admin (moderação) |
-| POST | `/api/reviews/{id}/restore` | Admin (moderação) |
+| POST | `/api/reviews/{id}/hide` · `/restore` | Admin (moderação) |
 
-Erros seguem **ProblemDetails** (RFC 9110); validações retornam **ValidationProblemDetails** (400).
+## Autenticação e roles
 
----
+**Roles:** `Admin`, `PointManager`, `Viewer`.
 
-## Autenticação, roles e o porquê do BCrypt
-
-**Roles**: `Admin`, `PointManager`, `Viewer`.
-
-**Fluxo**: `login`/`register` emitem um **access token** (JWT curto, stateless) + um **refresh token**
-(persistido em banco, revogável e rotacionado a cada uso).
+`login`/`register` emitem um **access token** (JWT curto, stateless) e um **refresh token** persistido em
+banco, revogável e rotacionado a cada uso. O login tem lockout após tentativas falhas.
 
 ### Por que BCrypt explícito (e não o hasher padrão do Identity)?
 
-O hasher padrão do ASP.NET Core Identity usa PBKDF2-HMAC-SHA256. Aqui ele foi **substituído** por uma
-implementação explícita de `IPasswordHasher<ApplicationUser>` usando **BCrypt** (`BCryptPasswordHasher`),
+O padrão do ASP.NET Core Identity é PBKDF2-HMAC-SHA256. Aqui ele foi substituído por `BCryptPasswordHasher`
 porque:
 
-1. **Função adaptativa** — o *work factor* é um parâmetro explícito (custo exponencial, configurável em
-   `Security:BCryptWorkFactor`). Conforme o hardware evolui, basta aumentá-lo.
-2. **Salt individual por usuário** — gerado automaticamente e **embutido no próprio hash**
-   (`$2a$<cost>$<salt+hash>`), dispensando coluna de salt separada.
-3. **Resistência a GPU/ASIC** — o agendamento de chaves do Blowfish é intensivo em memória, dificultando
-   brute force offline.
-4. **Rehash transparente** — ao aumentar o work factor, senhas antigas são re-hasheadas no próximo login
-   (`PasswordVerificationResult.SuccessRehashNeeded`).
+1. **Função adaptativa** — o *work factor* é explícito (`Security:BCryptWorkFactor`) e pode subir com o hardware.
+2. **Salt por usuário** embutido no hash (`$2a$<cost>$<salt+hash>`), sem coluna extra.
+3. **Resistência a GPU/ASIC** — o agendamento de chaves do Blowfish é intensivo em memória.
+4. **Rehash transparente** — senhas antigas são re-hasheadas no próximo login (`SuccessRehashNeeded`).
 
-O registro do hasher é feito **antes** do `AddIdentityCore` (que usa `TryAdd`), garantindo que o BCrypt
-prevaleça sobre o padrão.
-
----
+O hasher é registrado **antes** de `AddIdentityCore` (que usa `TryAdd`) para prevalecer sobre o padrão.
 
 ## Observabilidade
 
-- **Serilog** estruturado (Console + arquivo em `logs/`), com `CorrelationId` em todo log.
-- **Correlation ID** por request (header `X-Correlation-ID`, reaproveitado ou gerado), devolvido na
-  resposta e propagado ao Serilog via `LogContext`.
-- **HealthChecks** em `/health` (inclui o PostgreSQL).
-- **Rate limiting** (AspNetCoreRateLimit) nas rotas de autenticação — ver seção `IpRateLimiting` no
-  `appsettings.json`.
-
----
+- **Serilog** estruturado (console + arquivo em `logs/`), com `CorrelationId` em todo log.
+- **Correlation ID** por request (`X-Correlation-ID`, reaproveitado ou gerado), devolvido na resposta.
+- **Health checks** em `/health` e `/health/ready` (inclui o PostgreSQL).
+- **Rate limiting** nas rotas de autenticação (seção `IpRateLimiting` do `appsettings.json`).
 
 ## Object Storage (MinIO/S3)
 
-Imagens (ex.: fotos de ponto de coleta) são enviadas via `POST /api/files` e guardadas num bucket
-S3-compatível — **MinIO** em dev/self-hosted, **Amazon S3** em produção — através do `AWSSDK.S3`
-(`Infrastructure/Storage/S3FileStorage.cs`). Só o metadado (`StoredFile`) fica no Postgres; o binário
-vive no bucket. No boot, `StorageBucketInitializer` garante que o bucket configurado existe.
+Imagens (ex.: foto do ponto) sobem por `POST /api/files` para um bucket S3-compatível — **MinIO** em
+dev/self-hosted, **Amazon S3** em produção (`AWSSDK.S3`, `Infrastructure/Storage/S3FileStorage.cs`). O
+Postgres guarda só o metadado (`StoredFile`); o binário vive no bucket, e o upload valida o tipo pelos
+*magic bytes*. No boot, `StorageBucketInitializer` garante que o bucket existe.
 
-Para migrar de MinIO para Amazon S3: troque `Storage__Provider=AmazonS3`, limpe `Storage__ServiceUrl`/
-`Storage__PublicUrl` e use as credenciais AWS reais em `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` (os
-mesmos nomes de variável, lidos pelo `IAmazonS3` configurado — ver `.env.example`).
+Para migrar do MinIO para o S3: `Storage__Provider=AmazonS3`, limpe `Storage__ServiceUrl`/`Storage__PublicUrl`
+e use as credenciais AWS reais em `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` (mesmos nomes, lidos pelo `IAmazonS3`).
 
----
+## Variáveis de ambiente
 
-## Variáveis de ambiente (resumo)
-
-Veja `.env.example`. Principais:
+Modelo completo em `.env.example` (dev) e `.env.prod.example` (produção; **nunca versione** o `.env.prod`).
 
 | Variável | Descrição |
 |---|---|
 | `ConnectionStrings__Database` | Connection string do PostgreSQL |
-| `Jwt__Secret` | Segredo do JWT (≥ 32 chars; use secret manager em prod) |
+| `Jwt__Secret` | Segredo do JWT (≥ 32 chars; gere com `openssl rand -base64 48`) |
+| `Jwt__AccessTokenHours` / `Jwt__RefreshTokenHours` | Validade dos tokens |
 | `Security__BCryptWorkFactor` | Custo do BCrypt (padrão 12) |
-| `RunMigrationsOnStartup` | Aplicar migrations no boot (dev) |
-| `SeedData__Enabled` / `SeedData__Admin*` | Seed do usuário admin |
-| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO (ou access/secret key da AWS em prod) |
+| `RunMigrationsOnStartup` | Aplica migrations no boot |
+| `SeedData__Enabled` / `SeedData__Admin*` | Seed do usuário admin (em produção, só no primeiro boot) |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO (ou chaves AWS) |
 | `Storage__Provider` | `MinIO` ou `AmazonS3` |
-| `Storage__ServiceUrl` / `Storage__PublicUrl` | Endpoint interno (API→storage) / público (navegador→URLs pré-assinadas) |
-| `Storage__Bucket` / `Storage__Region` | Bucket e região do object storage |
-| `Storage__PresignExpiryMinutes` | Validade das URLs pré-assinadas de download |
+| `Storage__ServiceUrl` / `Storage__PublicUrl` | Endpoint interno (API→storage) / público (navegador→URL pré-assinada) |
+| `Storage__Bucket` / `Storage__Region` / `Storage__PresignExpiryMinutes` | Bucket, região e validade das URLs |
+| `APP_DOMAIN` / `STORAGE_DOMAIN` / `ACME_EMAIL` | Domínios e e-mail do Let's Encrypt (produção) |
 
----
+## Documentação complementar
+
+Veja o índice em [docs/README.md](docs/README.md): requisitos, UML, mapeamento 3C, usabilidade, validação com
+usuários e [deploy em VPS](docs/deploy-hostinger.md).
 
 ## Débito técnico conhecido
 
-Auditoria de 2026-08-10 corrigiu os achados de alta severidade (lockout de login, rate limit
-contornável, upload sem checagem de magic bytes, segredo padrão em produção, backup/restore
-inexistente, containers como root). O que ficou como débito **aberto**, de propósito, por exigir
-mais que uma correção pontual:
+Pontos abertos de propósito, por exigirem mais que uma correção pontual:
 
-- **Token de auth no `localStorage`** (`frontend/src/models/api/tokenStorage.ts`) — access e
-  refresh token ficam em `localStorage`, expostos a roubo via XSS. Migrar para cookie `HttpOnly` +
-  `SameSite` é a mitigação padrão, mas exige mudança coordenada: backend emitindo `Set-Cookie` e
-  CORS com credentials, frontend removendo a leitura direta do token e passando `withCredentials`
-  no Axios, e uma estratégia de CSRF. Não é uma correção isolada — é uma mudança de arquitetura de
-  autenticação.
-- **Cobertura de teste incompleta na Application layer**: sem teste ainda para
-  `CreateCollectionPoint`/`UpdateCollectionPoint`, `FindBeneficiaryByCpf`/
-  `GetBeneficiaryById`/`ListBeneficiaries`, todo o módulo `Reviews` (`CreateReview`, `ModerateReview`,
-  `ListReviewsForPoint`) e a maior parte de `Storage` (`GetStoredFile`, `ListFilesByOwner`,
-  `DeleteFile`). `UploadImage`/`StoredFile.Create`/`MarkDeleted` e todo o módulo `Authentication`
-  ganharam teste nesta auditoria.
-- **`DoacaoApp.IntegrationTests` cobre um único fluxo** (`WithdrawalFlowTests`) — faltam upload de
-  arquivo, moderação/denúncia de review e atualização de estoque ponta a ponta. O `FakeFileStorage`
-  já existe no projeto de testes mas não é exercitado por nenhum `[Fact]` ainda.
-- **`IdentityService` (Infrastructure) não tem projeto de teste unitário próprio** — a lógica de
-  lockout adicionada nesta auditoria (`IsLockedOutAsync`/`AccessFailedAsync`) só é exercitada pelos
-  testes de integração, que dependem de Docker. Se a lógica de identidade crescer, vale um
-  `DoacaoApp.Infrastructure.Tests` com `UserManager` mockado (seus métodos são `virtual`).
-- **Tag do MinIO fixada manualmente** (`RELEASE.2025-04-22T22-12-26Z` em `docker-compose.yml`) —
-  escolhida para sair do `latest` flutuante, mas não conferida contra o changelog oficial do MinIO
-  no momento da troca. Revalide antes de ir para produção.
+- **Token de auth no `localStorage`** (`frontend/src/models/api/tokenStorage.ts`) — exposto a roubo via XSS.
+  A mitigação padrão (cookie `HttpOnly` + `SameSite`) exige mudança coordenada: backend emitindo
+  `Set-Cookie` e CORS com credentials, frontend com `withCredentials` e uma estratégia de CSRF.
+- **Cobertura da Application layer incompleta** — por exemplo `CreateCollectionPoint`/`UpdateCollectionPoint`,
+  consultas de beneficiário, o módulo `Reviews` e a maior parte de `Storage` ainda não têm teste.
+- **Integração cobre poucos fluxos** — faltam upload de arquivo, moderação/denúncia de review e atualização de
+  estoque ponta a ponta (o `FakeFileStorage` existe mas nenhum `[Fact]` o exercita).
+- **`IdentityService` sem teste unitário próprio** — o lockout só é exercitado pelos testes de integração. Se a
+  lógica crescer, vale um `DoacaoApp.Infrastructure.Tests` com `UserManager` mockado.
+- **Tag do MinIO fixada manualmente** (`docker-compose.yml`) — revalide contra o changelog oficial antes de produção.

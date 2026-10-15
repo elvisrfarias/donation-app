@@ -1,7 +1,8 @@
 # Dooa — Frontend
 
 SPA do Dooa: mapa público de pontos de coleta (OpenStreetMap) + área de gestão
-(pontos, famílias/beneficiários e registro de retiradas com a regra de equidade).
+(pontos, estoque, beneficiários, retiradas com a regra de equidade, doações, mural de avisos e usuários).
+Visão geral do sistema e da API: [README da raiz](../README.md).
 
 ## Stack
 
@@ -34,7 +35,8 @@ src/
 │   └── services/        # auth, collectionPoint, beneficiary, withdrawal, review, geocoding, cep
 ├── viewmodels/          # VIEWMODEL — hooks (estado + comandos) + schemas.ts (Zod)
 │                        # useAuth, useLogin, useCollectionPoints(Map), useBeneficiaries,
-│                        # useRegisterWithdrawal, useReviews
+│                        # useRegisterWithdrawal, useReviews, useDonations, useNotices, useUsers,
+│                        # useActivityFeed
 ├── views/               # VIEW — componentes/páginas (sem regra de negócio)
 │   ├── components/ui/       # wrappers de View sobre os primitivos shadcn (Button, Card, feedback…)
 │   ├── components/form/     # FormComponent único, config-driven (TanStack Form)
@@ -45,7 +47,7 @@ src/
 │   ├── components/collection-points/  # StockEditorModal
 │   ├── layouts/          # AppLayout (área autenticada)
 │   └── pages/             # Map, Login, Dashboard, CollectionPoints, Stock,
-│                          # Beneficiaries, RegisterWithdrawal, NotFound
+│                          # Beneficiaries, RegisterWithdrawal, Donations, Notices, Users, NotFound
 ├── stores/               # Zustand (sessão de autenticação)
 ├── lib/                  # env (validado por Zod), queryClient, logger, csv, utils
 └── app/                  # router, providers, ProtectedRoute, lazyWithReload
@@ -62,16 +64,16 @@ pnpm run dev     # http://localhost:5173  (proxy /api -> http://localhost:8080)
 ```
 
 O backend não expõe CORS; em dev o Vite faz proxy de `/api` para a API .NET
-(veja `VITE_API_PROXY_TARGET` no `.env`). Suba a API antes (`make up` na raiz, ou
+(veja `VITE_API_PROXY_TARGET` no `.env`). Suba a API antes (`make dev` na raiz, ou
 `docker compose up api postgres`).
 
-Scripts: `pnpm run dev`, `pnpm run build`, `pnpm run preview`, `pnpm run lint`.
+Scripts: `pnpm run dev`, `pnpm run build`, `pnpm run preview`, `pnpm run lint`, `pnpm run test` (Vitest),
+`pnpm run test:watch`.
 
 ### Hot reload no Docker
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up   # Vite + HMR na 5445
-```
+Pela raiz do monorepo, `make dev` (equivale a
+`docker compose -f docker-compose.yml -f docker-compose.dev.yml up`): Vite + HMR em http://localhost:5445.
 
 ## Variáveis de ambiente
 
@@ -99,5 +101,9 @@ geocodificação do Nominatim, que é o passo final para o pino exato no mapa.
 ## Build de produção (Docker)
 
 `docker build -t doacao-frontend ./frontend` gera uma imagem **nginx** que serve os
-estáticos e faz proxy de `/api` para o serviço `api`. No monorepo, use `make up` na raiz
-para subir tudo (postgres + api + frontend).
+estáticos e faz proxy de `/api` para o serviço `api`. No monorepo, use `make dev` (desenvolvimento) ou
+`make prod` (produção, atrás do Caddy) na raiz para subir tudo.
+
+## Testes
+
+`pnpm run test` roda o Vitest (schemas Zod e páginas com Testing Library). O CI executa lint, testes e build.
