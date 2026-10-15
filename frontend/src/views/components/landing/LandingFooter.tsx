@@ -20,7 +20,7 @@ export function LandingFooter() {
             Entrar
           </Link>
         </nav>
-        <p className="text-xs text-stone-500">© {new Date().getFullYear()} Bondade</p>
+        <p className="text-xs text-stone-500">© {new Date().getFullYear()} Dooa</p>
       </div>
     </footer>
   )

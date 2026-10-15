@@ -205,6 +205,8 @@ const collectionPointFields: FormFieldConfig[] = [
   },
 ]
 
+const UNMARKED_COORDINATE = undefined as unknown as number
+
 const collectionPointDefaults: CreateCollectionPointForm = {
   name: '',
   type: 'Association',
@@ -218,6 +220,8 @@ const collectionPointDefaults: CreateCollectionPointForm = {
   city: '',
   state: '',
   zipCode: '',
+  latitude: UNMARKED_COORDINATE,
+  longitude: UNMARKED_COORDINATE,
   responsibleName: '',
   email: '',
   phone: '',
@@ -257,8 +261,8 @@ export function CollectionPointsPage() {
     city: editingPoint.address.city,
     state: editingPoint.address.state,
     zipCode: editingPoint.address.zipCode,
-    latitude: editingPoint.address.latitude ?? undefined,
-    longitude: editingPoint.address.longitude ?? undefined,
+    latitude: editingPoint.address.latitude ?? UNMARKED_COORDINATE,
+    longitude: editingPoint.address.longitude ?? UNMARKED_COORDINATE,
     responsibleName: editingPoint.contact.responsibleName,
     email: editingPoint.contact.email,
     phone: maskPhone(editingPoint.contact.phone),

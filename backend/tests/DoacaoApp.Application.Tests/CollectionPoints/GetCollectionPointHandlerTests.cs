@@ -124,7 +124,7 @@ public class GetCollectionPointHandlerTests
 
     private static CollectionPoint BuildPoint()
     {
-        var address = Address.Create("Rua das Flores", "100", null, "Centro", "Concórdia", "SC", "89700000").Value;
+        var address = Address.Create("Rua das Flores", "100", null, "Centro", "Concórdia", "SC", "89700000", -27.2342, -52.0278).Value;
         var contact = ContactInfo.Create("Maria Souza", "maria@doacao.org", "49987654321").Value;
         return CollectionPoint.Create("Casa Solidária", CollectionPointType.Association, address, contact, Now).Value;
     }

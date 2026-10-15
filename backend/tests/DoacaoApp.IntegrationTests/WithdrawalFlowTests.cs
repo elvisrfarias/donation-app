@@ -44,6 +44,8 @@ public class WithdrawalFlowTests(IntegrationTestFactory factory) : IClassFixture
             email = "maria@doacao.org",
             phone = "11987654321",
             imageFileId = imageId,
+            latitude = -23.5505,
+            longitude = -46.6333,
         });
         pointResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var point = (await pointResponse.Content.ReadFromJsonAsync<CollectionPointResponse>())!;

@@ -28,7 +28,7 @@ public static class TestData
 
     public static CollectionPoint Point(int maxPerCycle = 1)
     {
-        var address = Address.Create("Rua A", "1", null, "Centro", "São Paulo", "SP", "01001000").Value;
+        var address = Address.Create("Rua A", "1", null, "Centro", "São Paulo", "SP", "01001000", -23.5505, -46.6333).Value;
         var contact = ContactInfo.Create("Maria", "maria@x.com", "11987654321").Value;
         var point = CollectionPoint.Create("Ponto", CollectionPointType.Church, address, contact, Now).Value;
         point.UpdateWithdrawalRule(WithdrawalCycle.Create(CycleType.Monthly, maxPerCycle).Value);

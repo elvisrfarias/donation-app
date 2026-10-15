@@ -13,7 +13,7 @@ public static class TestData
     public static readonly DateTime Now = new(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
 
     public static Address Address() =>
-        DoacaoApp.Domain.ValueObjects.Address.Create("Rua das Flores", "100", null, "Centro", "São Paulo", "SP", "01001000").Value;
+        DoacaoApp.Domain.ValueObjects.Address.Create("Rua das Flores", "100", null, "Centro", "São Paulo", "SP", "01001000", -23.5505, -46.6333).Value;
 
     public static ContactInfo Contact() =>
         ContactInfo.Create("Maria Souza", "maria@doacao.org", "11987654321").Value;

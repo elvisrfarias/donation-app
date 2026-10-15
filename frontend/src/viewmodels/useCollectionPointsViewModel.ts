@@ -3,9 +3,8 @@ import { useApiList, useApiMutation } from '@/lib/apiHooks'
 import type { DashboardPeriod } from '@/lib/dashboardPeriod'
 import { queryKeys } from '@/lib/queryClient'
 import { ApiError } from '@/models/api/problemDetails'
-import { cepService, collectionPointService, geocodingService } from '@/models/services'
+import { collectionPointService } from '@/models/services'
 import {
-  formatAddress,
   type Address,
   type CollectionPoint,
   type CollectionPointDashboard,
@@ -38,29 +37,18 @@ function parseNeeds(needs: string | undefined): string[] {
 }
 
 /**
- * Garante as coordenadas exatas do ponto antes de salvar (fluxo bloqueante):
- * 1) usa o local escolhido no mapa, quando houver; senão
- * 2) geocodifica o endereço no Nominatim; senão
- * 3) tenta as coordenadas do CEP na BrasilAPI; senão
- * falha pedindo para marcar o local no mapa — nunca grava um ponto sem posição.
+ * Exige o local exato marcado no mapa antes de salvar. Não há mais geocodificação automática nem
+ * fallback por CEP: essas posições eram aproximadas e eram gravadas como se fossem exatas.
  */
-async function ensureCoordinates(fields: AddressWithCoordinates): Promise<LatLng> {
-  if (fields.latitude != null && fields.longitude != null) {
-    return { lat: fields.latitude, lng: fields.longitude }
+function requireExactCoordinates(fields: AddressWithCoordinates): LatLng {
+  if (fields.latitude == null || fields.longitude == null) {
+    throw new ApiError({
+      status: 0,
+      title: 'Local exato não marcado',
+      detail: 'Marque o local exato do ponto no mapa ("Marcar no mapa") para poder salvar.',
+    })
   }
-
-  const geocoded = await geocodingService.geocode(formatAddress(fields))
-  if (geocoded) return geocoded
-
-  const byCep = await cepService.lookup(fields.zipCode)
-  if (byCep?.position) return byCep.position
-
-  throw new ApiError({
-    status: 0,
-    title: 'Endereço não localizado',
-    detail:
-      'Não foi possível localizar este endereço no mapa. Revise rua, número, cidade, UF e CEP, ou use "Selecionar no mapa" para marcar o local exato.',
-  })
+  return { lat: fields.latitude, lng: fields.longitude }
 }
 
 /** Lista de pontos de coleta (reaproveita o endpoint público). */
@@ -128,7 +116,7 @@ export function useCreateCollectionPoint() {
 
   const { mutate, data, ...rest } = useApiMutation<CollectionPoint, CreateCollectionPointForm>({
     mutationFn: async ({ image, needs, ...fields }) => {
-      const { lat, lng } = await ensureCoordinates(fields)
+      const { lat, lng } = requireExactCoordinates(fields)
       const uploaded = await collectionPointService.uploadImage(image)
       return collectionPointService.create({
         ...fields,
@@ -153,7 +141,7 @@ export function useUpdateCollectionPoint() {
     { id: string; values: UpdateCollectionPointForm }
   >({
     mutationFn: async ({ id, values: { image, needs, ...fields } }) => {
-      const { lat, lng } = await ensureCoordinates(fields)
+      const { lat, lng } = requireExactCoordinates(fields)
       const imageFileId = image ? (await collectionPointService.uploadImage(image)).id : undefined
       return collectionPointService.update(id, {
         ...fields,
@@ -227,7 +215,8 @@ export function useUpdateStockQuantities() {
     CollectionPoint,
     { pointId: string; input: UpdateStockQuantitiesInput }
   >({
-    mutationFn: ({ pointId, input }) => collectionPointService.updateStockQuantities(pointId, input),
+    mutationFn: ({ pointId, input }) =>
+      collectionPointService.updateStockQuantities(pointId, input),
     onSuccess: (updatedPoint) => {
       queryClient.setQueryData(queryKeys.collectionPoints.detail(updatedPoint.id), updatedPoint)
     },

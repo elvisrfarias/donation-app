@@ -3,7 +3,7 @@ import { Check, MapPin } from 'lucide-react'
 import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import { env } from '@/lib/env'
 import { geocodingService, type ReverseAddress } from '@/models/services'
-import type { LatLng } from '@/models/types'
+import type { Address, LatLng } from '@/models/types'
 import { ModalComponent } from '@/views/components/modal'
 import { Button } from '@/views/components/ui'
 import { BaseMapTiles } from './BaseMapTiles'
@@ -19,8 +19,9 @@ interface Props {
   onOpenChange: (open: boolean) => void
   /** Posição inicial do marcador (ex.: ao editar um ponto já localizado). */
   initialPosition?: LatLng | null
-  /** Endereço a geocodificar para centralizar o mapa quando não há posição inicial. */
-  initialQuery?: string
+  /** Endereço usado só para centralizar o mapa quando não há posição inicial. O marcador nunca é
+   *  colocado automaticamente: o local exato só existe depois que o usuário clica ou arrasta. */
+  initialAddress?: Address
   onConfirm: (location: PickedLocation) => void
 }
 
@@ -69,18 +70,18 @@ function formatPreview(address: ReverseAddress): string {
 
 interface BodyProps {
   initialPosition: LatLng | null
-  initialQuery?: string
+  initialAddress?: Address
   onCancel: () => void
   onConfirm: (location: PickedLocation) => void
 }
 
 /** Corpo do seletor; monta a cada abertura (o diálogo desmonta o conteúdo ao fechar). */
-function PickerBody({ initialPosition, initialQuery, onCancel, onConfirm }: BodyProps) {
+function PickerBody({ initialPosition, initialAddress, onCancel, onConfirm }: BodyProps) {
   const [position, setPosition] = useState<LatLng | null>(initialPosition)
   const [recenter, setRecenter] = useState<LatLng | null>(initialPosition)
   const [address, setAddress] = useState<ReverseAddress | null>(null)
   const [resolving, setResolving] = useState(false)
-  const initRef = useRef({ initialPosition, initialQuery })
+  const initRef = useRef({ initialPosition, initialAddress })
 
   function choose(next: LatLng) {
     setPosition(next)
@@ -95,17 +96,14 @@ function PickerBody({ initialPosition, initialQuery, onCancel, onConfirm }: Body
     const start = initRef.current
     let cancelled = false
     void (async () => {
-      let target = start.initialPosition
-      if (!target && start.initialQuery) {
-        const found = await geocodingService.geocode(start.initialQuery)
-        if (cancelled || !found) return
-        setPosition(found)
-        setRecenter(found)
-        target = found
-      }
-      if (target) {
-        const resolved = await geocodingService.reverse(target)
+      if (start.initialPosition) {
+        const resolved = await geocodingService.reverse(start.initialPosition)
         if (!cancelled) setAddress(resolved)
+        return
+      }
+      if (start.initialAddress) {
+        const found = await geocodingService.geocodeAddress(start.initialAddress, { urgent: true })
+        if (!cancelled && found) setRecenter(found.position)
       }
     })()
     return () => {
@@ -156,7 +154,7 @@ function PickerBody({ initialPosition, initialQuery, onCancel, onConfirm }: Body
               : address && formatPreview(address)
                 ? formatPreview(address)
                 : `Local selecionado (${position.lat.toFixed(5)}, ${position.lng.toFixed(5)})`
-            : 'Nenhum local selecionado ainda. Clique no mapa para marcar.'}
+            : 'Nenhum local marcado ainda. Clique no mapa, sobre o local exato do ponto.'}
         </span>
       </div>
 
@@ -185,7 +183,7 @@ export function LocationPickerModal({
   open,
   onOpenChange,
   initialPosition,
-  initialQuery,
+  initialAddress,
   onConfirm,
 }: Props) {
   return (
@@ -193,12 +191,12 @@ export function LocationPickerModal({
       open={open}
       onOpenChange={onOpenChange}
       title="Selecionar local no mapa"
-      description="Clique no mapa ou arraste o marcador até o endereço exato do ponto de coleta."
+      description="O mapa abre perto do endereço informado, mas o pin só é marcado quando você clica no local exato do ponto de coleta. Depois, arraste para ajustar."
       size="xl"
     >
       <PickerBody
         initialPosition={initialPosition ?? null}
-        initialQuery={initialQuery}
+        initialAddress={initialAddress}
         onCancel={() => onOpenChange(false)}
         onConfirm={(location) => {
           onConfirm(location)

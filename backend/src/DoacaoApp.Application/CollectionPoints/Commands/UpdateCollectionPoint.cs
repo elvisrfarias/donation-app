@@ -47,6 +47,8 @@ public sealed class UpdateCollectionPointValidator : AbstractValidator<UpdateCol
         RuleFor(x => x.ZipCode).NotEmpty();
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
+        RuleFor(x => x.Latitude).NotNull().WithMessage("Marque no mapa o local exato do ponto de coleta.");
+        RuleFor(x => x.Longitude).NotNull().WithMessage("Marque no mapa o local exato do ponto de coleta.");
         RuleFor(x => x.ResponsibleName).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Description).MaximumLength(CollectionPoint.MaxDescriptionLength);
         RuleFor(x => x.OpeningHours).MaximumLength(CollectionPoint.MaxOpeningHoursLength);
@@ -91,7 +93,12 @@ public sealed class UpdateCollectionPointHandler(
             return detailsResult.Errors;
         }
 
-        point.UpdateAddress(address.Value);
+        var addressResult = point.UpdateAddress(address.Value);
+        if (addressResult.IsError)
+        {
+            return addressResult.Errors;
+        }
+
         point.UpdateContact(contact.Value);
         point.UpdateDescription(command.Description);
         point.UpdateOpeningHours(command.OpeningHours);

@@ -44,6 +44,8 @@ public sealed class CreateCollectionPointValidator : AbstractValidator<CreateCol
         RuleFor(x => x.ZipCode).NotEmpty();
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
+        RuleFor(x => x.Latitude).NotNull().WithMessage("Marque no mapa o local exato do ponto de coleta.");
+        RuleFor(x => x.Longitude).NotNull().WithMessage("Marque no mapa o local exato do ponto de coleta.");
         RuleFor(x => x.ResponsibleName).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Description).MaximumLength(CollectionPoint.MaxDescriptionLength);
         RuleFor(x => x.OpeningHours).MaximumLength(CollectionPoint.MaxOpeningHoursLength);

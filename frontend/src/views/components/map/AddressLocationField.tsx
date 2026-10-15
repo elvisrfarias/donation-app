@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { type AnyFormApi, useStore } from '@tanstack/react-form'
 import { Check, MapPinned } from 'lucide-react'
 import { cepService } from '@/models/services'
-import { formatAddress, type LatLng } from '@/models/types'
+import type { Address, LatLng } from '@/models/types'
+import { cn } from '@/lib/utils'
 import { Button } from '@/views/components/ui'
 import { LocationPickerModal, type PickedLocation } from './LocationPickerModal'
 
@@ -21,9 +22,9 @@ function onlyDigits(value: string | undefined): string {
   return (value ?? '').replace(/\D/g, '')
 }
 
-function buildQuery(values: AddressValues): string | undefined {
+function buildAddress(values: AddressValues): Address | undefined {
   if (!values.city && !values.zipCode) return undefined
-  return formatAddress({
+  return {
     street: values.street ?? '',
     number: values.number ?? '',
     complement: null,
@@ -31,22 +32,24 @@ function buildQuery(values: AddressValues): string | undefined {
     city: values.city ?? '',
     state: values.state ?? '',
     zipCode: values.zipCode ?? '',
-  })
+  }
 }
 
 /**
  * Ferramentas de localização do endereço no formulário de ponto de coleta:
  * autopreenche os campos a partir do CEP (BrasilAPI) e abre um seletor de mapa
- * para fixar o ponto exato, capturando as coordenadas. As coordenadas só ficam
- * definidas quando o usuário escolhe no mapa; alterar o CEP as zera para forçar
- * uma nova geocodificação no envio.
+ * para fixar o ponto exato, capturando as coordenadas. O local exato é obrigatório: as
+ * coordenadas só existem quando o usuário marca o pin no mapa, e alterar o CEP as zera para
+ * exigir uma nova marcação.
  */
 export function AddressLocationField({ form }: { form: AnyFormApi }) {
   const values = useStore(form.store, (s) => s.values as AddressValues)
   const [pickerOpen, setPickerOpen] = useState(false)
   const lastCepRef = useRef<string>(onlyDigits((form.state.values as AddressValues).zipCode))
 
+  const submissionAttempts = useStore(form.store, (s) => s.submissionAttempts)
   const hasCoordinates = values.latitude != null && values.longitude != null
+  const showMissingLocation = !hasCoordinates && submissionAttempts > 0
 
   useEffect(() => {
     const cep = onlyDigits(values.zipCode)
@@ -87,13 +90,21 @@ export function AddressLocationField({ form }: { form: AnyFormApi }) {
     : null
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-stone-300 bg-stone-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2 text-sm">
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-2xl border border-dashed p-3 sm:flex-row sm:items-center sm:justify-between',
+        showMissingLocation ? 'border-red-300 bg-red-50' : 'border-stone-300 bg-stone-50/60',
+      )}
+    >
+      <div
+        className="flex items-center gap-2 text-sm"
+        role={showMissingLocation ? 'alert' : undefined}
+      >
         {hasCoordinates ? (
           <>
-            <Check className="size-4 shrink-0 text-emerald-600" />
+            <Check className="size-4 shrink-0 text-emerald-600" aria-hidden />
             <span className="text-stone-600">
-              Local marcado no mapa
+              Local exato marcado no mapa
               <span className="ml-1 text-xs text-stone-500">
                 ({(values.latitude as number).toFixed(5)}, {(values.longitude as number).toFixed(5)}
                 )
@@ -101,26 +112,27 @@ export function AddressLocationField({ form }: { form: AnyFormApi }) {
             </span>
           </>
         ) : (
-          <span className="text-stone-500">
-            Localização pelo endereço/CEP. Para precisão, marque no mapa.
+          <span className={showMissingLocation ? 'font-medium text-red-700' : 'text-stone-600'}>
+            Local exato no mapa <span className="text-red-600">*</span> — marque o pin do ponto para
+            poder salvar.
           </span>
         )}
       </div>
       <Button
         type="button"
-        variant="secondary"
+        variant={hasCoordinates ? 'secondary' : 'brand'}
         size="sm"
         leftIcon={<MapPinned className="size-4" />}
         onClick={() => setPickerOpen(true)}
       >
-        Selecionar no mapa
+        {hasCoordinates ? 'Ajustar no mapa' : 'Marcar no mapa'}
       </Button>
 
       <LocationPickerModal
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         initialPosition={initialPosition}
-        initialQuery={buildQuery(values)}
+        initialAddress={buildAddress(values)}
         onConfirm={applyPicked}
       />
     </div>

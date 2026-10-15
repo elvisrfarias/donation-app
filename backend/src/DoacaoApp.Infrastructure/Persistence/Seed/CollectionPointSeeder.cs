@@ -17,65 +17,67 @@ namespace DoacaoApp.Infrastructure.Persistence.Seed;
 /// </summary>
 public static class CollectionPointSeeder
 {
-    /// <summary>Cidade-base usada para gerar um ponto (UF, DDD e prefixo de CEP).</summary>
-    private readonly record struct Place(string City, string State, string Ddd, string Cep5);
+    /// <summary>Cidade-base usada para gerar um ponto (UF, DDD, prefixo de CEP e coordenadas do centro).</summary>
+    private readonly record struct Place(string City, string State, string Ddd, string Cep5, double Latitude, double Longitude);
+
+    private const double MaxOffsetDegreesFromCityCenter = 0.01;
 
     private static readonly Place[] OesteSantaCatarina =
     [
-        new("Concórdia", "SC", "49", "89700"),
-        new("Chapecó", "SC", "49", "89800"),
-        new("Xanxerê", "SC", "49", "89820"),
-        new("Joaçaba", "SC", "49", "89600"),
-        new("Videira", "SC", "49", "89560"),
-        new("Caçador", "SC", "49", "89500"),
-        new("São Miguel do Oeste", "SC", "49", "89900"),
-        new("Seara", "SC", "49", "89770"),
-        new("Pinhalzinho", "SC", "49", "89870"),
-        new("Maravilha", "SC", "49", "89874"),
+        new("Concórdia", "SC", "49", "89700", -27.2342, -52.0278),
+        new("Chapecó", "SC", "49", "89800", -27.1004, -52.6153),
+        new("Xanxerê", "SC", "49", "89820", -26.8773, -52.4044),
+        new("Joaçaba", "SC", "49", "89600", -27.1744, -51.5047),
+        new("Videira", "SC", "49", "89560", -27.0083, -51.1514),
+        new("Caçador", "SC", "49", "89500", -26.7753, -51.0146),
+        new("São Miguel do Oeste", "SC", "49", "89900", -26.7254, -53.5176),
+        new("Seara", "SC", "49", "89770", -27.1531, -52.3117),
+        new("Pinhalzinho", "SC", "49", "89870", -26.8467, -52.9931),
+        new("Maravilha", "SC", "49", "89874", -26.7628, -53.1719),
     ];
 
     private static readonly Place[] Brasil =
     [
-        new("Florianópolis", "SC", "48", "88010"),
-        new("Joinville", "SC", "47", "89201"),
-        new("Blumenau", "SC", "47", "89010"),
-        new("Itajaí", "SC", "47", "88301"),
-        new("Criciúma", "SC", "48", "88801"),
-        new("Lages", "SC", "49", "88501"),
-        new("Balneário Camboriú", "SC", "47", "88330"),
-        new("Brusque", "SC", "47", "88350"),
-        new("Curitiba", "PR", "41", "80010"),
-        new("Londrina", "PR", "43", "86010"),
-        new("Maringá", "PR", "44", "87010"),
-        new("Cascavel", "PR", "45", "85801"),
-        new("Foz do Iguaçu", "PR", "45", "85851"),
-        new("Ponta Grossa", "PR", "42", "84010"),
-        new("Pato Branco", "PR", "46", "85501"),
-        new("Umuarama", "PR", "44", "87501"),
-        new("Porto Alegre", "RS", "51", "90010"),
-        new("Caxias do Sul", "RS", "54", "95010"),
-        new("Pelotas", "RS", "53", "96010"),
-        new("Santa Maria", "RS", "55", "97010"),
-        new("Passo Fundo", "RS", "54", "99010"),
-        new("São Paulo", "SP", "11", "01001"),
-        new("São Paulo", "SP", "11", "04001"),
-        new("Campinas", "SP", "19", "13010"),
-        new("Santos", "SP", "13", "11010"),
-        new("Ribeirão Preto", "SP", "16", "14010"),
-        new("São José dos Campos", "SP", "12", "12210"),
-        new("Sorocaba", "SP", "15", "18010"),
-        new("Bauru", "SP", "14", "17010"),
-        new("Rio de Janeiro", "RJ", "21", "20010"),
-        new("Niterói", "RJ", "21", "24020"),
-        new("Campos dos Goytacazes", "RJ", "22", "28010"),
-        new("Belo Horizonte", "MG", "31", "30110"),
-        new("Uberlândia", "MG", "34", "38400"),
-        new("Juiz de Fora", "MG", "32", "36010"),
-        new("Contagem", "MG", "31", "32010"),
-        new("Salvador", "BA", "71", "40010"),
-        new("Brasília", "DF", "61", "70040"),
-        new("Recife", "PE", "81", "50010"),
-        new("Fortaleza", "CE", "85", "60010"),
+        new("Florianópolis", "SC", "48", "88010", -27.5954, -48.548),
+        new("Joinville", "SC", "47", "89201", -26.3045, -48.8487),
+        new("Blumenau", "SC", "47", "89010", -26.9194, -49.0661),
+        new("Itajaí", "SC", "47", "88301", -26.9078, -48.6619),
+        new("Criciúma", "SC", "48", "88801", -28.6775, -49.3697),
+        new("Lages", "SC", "49", "88501", -27.8161, -50.3261),
+        new("Balneário Camboriú", "SC", "47", "88330", -26.9906, -48.6347),
+        new("Brusque", "SC", "47", "88350", -27.0977, -48.9142),
+        new("Curitiba", "PR", "41", "80010", -25.4284, -49.2733),
+        new("Londrina", "PR", "43", "86010", -23.3045, -51.1696),
+        new("Maringá", "PR", "44", "87010", -23.4205, -51.9333),
+        new("Cascavel", "PR", "45", "85801", -24.9578, -53.459),
+        new("Foz do Iguaçu", "PR", "45", "85851", -25.5163, -54.5854),
+        new("Ponta Grossa", "PR", "42", "84010", -25.0916, -50.1668),
+        new("Pato Branco", "PR", "46", "85501", -26.229, -52.6709),
+        new("Umuarama", "PR", "44", "87501", -23.7656, -53.325),
+        new("Porto Alegre", "RS", "51", "90010", -30.0346, -51.2177),
+        new("Caxias do Sul", "RS", "54", "95010", -29.1678, -51.1794),
+        new("Pelotas", "RS", "53", "96010", -31.7654, -52.3376),
+        new("Santa Maria", "RS", "55", "97010", -29.6842, -53.8069),
+        new("Passo Fundo", "RS", "54", "99010", -28.2628, -52.4067),
+        new("São Paulo", "SP", "11", "01001", -23.5505, -46.6333),
+        new("São Paulo", "SP", "11", "04001", -23.5505, -46.6333),
+        new("Campinas", "SP", "19", "13010", -22.9099, -47.0626),
+        new("Santos", "SP", "13", "11010", -23.9608, -46.3336),
+        new("Ribeirão Preto", "SP", "16", "14010", -21.1775, -47.8103),
+        new("São José dos Campos", "SP", "12", "12210", -23.2237, -45.9009),
+        new("Sorocaba", "SP", "15", "18010", -23.5015, -47.4526),
+        new("Bauru", "SP", "14", "17010", -22.3246, -49.0871),
+        new("Rio de Janeiro", "RJ", "21", "20010", -22.9068, -43.1729),
+        new("Niterói", "RJ", "21", "24020", -22.8832, -43.1034),
+        new("Campos dos Goytacazes", "RJ", "22", "28010", -21.7545, -41.3244),
+        new("Belo Horizonte", "MG", "31", "30110", -19.9167, -43.9345),
+        new("Uberlândia", "MG", "34", "38400", -18.9186, -48.2772),
+        new("Juiz de Fora", "MG", "32", "36010", -21.7642, -43.3503),
+        new("Contagem", "MG", "31", "32010", -19.9319, -44.0539),
+        new("Salvador", "BA", "71", "40010", -12.9777, -38.5016),
+        new("Brasília", "DF", "61", "70040", -15.7939, -47.8828),
+        new("Recife", "PE", "81", "50010", -8.0476, -34.877),
+        new("Fortaleza", "CE", "85", "60010", -3.7319, -38.5267),
     ];
 
     private static readonly string[] AssociationNames =
@@ -201,7 +203,9 @@ public static class CollectionPointSeeder
                 district,
                 place.City,
                 place.State,
-                $"{place.Cep5}{random.Next(0, 1000):D3}");
+                $"{place.Cep5}{random.Next(0, 1000):D3}",
+                OffsetFromCityCenter(place.Latitude, random),
+                OffsetFromCityCenter(place.Longitude, random));
 
             var contact = ContactInfo.Create(
                 Responsibles[random.Next(Responsibles.Length)],
@@ -233,6 +237,9 @@ public static class CollectionPointSeeder
             created,
             OesteSantaCatarina.Length);
     }
+
+    private static double OffsetFromCityCenter(double coordinate, Random random) =>
+        Math.Round(coordinate + ((random.NextDouble() - 0.5) * 2 * MaxOffsetDegreesFromCityCenter), 6);
 
     private static void AddSampleCategories(CollectionPoint point, Random random)
     {

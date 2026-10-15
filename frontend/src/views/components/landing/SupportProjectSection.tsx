@@ -39,10 +39,10 @@ export function SupportProjectSection() {
             Apoie o projeto
           </span>
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Ajude a manter a Bondade no ar
+            Ajude a manter o Dooa no ar
           </h2>
           <p className="mt-4 text-base leading-relaxed text-white/85">
-            A Bondade é gratuita para os pontos de coleta e para quem precisa de ajuda. Servidores,
+            O Dooa é gratuito para os pontos de coleta e para quem precisa de ajuda. Servidores,
             armazenamento e manutenção têm custo — se o projeto faz sentido para você, qualquer
             valor via Pix ajuda a mantê-lo funcionando.
           </p>

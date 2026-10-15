@@ -53,6 +53,11 @@ public static class DomainErrors
         public static Error StockItemUnitRequired =>
             Error.Validation("CollectionPoint.StockItemUnitRequired", "A unidade do item de estoque é obrigatória.");
 
+        public static Error ExactLocationRequired =>
+            Error.Validation(
+                "CollectionPoint.ExactLocationRequired",
+                "Marque no mapa o local exato do ponto de coleta.");
+
         public static Error NonPositiveQuantity =>
             Error.Validation("CollectionPoint.NonPositiveQuantity", "A quantidade recebida deve ser maior que zero.");
 

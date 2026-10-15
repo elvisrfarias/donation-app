@@ -56,7 +56,7 @@ export function LoginPage() {
         </div>
 
         <p className="relative text-xs text-white/50">
-          © Bondade — controle de equidade municipal.
+          © Dooa — controle de equidade municipal.
         </p>
       </div>
 

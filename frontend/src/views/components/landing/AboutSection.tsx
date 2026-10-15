@@ -35,7 +35,7 @@ export function AboutSection() {
       <SectionHeading
         eyebrow="Sobre o projeto"
         title="Doação organizada chega a quem precisa"
-        description="A Bondade conecta associações, igrejas e órgãos públicos em uma rede única de pontos de coleta, para que doações e retiradas sejam acompanhadas com clareza e justiça."
+        description="O Dooa conecta associações, igrejas e órgãos públicos em uma rede única de pontos de coleta, para que doações e retiradas sejam acompanhadas com clareza e justiça."
       />
 
       <ul className="mt-12 grid gap-5 md:grid-cols-3">

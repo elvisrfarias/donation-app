@@ -125,6 +125,11 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
             return DomainErrors.CollectionPoint.NameRequired;
         }
 
+        if (!address.HasCoordinates)
+        {
+            return DomainErrors.CollectionPoint.ExactLocationRequired;
+        }
+
         var point = new CollectionPoint(
             CollectionPointId.New(), name.Trim(), type, address, contact,
             imageFileId, description, openingHours, needs, createdAtUtc);
@@ -602,7 +607,16 @@ public sealed class CollectionPoint : AggregateRoot<CollectionPointId>
 
     public void UpdateContact(ContactInfo contact) => Contact = contact;
 
-    public void UpdateAddress(Address address) => Address = address;
+    public ErrorOr<Updated> UpdateAddress(Address address)
+    {
+        if (!address.HasCoordinates)
+        {
+            return DomainErrors.CollectionPoint.ExactLocationRequired;
+        }
+
+        Address = address;
+        return Result.Updated;
+    }
 
     /// <summary>
     /// Registra uma retirada aplicando a regra de equidade. O número de retiradas com cesta básica já

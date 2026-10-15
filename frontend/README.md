@@ -1,6 +1,6 @@
-# Bondade — Frontend
+# Dooa — Frontend
 
-SPA da Bondade: mapa público de pontos de coleta (OpenStreetMap) + área de gestão
+SPA do Dooa: mapa público de pontos de coleta (OpenStreetMap) + área de gestão
 (pontos, famílias/beneficiários e registro de retiradas com a regra de equidade).
 
 ## Stack
