@@ -31,6 +31,11 @@ COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 # A imagem do nginx executa /docker-entrypoint.d/*.sh antes de iniciar o servidor.
 COPY --chmod=755 docker-theme-entrypoint.sh /docker-entrypoint.d/40-theme.sh
 
+# SEO em runtime: troca __SITE_URL__ (og:image, sitemap…) pela URL pública SITE_URL.
+# Os originais ficam fora do html/ para o script sempre partir do placeholder.
+COPY --from=build /app/dist/index.html /app/dist/robots.txt /app/dist/sitemap.xml /usr/share/nginx/seo-templates/
+COPY --chmod=755 docker-seo-entrypoint.sh /docker-entrypoint.d/41-seo.sh
+
 EXPOSE 8080
 
 # 127.0.0.1 (não "localhost"): o nginx escuta em IPv4; localhost pode resolver para ::1.

@@ -2,27 +2,55 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <!-- __SITE_URL__ é trocado pela URL pública (SITE_URL) no boot do nginx
+         (docker-seo-entrypoint.sh); em dev o Vite troca por "". Redes sociais
+         exigem URL absoluta em og:image/og:url. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Dooa" />
+    <meta name="application-name" content="Dooa" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município."
-    />
+    <meta name="description" content="Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <!-- Open Graph (WhatsApp, Facebook, LinkedIn, Telegram…) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Dooa" />
     <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="__SITE_URL__/" />
     <meta property="og:title" content="Dooa — Pontos de Doação e Coleta" />
-    <meta
-      property="og:description"
-      content="Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município."
-    />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:description" content="Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município." />
+    <meta property="og:image" content="__SITE_URL__/og-image.png" />
+    <meta property="og:image:secure_url" content="__SITE_URL__/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Dooa — Pontos de Doação e Coleta" />
+
+    <!-- X / Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dooa — Pontos de Doação e Coleta" />
+    <meta name="twitter:description" content="Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município." />
+    <meta name="twitter:image" content="__SITE_URL__/og-image.png" />
+    <meta name="twitter:image:alt" content="Dooa — Pontos de Doação e Coleta" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Dooa",
+        "alternateName": "Dooa — Pontos de Doação e Coleta",
+        "url": "__SITE_URL__/",
+        "inLanguage": "pt-BR",
+        "description": "Encontre pontos de doação e coleta perto de você e acompanhe retiradas com equidade entre beneficiários no seu município."
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

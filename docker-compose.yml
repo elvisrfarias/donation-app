@@ -109,6 +109,8 @@ services:
       # White-label: cor primária da marca aplicada no boot (sem rebuild).
       # Vazia = usa a cor padrão do app. Ex.: BRAND_PRIMARY="#7c3aed".
       BRAND_PRIMARY: ${BRAND_PRIMARY:-}
+      # URL pública do site (sem barra final), usada nas prévias de link (og:image) e no sitemap.
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
     depends_on:
       - api
     networks:

@@ -1,4 +1,4 @@
-const CACHE = 'doacao-cache-v1'
+const CACHE = 'doacao-cache-v2'
 const APP_SHELL = ['/', '/index.html']
 
 self.addEventListener('install', (event) => {

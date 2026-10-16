@@ -22,6 +22,11 @@ services:
     networks:
       - doacao-net
 
+  frontend:
+    environment:
+      # Prévias de link (og:image), canonical e sitemap usam a URL pública do domínio.
+      SITE_URL: https://${APP_DOMAIN}
+
   api:
     environment:
       ASPNETCORE_ENVIRONMENT: Production

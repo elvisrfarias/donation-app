@@ -1,8 +1,16 @@
 /// <reference types="vitest/config" />
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+// Em dev troca o placeholder __SITE_URL__ do index.html por URLs relativas. No build
+// ele é mantido: o nginx o substitui no boot pela SITE_URL (docker-seo-entrypoint.sh).
+const devSiteUrl = (): Plugin => ({
+  name: 'dev-site-url',
+  apply: 'serve',
+  transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', ''),
+})
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,7 +18,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), devSiteUrl()],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
