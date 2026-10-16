@@ -27,7 +27,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       RunMigrationsOnStartup: "true"
       SeedData__Enabled: ${SeedData__Enabled:-false}
-      AllowedHosts: ${APP_DOMAIN}
+      # Produção nunca recebe os pontos de coleta de demonstração.
+      SeedData__DemoData: "false"
+      # localhost: o HEALTHCHECK do backend/Dockerfile chama http://localhost:8080/health
+      AllowedHosts: ${APP_DOMAIN};localhost
       Storage__PublicUrl: https://${STORAGE_DOMAIN}
     logging:
       driver: json-file

@@ -310,6 +310,7 @@ Modelo completo em `.env.example` (dev) e `.env.prod.example` (produção; **nun
 | `Security__BCryptWorkFactor` | Custo do BCrypt (padrão 12) |
 | `RunMigrationsOnStartup` | Aplica migrations no boot |
 | `SeedData__Enabled` / `SeedData__Admin*` | Seed do usuário admin (em produção, só no primeiro boot) |
+| `SeedData__DemoData` | Cria os pontos de coleta de demonstração (só dev; forçado `false` em produção) |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO (ou chaves AWS) |
 | `Storage__Provider` | `MinIO` ou `AmazonS3` |
 | `Storage__ServiceUrl` / `Storage__PublicUrl` | Endpoint interno (API→storage) / público (navegador→URL pré-assinada) |

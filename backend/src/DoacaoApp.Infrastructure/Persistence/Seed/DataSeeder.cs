@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace DoacaoApp.Infrastructure.Persistence.Seed;
 
-/// <summary>Garante as roles do sistema e um usuário Admin inicial (quando habilitado).</summary>
+/// <summary>Garante as roles do sistema, um usuário Admin inicial e, opcionalmente, dados de demonstração.</summary>
 public static class DataSeeder
 {
     public static async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default)
@@ -32,7 +32,11 @@ public static class DataSeeder
         }
 
         await SeedAdminAsync(userManager, seedOptions, logger);
-        await CollectionPointSeeder.SeedAsync(services, cancellationToken);
+
+        if (seedOptions.DemoData)
+        {
+            await CollectionPointSeeder.SeedAsync(services, cancellationToken);
+        }
     }
 
     private static async Task SeedAdminAsync(

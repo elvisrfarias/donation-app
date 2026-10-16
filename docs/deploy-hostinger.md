@@ -22,8 +22,8 @@ internet ─► Caddy ─┬─ APP_DOMAIN     ─► frontend (nginx) ─► /a
    Use login SSH por chave e desative a senha. Habilite também firewall e snapshots no painel da Hostinger.
 3. **Código**: `git clone` do repositório; `cp .env.prod.example .env.prod` e preencha tudo. Gere cada
    segredo com `openssl rand -base64 48`.
-4. **Primeiro boot**: defina `SeedData__Enabled=true` com uma senha forte para o admin (isso também cria
-   pontos de demonstração), suba com `make prod`, entre, **troque a senha** e volte a flag para `false`.
+4. **Primeiro boot**: defina `SeedData__Enabled=true` com uma senha forte para o admin (cria só o admin;
+   pontos de demonstração nunca são criados em produção), suba com `make prod`, entre, **troque a senha** e volte a flag para `false`.
 5. **Subir**: `make prod`.
 6. **Backup**: agende `make backup` (diário) no cron do host e copie `backups/` para fora da VPS (rclone/S3).
    A pasta contém dados reais e não é versionada.
