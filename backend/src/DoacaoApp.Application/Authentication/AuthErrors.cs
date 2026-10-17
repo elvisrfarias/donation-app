@@ -34,4 +34,9 @@ public static class AuthErrors
 
     public static Error NotAuthenticated =>
         Error.Unauthorized("Auth.NotAuthenticated", "Sessão inválida. Faça login novamente.");
+
+    public static Error InvalidPasswordResetToken =>
+        Error.Validation(
+            "Auth.InvalidPasswordResetToken",
+            "Este link de redefinição é inválido ou expirou. Peça um novo link.");
 }

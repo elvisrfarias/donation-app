@@ -8,7 +8,7 @@ public sealed class RefreshToken
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    /// <summary>Hash SHA-256 do token (<see cref="RefreshTokenHasher"/>); o valor em claro só existe no cliente.</summary>
+    /// <summary>Hash SHA-256 do token (<see cref="OpaqueTokenHasher"/>); o valor em claro só existe no cliente.</summary>
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }

@@ -95,6 +95,9 @@ services:
       Storage__Bucket: ${Storage__Bucket:-doacao}
       Storage__ForcePathStyle: ${Storage__ForcePathStyle:-true}
       Storage__PresignExpiryMinutes: ${Storage__PresignExpiryMinutes:-60}
+      # E-mails transacionais pelo Resend; sem a chave, só aparecem no log da API.
+      Email__ResendApiKey: ${Email__ResendApiKey:-}
+      Email__FromAddress: ${Email__FromAddress:-Dooa <onboarding@resend.dev>}
     depends_on:
       postgres:
         condition: service_healthy

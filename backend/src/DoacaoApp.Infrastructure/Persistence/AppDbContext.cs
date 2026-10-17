@@ -31,6 +31,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Donation> Donations => Set<Donation>();
     public DbSet<PointNotice> Notices => Set<PointNotice>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

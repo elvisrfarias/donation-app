@@ -49,6 +49,20 @@ public static class AuthEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Revoga um refresh token (logout).");
 
+        group.MapPost("/forgot-password", async (RequestPasswordResetCommand command, ISender sender, CancellationToken ct) =>
+                (await sender.Send(command, ct)).Match(_ => Results.NoContent()))
+            .AllowAnonymous()
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .WithSummary("Envia um link de redefinição de senha ao e-mail, se houver conta ativa com ele (a resposta é a mesma em qualquer caso).");
+
+        group.MapPost("/reset-password", async (CompletePasswordResetCommand command, ISender sender, CancellationToken ct) =>
+                (await sender.Send(command, ct)).Match(_ => Results.NoContent()))
+            .AllowAnonymous()
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .WithSummary("Define a nova senha com o token do link de redefinição e encerra todas as sessões do usuário.");
+
         group.MapPost("/change-password", async (ChangePasswordCommand command, ISender sender, CancellationToken ct) =>
                 (await sender.Send(command, ct)).Match(value => Results.Ok(value)))
             .RequireAuthorization()

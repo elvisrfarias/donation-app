@@ -102,6 +102,8 @@ services:
       # localhost: o HEALTHCHECK do backend/Dockerfile chama http://localhost:8080/health
       AllowedHosts: ${APP_DOMAIN};localhost
       Storage__PublicUrl: https://${STORAGE_DOMAIN}
+      # Links enviados por e-mail (ex.: redefinição de senha) apontam para o domínio público.
+      Email__AppBaseUrl: https://${APP_DOMAIN}
 
 volumes:
   letsencrypt:

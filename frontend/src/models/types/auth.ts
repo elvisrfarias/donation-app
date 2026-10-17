@@ -27,6 +27,15 @@ export interface LoginInput {
   password: string
 }
 
+export interface RequestPasswordResetInput {
+  email: string
+}
+
+export interface CompletePasswordResetInput {
+  token: string
+  newPassword: string
+}
+
 export interface ChangePasswordInput {
   currentPassword: string
   newPassword: string

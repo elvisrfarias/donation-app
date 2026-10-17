@@ -2,6 +2,8 @@ using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Infrastructure.Authentication;
 using DoacaoApp.Infrastructure.Persistence;
+using System.Buffers.Text;
+using System.Security.Cryptography;
 using ErrorOr;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,22 +15,30 @@ namespace DoacaoApp.Infrastructure.Identity;
 /// Implementação de <see cref="IIdentityService"/> sobre o ASP.NET Core Identity.
 /// Orquestra criação/login de usuários, emissão de JWT e rotação de refresh tokens. Refresh tokens são
 /// persistidos só como hash SHA-256; qualquer mudança sensível (senha, papel, ponto, desativação) troca o
-/// security stamp e revoga todos os refresh tokens do usuário, derrubando as sessões existentes.
+/// security stamp e revoga todos os refresh tokens do usuário, derrubando as sessões existentes. Tokens de
+/// "esqueci minha senha" seguem a mesma regra: só o hash vai para o banco, e cada um vale uma única vez.
 /// </summary>
 public sealed class IdentityService(
     UserManager<ApplicationUser> userManager,
     AppDbContext dbContext,
     JwtTokenGenerator tokenGenerator,
     IDateTimeProvider clock,
-    IOptions<JwtOptions> jwtOptions) : IIdentityService
+    IOptions<JwtOptions> jwtOptions,
+    IOptions<SecurityOptions> securityOptions) : IIdentityService
 {
     private const string DummyPasswordForTimingEqualization = "senha-inexistente-para-equalizar-tempo-1";
 
     private static readonly TimeSpan ConcurrentRotationGracePeriod = TimeSpan.FromSeconds(30);
 
+    private const int PasswordResetTokenBytes = 32;
+
+    private const int DeactivationLockoutMinimumYears = 100;
+
     private static string? _dummyPasswordHash;
 
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+
+    private readonly SecurityOptions _securityOptions = securityOptions.Value;
 
     public async Task<ErrorOr<UserResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
@@ -246,6 +256,65 @@ public sealed class IdentityService(
         return Result.Success;
     }
 
+    public async Task<PasswordResetTicket?> CreatePasswordResetTicketAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow;
+
+        var user = await userManager.FindByEmailAsync(email);
+        if (user is null || IsDeactivated(user, now) || await WasPasswordResetRecentlyRequestedAsync(user.Id, now, cancellationToken))
+        {
+            return null;
+        }
+
+        await InvalidatePasswordResetTokensAsync(user.Id, now, cancellationToken);
+
+        var token = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(PasswordResetTokenBytes));
+        var expiresAt = now.AddMinutes(_securityOptions.PasswordResetTokenMinutes);
+
+        dbContext.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = OpaqueTokenHasher.Hash(token),
+            CreatedAtUtc = now,
+            ExpiresAtUtc = expiresAt,
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new PasswordResetTicket(user.Email!, user.FullName, token, expiresAt);
+    }
+
+    public async Task<ErrorOr<Success>> ResetForgottenPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow;
+
+        var claimed = await ClaimPasswordResetTokenAsync(token, now, cancellationToken);
+        if (claimed is null)
+        {
+            return AuthErrors.InvalidPasswordResetToken;
+        }
+
+        var user = await userManager.FindByIdAsync(claimed.UserId.ToString());
+        if (user is null || IsDeactivated(user, now))
+        {
+            return AuthErrors.InvalidPasswordResetToken;
+        }
+
+        var passwordSet = await ReplacePasswordAsync(user, newPassword);
+        if (passwordSet.IsError)
+        {
+            await ReleasePasswordResetTokenAsync(claimed.Id, cancellationToken);
+            return passwordSet.Errors;
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
+        await userManager.SetLockoutEndDateAsync(user, null);
+        await InvalidatePasswordResetTokensAsync(user.Id, now, cancellationToken);
+        await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+
+        return Result.Success;
+    }
+
     public async Task<bool> IsSessionValidAsync(Guid userId, string securityStamp, CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
@@ -298,6 +367,51 @@ public sealed class IdentityService(
     }
 
     /// <summary>
+    /// Marca o token como usado numa única atualização condicional, para dois envios simultâneos do mesmo link
+    /// não trocarem a senha duas vezes. Devolve null se o token não existe, expirou ou já foi usado.
+    /// </summary>
+    private async Task<PasswordResetToken?> ClaimPasswordResetTokenAsync(string token, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        var tokenHash = OpaqueTokenHasher.Hash(token);
+        var stored = await dbContext.PasswordResetTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+        if (stored is null || !stored.IsUsable(nowUtc))
+        {
+            return null;
+        }
+
+        var claimedRows = await dbContext.PasswordResetTokens
+            .Where(t => t.Id == stored.Id && t.UsedAtUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAtUtc, nowUtc), cancellationToken);
+
+        return claimedRows == 1 ? stored : null;
+    }
+
+    private Task<int> ReleasePasswordResetTokenAsync(Guid tokenId, CancellationToken cancellationToken) =>
+        dbContext.PasswordResetTokens
+            .Where(t => t.Id == tokenId)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAtUtc, (DateTime?)null), cancellationToken);
+
+    private Task<int> InvalidatePasswordResetTokensAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        dbContext.PasswordResetTokens
+            .Where(t => t.UserId == userId && t.UsedAtUtc == null && t.ExpiresAtUtc > nowUtc)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAtUtc, nowUtc), cancellationToken);
+
+    private Task<bool> WasPasswordResetRecentlyRequestedAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        var cooldownStart = nowUtc.AddSeconds(-_securityOptions.PasswordResetCooldownSeconds);
+        return dbContext.PasswordResetTokens.AnyAsync(t => t.UserId == userId && t.CreatedAtUtc > cooldownStart, cancellationToken);
+    }
+
+    /// <summary>
+    /// Usuário desativado tem bloqueio sem fim; o bloqueio temporário por tentativas erradas de login não conta,
+    /// e é justamente desfeito ao redefinir a senha.
+    /// </summary>
+    private static bool IsDeactivated(ApplicationUser user, DateTime nowUtc) =>
+        user.LockoutEnd is { } lockoutEnd && lockoutEnd.UtcDateTime > nowUtc.AddYears(DeactivationLockoutMinimumYears);
+
+    /// <summary>
     /// Reuso de um token já revogado indica roubo, e derruba todas as sessões do usuário. A exceção é um token
     /// recém-rotacionado apresentado de novo dentro de poucos segundos: é a corrida de duas abas renovando ao
     /// mesmo tempo, e só aquela requisição é recusada.
@@ -309,7 +423,7 @@ public sealed class IdentityService(
 
     private Task<RefreshToken?> FindRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken)
     {
-        var tokenHash = RefreshTokenHasher.Hash(refreshToken);
+        var tokenHash = OpaqueTokenHasher.Hash(refreshToken);
         return dbContext.RefreshTokens.FirstOrDefaultAsync(t => t.Token == tokenHash, cancellationToken);
     }
 
@@ -347,7 +461,7 @@ public sealed class IdentityService(
 
         var now = clock.UtcNow;
         var refreshValue = tokenGenerator.GenerateRefreshToken();
-        var refreshHash = RefreshTokenHasher.Hash(refreshValue);
+        var refreshHash = OpaqueTokenHasher.Hash(refreshValue);
         var refreshExpires = now.AddHours(_jwtOptions.RefreshTokenHours);
 
         dbContext.RefreshTokens.Add(new RefreshToken

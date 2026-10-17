@@ -45,6 +45,16 @@ public sealed record ChangePasswordRequest(
     string NewPassword);
 
 /// <summary>
+/// Pedido de redefinição de senha emitido para um usuário. <see cref="Token"/> é o valor em claro, que só vai
+/// no link enviado por e-mail; o banco guarda apenas o hash.
+/// </summary>
+public sealed record PasswordResetTicket(
+    string Email,
+    string FullName,
+    string Token,
+    DateTime ExpiresAtUtc);
+
+/// <summary>
 /// Abstrai o ASP.NET Core Identity + emissão/rotação de JWT e refresh tokens.
 /// A implementação (Infrastructure) usa BCrypt para hashing e persiste refresh tokens em banco.
 /// </summary>
@@ -74,6 +84,15 @@ public interface IIdentityService
 
     /// <summary>Define uma nova senha para outro usuário (ação administrativa) e encerra todas as sessões dele.</summary>
     Task<ErrorOr<Success>> ResetPasswordAsync(Guid userId, string newPassword, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Emite um token de redefinição de senha de uso único para o dono do e-mail, invalidando os anteriores.
+    /// Devolve null quando não há conta ativa com esse e-mail ou quando um pedido acabou de ser emitido.
+    /// </summary>
+    Task<PasswordResetTicket?> CreatePasswordResetTicketAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>Troca a senha usando um token de redefinição válido, consome o token e encerra todas as sessões.</summary>
+    Task<ErrorOr<Success>> ResetForgottenPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Indica se um access token ainda representa uma sessão válida: o usuário existe, não está bloqueado e o

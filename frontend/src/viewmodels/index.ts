@@ -1,6 +1,7 @@
 export { useAuth } from './useAuth'
 export { useLoginViewModel } from './useLoginViewModel'
 export { useChangePasswordViewModel } from './useChangePasswordViewModel'
+export { useCompletePasswordReset, useRequestPasswordReset } from './usePasswordRecoveryViewModel'
 export { useCollectionPointsMapViewModel } from './useCollectionPointsMapViewModel'
 export type { MapFilters } from './useCollectionPointsMapViewModel'
 export {

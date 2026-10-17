@@ -2,7 +2,7 @@
 
   <!--
     Infrastructure implementa as interfaces do Domain/Application:
-    EF Core + PostgreSQL, Identity, JWT, BCrypt, dispatch de Domain Events.
+    EF Core + PostgreSQL, Identity, JWT, BCrypt, dispatch de Domain Events e envio de e-mail.
   -->
   <ItemGroup>
     <ProjectReference Include="..\DoacaoApp.Application\DoacaoApp.Application.csproj" />
@@ -21,6 +21,8 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 
 </Project>

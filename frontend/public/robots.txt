@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /forgot-password
+Disallow: /reset-password
 
 Sitemap: __SITE_URL__/sitemap.xml

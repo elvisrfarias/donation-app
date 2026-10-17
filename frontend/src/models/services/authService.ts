@@ -1,5 +1,11 @@
 import { http } from '@/models/api/httpClient'
-import type { AuthResult, ChangePasswordInput, LoginInput } from '@/models/types/auth'
+import type {
+  AuthResult,
+  ChangePasswordInput,
+  CompletePasswordResetInput,
+  LoginInput,
+  RequestPasswordResetInput,
+} from '@/models/types/auth'
 
 export const authService = {
   async login(input: LoginInput): Promise<AuthResult> {
@@ -20,5 +26,15 @@ export const authService = {
   async changePassword(input: ChangePasswordInput): Promise<AuthResult> {
     const { data } = await http.post<AuthResult>('/auth/change-password', input)
     return data
+  },
+
+  /** "Esqueci minha senha": a resposta é a mesma exista ou não conta com o e-mail. */
+  async requestPasswordReset(input: RequestPasswordResetInput): Promise<void> {
+    await http.post('/auth/forgot-password', input)
+  },
+
+  /** Define a nova senha com o token do link enviado por e-mail; todas as sessões do usuário caem. */
+  async completePasswordReset(input: CompletePasswordResetInput): Promise<void> {
+    await http.post('/auth/reset-password', input)
   },
 }

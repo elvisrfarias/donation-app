@@ -226,6 +226,8 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 | POST | `/api/auth/login` | anônimo |
 | POST | `/api/auth/refresh` | anônimo (rotaciona o refresh token) |
 | POST | `/api/auth/revoke` | anônimo (logout) |
+| POST | `/api/auth/forgot-password` | anônimo (envia o link de redefinição; resposta igual exista ou não a conta) |
+| POST | `/api/auth/reset-password` | anônimo (nova senha com o token do link) |
 | POST | `/api/auth/register` | Admin |
 | GET / PUT | `/api/auth/users`, `/api/auth/users/{id}` | Admin |
 | POST | `/api/auth/users/{id}/deactivate` | Admin |
@@ -269,6 +271,14 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 `login`/`register` emitem um **access token** (JWT curto, stateless) e um **refresh token** persistido em
 banco, revogável e rotacionado a cada uso. O login tem lockout após tentativas falhas.
 
+**Esqueci minha senha:** a tela `/forgot-password` pede um link, que chega por e-mail (Resend) apontando para
+`/reset-password#token=...`. O token vai no fragmento da URL, então nunca chega a logs de proxy/CDN; no banco
+fica só o hash SHA-256. Cada link vale 1 hora (`Security__PasswordResetTokenMinutes`), serve uma única vez e é
+invalidado por um pedido mais novo; pedidos para o mesmo usuário têm intervalo mínimo de 60 s
+(`Security__PasswordResetCooldownSeconds`). Redefinir a senha encerra todas as sessões e desfaz o bloqueio por
+tentativas erradas, mas usuários desativados não recebem link. O e-mail sai por uma fila em segundo plano: a
+resposta não muda de tempo nem de conteúdo conforme o e-mail exista, e uma falha do Resend só vai para o log.
+
 ### Por que BCrypt explícito (e não o hasher padrão do Identity)?
 
 O padrão do ASP.NET Core Identity é PBKDF2-HMAC-SHA256. Aqui ele foi substituído por `BCryptPasswordHasher`
@@ -310,6 +320,9 @@ Modelo completo em `.env.example` (dev) e `.env.prod.example` (produção; **nun
 | `Jwt__Secret` | Segredo do JWT (≥ 32 chars; gere com `openssl rand -base64 48`) |
 | `Jwt__AccessTokenHours` / `Jwt__RefreshTokenHours` | Validade dos tokens |
 | `Security__BCryptWorkFactor` | Custo do BCrypt (padrão 12) |
+| `Email__ResendApiKey` | Chave da API do Resend; vazia, os e-mails não saem (só aparecem no log da API) |
+| `Email__FromAddress` | Remetente, num domínio verificado no Resend (ex.: `Dooa <nao-responda@dooa.com.br>`) |
+| `Email__AppBaseUrl` | Base dos links enviados por e-mail (em produção, `https://${APP_DOMAIN}`) |
 | `RunMigrationsOnStartup` | Aplica migrations no boot |
 | `SeedData__Enabled` / `SeedData__Admin*` | Seed do usuário admin (em produção, só no primeiro boot) |
 | `SeedData__DemoData` | Cria os pontos de coleta de demonstração (só dev; forçado `false` em produção) |

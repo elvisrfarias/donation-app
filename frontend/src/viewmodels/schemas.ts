@@ -6,6 +6,11 @@ export const loginSchema = z.object({
 })
 export type LoginForm = z.infer<typeof loginSchema>
 
+export const forgotPasswordSchema = z.object({
+  email: z.email('Informe um e-mail válido.'),
+})
+export type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
+
 /** Imagem do ponto de coleta — agora obrigatória ao cadastrar. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']

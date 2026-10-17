@@ -9,6 +9,7 @@ using DoacaoApp.Domain.Notices;
 using DoacaoApp.Domain.Reviews;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Authentication;
+using DoacaoApp.Infrastructure.Mailing;
 using DoacaoApp.Infrastructure.Identity;
 using DoacaoApp.Infrastructure.Persistence;
 using DoacaoApp.Infrastructure.Persistence.Interceptors;
@@ -24,7 +25,7 @@ using Microsoft.Extensions.Options;
 
 namespace DoacaoApp.Infrastructure;
 
-/// <summary>Composition root da Infrastructure: EF Core, Identity (BCrypt), repositórios e serviços.</summary>
+/// <summary>Composition root da Infrastructure: EF Core, Identity (BCrypt), e-mail, repositórios e serviços.</summary>
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
@@ -36,6 +37,7 @@ public static class DependencyInjection
         services.AddPersistence(configuration);
         services.AddIdentityWithBCrypt();
         services.AddObjectStorage(configuration);
+        services.AddEmail(configuration);
 
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICollectionPointRepository, CollectionPointRepository>();
@@ -74,6 +76,25 @@ public static class DependencyInjection
 
         services.AddSingleton<IFileStorage, S3FileStorage>();
         services.AddSingleton<StorageBucketInitializer>();
+    }
+
+    private static void AddEmail(this IServiceCollection services, IConfiguration configuration)
+    {
+        var emailSection = configuration.GetSection(EmailOptions.SectionName);
+        services.Configure<EmailOptions>(emailSection);
+
+        if (emailSection.Get<EmailOptions>()?.IsResendConfigured == true)
+        {
+            services.AddHttpClient<IEmailSender, ResendEmailSender>(client => client.BaseAddress = ResendEmailSender.ApiBaseAddress);
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, LogOnlyEmailSender>();
+        }
+
+        services.AddSingleton<EmailOutbox>();
+        services.AddHostedService<EmailDispatchWorker>();
+        services.AddScoped<IPasswordResetNotifier, PasswordResetEmailNotifier>();
     }
 
     private static void AddPersistence(this IServiceCollection services, IConfiguration configuration)

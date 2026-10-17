@@ -12,6 +12,12 @@ const MapPage = lazyWithReload(() =>
 const LoginPage = lazyWithReload(() =>
   import('@/views/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
+const ForgotPasswordPage = lazyWithReload(() =>
+  import('@/views/pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
+)
+const ResetPasswordPage = lazyWithReload(() =>
+  import('@/views/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+)
 const AppLayout = lazyWithReload(() =>
   import('@/views/layouts/AppLayout').then((m) => ({ default: m.AppLayout })),
 )
@@ -62,6 +68,16 @@ function withSuspense(node: ReactNode): ReactNode {
 export const router = createBrowserRouter([
   { path: '/', element: withSuspense(<MapPage />), errorElement: <RouteError /> },
   { path: '/login', element: withSuspense(<LoginPage />), errorElement: <RouteError /> },
+  {
+    path: '/forgot-password',
+    element: withSuspense(<ForgotPasswordPage />),
+    errorElement: <RouteError />,
+  },
+  {
+    path: '/reset-password',
+    element: withSuspense(<ResetPasswordPage />),
+    errorElement: <RouteError />,
+  },
   {
     path: '/app',
     element: <ProtectedRoute>{withSuspense(<AppLayout />)}</ProtectedRoute>,

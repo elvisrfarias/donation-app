@@ -1,19 +1,13 @@
-import { ArrowLeft, ArrowRight, MapPin, ShieldCheck, Users } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { loginSchema, useAuth, useLoginViewModel } from '@/viewmodels'
-import { AppLogo } from '@/views/components/common/AppLogo'
+import { AuthPageLayout } from '@/views/components/auth/AuthPageLayout'
 import { FormComponent } from '@/views/components/form'
 import { Alert } from '@/views/components/ui'
 
 interface LocationState {
   from?: string
 }
-
-const highlights = [
-  { icon: MapPin, text: 'Pontos de coleta no mapa do OpenStreetMap' },
-  { icon: Users, text: 'Rastreabilidade de beneficiários' },
-  { icon: ShieldCheck, text: 'Limite de retiradas por ciclo, no município inteiro' },
-]
 
 export function LoginPage() {
   const { isAuthenticated } = useAuth()
@@ -26,100 +20,58 @@ export function LoginPage() {
   const from = (location.state as LocationState | null)?.from ?? '/app'
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
-      <div className="glow-brand bg-sidebar-deep relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
-        <AppLogo inverted />
+    <AuthPageLayout title="Acesse sua conta" subtitle="Área de gestão dos pontos de coleta.">
+      {!error && sessionExpiredMessage && (
+        <Alert tone="warning" className="mt-8">
+          {sessionExpiredMessage}
+        </Alert>
+      )}
+      {error && (
+        <Alert tone="error" className="mt-8">
+          {error.displayMessage}
+        </Alert>
+      )}
 
-        <div className="relative space-y-8">
-          <h2 className="max-w-md text-4xl leading-[1.1] font-extrabold tracking-tight">
-            Gestão de doações com <span className="text-brand-200">equidade</span> entre todos os
-            pontos.
-          </h2>
-          <ul className="space-y-4 text-sm text-white/80">
-            {highlights.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-white/10 text-white ring-1 ring-white/15 ring-inset">
-                  <Icon className="size-4.5" />
-                </span>
-                {text}
-              </li>
-            ))}
-          </ul>
-        </div>
+      <FormComponent
+        className="mt-8"
+        schema={loginSchema}
+        defaultValues={{ email: '', password: '' }}
+        onSubmit={async (values) => {
+          await login(values)
+          navigate(from, { replace: true })
+        }}
+        fields={[
+          {
+            name: 'email',
+            type: 'email',
+            label: 'E-mail',
+            autoComplete: 'email',
+            placeholder: 'voce@exemplo.com',
+            required: true,
+          },
+          {
+            name: 'password',
+            type: 'password',
+            label: 'Senha',
+            autoComplete: 'current-password',
+            placeholder: '••••••••',
+            required: true,
+          },
+        ]}
+        submitLabel="Entrar"
+        submitIcon={<ArrowRight className="size-4" />}
+        submitSize="lg"
+        submitFullWidth
+      />
 
-        <p className="relative text-xs text-white/50">
-          © Dooa — controle de equidade municipal.
-        </p>
-      </div>
-
-      <div className="bg-canvas flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
-          <AppLogo className="mb-10 lg:hidden" />
-          <h1 className="text-3xl font-bold text-stone-900">Acesse sua conta</h1>
-          <p className="mt-2 text-sm text-stone-500">Área de gestão dos pontos de coleta.</p>
-
-          {!error && sessionExpiredMessage && (
-            <Alert tone="warning" className="mt-8">
-              {sessionExpiredMessage}
-            </Alert>
-          )}
-          {error && (
-            <Alert tone="error" className="mt-8">
-              {error.displayMessage}
-            </Alert>
-          )}
-
-          <FormComponent
-            className="mt-8"
-            schema={loginSchema}
-            defaultValues={{ email: '', password: '' }}
-            onSubmit={async (values) => {
-              await login(values)
-              navigate(from, { replace: true })
-            }}
-            fields={[
-              {
-                name: 'email',
-                type: 'email',
-                label: 'E-mail',
-                autoComplete: 'email',
-                placeholder: 'voce@exemplo.com',
-                required: true,
-              },
-              {
-                name: 'password',
-                type: 'password',
-                label: 'Senha',
-                autoComplete: 'current-password',
-                placeholder: '••••••••',
-                required: true,
-              },
-            ]}
-            submitLabel="Entrar"
-            submitIcon={<ArrowRight className="size-4" />}
-            submitSize="lg"
-            submitFullWidth
-          />
-
-          <p className="mt-8 text-center text-sm text-stone-500">
-            <Link
-              to="/"
-              className="hover:text-brand-600 inline-flex items-center gap-1.5 font-semibold text-stone-600 transition-colors"
-            >
-              <ArrowLeft className="size-4" />
-              Voltar ao mapa público
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="mt-4 text-center text-sm">
+        <Link
+          to="/forgot-password"
+          className="text-brand-600 hover:text-brand-700 font-semibold transition-colors"
+        >
+          Esqueci minha senha
+        </Link>
+      </p>
+    </AuthPageLayout>
   )
 }
