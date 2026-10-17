@@ -229,7 +229,7 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 | POST | `/api/auth/forgot-password` | anônimo (envia o link de redefinição; resposta igual exista ou não a conta) |
 | POST | `/api/auth/reset-password` | anônimo (nova senha com o token do link) |
 | POST | `/api/auth/register` | Admin |
-| GET / PUT | `/api/auth/users`, `/api/auth/users/{id}` | Admin |
+| GET / PUT | `/api/auth/users`, `/api/auth/users/{id}` | Admin, Gestor (só usuários do próprio ponto) — e-mail, nome, telefone, papel e ponto; trocar e-mail, papel ou ponto encerra as sessões do usuário |
 | POST | `/api/auth/users/{id}/deactivate` | Admin |
 
 ### Gerencial (JWT)
@@ -239,7 +239,8 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 | Método | Rota | Acesso / observações |
 |---|---|---|
 | GET | `/api/collection-points`, `/{id}` | Admin, Gestor (detalhe com estoque e configurações) |
-| POST / PUT | `/api/collection-points`, `/{id}` | Admin |
+| POST | `/api/collection-points` | Admin |
+| PUT | `/api/collection-points/{id}` | Admin, Gestor — todos os dados do ponto (nome, endereço, contato, horários, necessidades, foto) |
 | GET | `/api/collection-points/{id}/dashboard` | Admin, Gestor (`?from=&to=` em `yyyy-MM-dd`; padrão o mês atual, máx. 366 dias) |
 | POST / PUT / DELETE | `/api/collection-points/{id}/stock-items[/{itemId}]` | Admin, Gestor — catálogo de itens do ponto |
 | PUT | `/api/collection-points/{id}/stock-items/quantities` | Admin, Gestor — ajuste de quantidades |

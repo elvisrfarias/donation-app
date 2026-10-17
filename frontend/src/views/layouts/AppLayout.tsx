@@ -153,9 +153,7 @@ export function AppLayout() {
   const { donations } = usePointDonations(isManager ? ownPointId : null)
   const pendingDonations = donations.filter((donation) => donation.status === 'Pledged').length
   const donationsItem: NavItem = { ...donationsNavItem, badge: pendingDonations }
-  const adminNavItems: NavItem[] = isAdmin
-    ? [collectionPointsNavItem, usersNavItem]
-    : [usersNavItem]
+  const adminNavItems: NavItem[] = [collectionPointsNavItem, usersNavItem]
   const sidebarNavItems: NavItem[] = isManager
     ? [...mainNavItems, donationsItem, noticesNavItem]
     : mainNavItems

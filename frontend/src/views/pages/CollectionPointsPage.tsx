@@ -23,6 +23,7 @@ import {
   createCollectionPointSchema,
   updateCollectionPointSchema,
   useAuth,
+  useCollectionPoint,
   useCollectionPointsForManagement,
   useCreateCollectionPoint,
   useUpdateCollectionPoint,
@@ -229,9 +230,13 @@ const collectionPointDefaults: CreateCollectionPointForm = {
 }
 
 export function CollectionPointsPage() {
-  const { isAdmin, isManager } = useAuth()
+  const { user, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
-  const { points, isLoading, isError, error } = useCollectionPointsForManagement()
+  const ownPointId = isAdmin ? null : (user?.collectionPointId ?? null)
+  const managementList = useCollectionPointsForManagement({ enabled: isAdmin })
+  const ownPointQuery = useCollectionPoint(ownPointId)
+  const points = isAdmin ? managementList.points : ownPointQuery.point ? [ownPointQuery.point] : []
+  const { isLoading, isError, error } = isAdmin ? managementList : ownPointQuery
   const { create, error: createError, createdPoint, reset } = useCreateCollectionPoint()
   const { update, error: updateError, reset: resetUpdate } = useUpdateCollectionPoint()
 
@@ -285,7 +290,6 @@ export function CollectionPointsPage() {
       label: 'Editar',
       icon: <Pencil className="size-4" />,
       onClick: openEdit,
-      hidden: () => !isAdmin,
     },
     {
       label: 'Estoque',
@@ -308,7 +312,11 @@ export function CollectionPointsPage() {
       <SectionTitle
         icon={<MapPin className="size-5" />}
         title="Pontos de Coleta"
-        description="Locais cadastrados que compartilham o histórico de retiradas do município."
+        description={
+          isAdmin
+            ? 'Locais cadastrados que compartilham o histórico de retiradas do município.'
+            : 'Dados do seu ponto de coleta: endereço, contato, horários e necessidades.'
+        }
       />
 
       {createdPoint && (
@@ -399,7 +407,7 @@ export function CollectionPointsPage() {
         </ModalComponent>
       )}
 
-      {isAdmin && editingPoint && editDefaults && (
+      {editingPoint && editDefaults && (
         <ModalComponent
           open={!!editingPoint}
           onOpenChange={(open) => !open && setEditingPoint(null)}

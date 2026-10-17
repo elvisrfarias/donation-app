@@ -151,7 +151,10 @@ export function useUpdateCollectionPoint() {
         longitude: lng,
       })
     },
-    onSuccess: () => invalidateCollectionPointLists(queryClient),
+    onSuccess: (_, { id }) => {
+      invalidateCollectionPointLists(queryClient)
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionPoints.detail(id) })
+    },
   })
 
   return { update: mutate, updatedPoint: data, ...rest }

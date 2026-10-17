@@ -95,11 +95,7 @@ export const router = createBrowserRouter([
           { index: true, element: <AdminIndexRedirect /> },
           {
             path: 'collection-points',
-            element: (
-              <ProtectedRoute roles={['Admin']}>
-                {withSuspense(<CollectionPointsPage />)}
-              </ProtectedRoute>
-            ),
+            element: withSuspense(<CollectionPointsPage />),
           },
           { path: 'users', element: withSuspense(<UsersPage />) },
         ],

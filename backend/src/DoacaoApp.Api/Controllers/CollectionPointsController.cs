@@ -98,14 +98,17 @@ public sealed class CollectionPointsController(ISender sender) : ApiController(s
     }
 
     /// <summary>Atualiza um ponto de coleta existente.</summary>
-    /// <remarks>Requer a role <c>Admin</c>. A imagem é opcional: informe <c>imageFileId</c> só para trocá-la.</remarks>
+    /// <remarks>
+    /// Requer a role <c>Admin</c> ou <c>PointManager</c>. O gestor só edita o próprio ponto. A imagem é opcional:
+    /// informe <c>imageFileId</c> só para trocá-la.
+    /// </remarks>
     /// <response code="200">Ponto atualizado.</response>
     /// <response code="400">Dados inválidos (endereço, contato, etc.).</response>
     /// <response code="401">Não autenticado.</response>
-    /// <response code="403">Sem permissão.</response>
+    /// <response code="403">Ponto de outro gestor.</response>
     /// <response code="404">Ponto não encontrado.</response>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.PointManager}")]
     [ProducesResponseType(typeof(CollectionPointResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

@@ -1,5 +1,6 @@
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.CollectionPoints.Contracts;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
@@ -12,7 +13,8 @@ using MediatR;
 namespace DoacaoApp.Application.CollectionPoints.Commands;
 
 /// <summary>Atualiza um ponto de coleta existente. A imagem é opcional: quando
-/// <see cref="ImageFileId"/> é informado, troca a foto; caso contrário, mantém a atual.</summary>
+/// <see cref="ImageFileId"/> é informado, troca a foto; caso contrário, mantém a atual. Admin edita qualquer
+/// ponto; um PointManager só o ponto ao qual está vinculado.</summary>
 public sealed record UpdateCollectionPointCommand(
     Guid Id,
     string Name,
@@ -32,7 +34,10 @@ public sealed record UpdateCollectionPointCommand(
     double? Longitude = null,
     string? Description = null,
     string? OpeningHours = null,
-    IReadOnlyList<string>? Needs = null) : IRequest<ErrorOr<CollectionPointResponse>>;
+    IReadOnlyList<string>? Needs = null) : IRequest<ErrorOr<CollectionPointResponse>>, IScopedToCollectionPoint
+{
+    Guid IScopedToCollectionPoint.CollectionPointId => Id;
+}
 
 public sealed class UpdateCollectionPointValidator : AbstractValidator<UpdateCollectionPointCommand>
 {
