@@ -225,6 +225,22 @@ public static class DomainErrors
         public static Error NotFound => Error.NotFound("Notice.NotFound", "Aviso não encontrado.");
     }
 
+    public static class Sponsor
+    {
+        public static Error NameRequired => Error.Validation("Sponsor.NameRequired", "O nome do patrocinador é obrigatório.");
+
+        public static Error NameTooLong(int max) =>
+            Error.Validation("Sponsor.NameTooLong", $"O nome do patrocinador excede o limite de {max} caracteres.");
+
+        public static Error InvalidTier =>
+            Error.Validation("Sponsor.InvalidTier", "Categoria inválida. Use Diamante, Ouro ou Prata.");
+
+        public static Error InvalidWebsiteUrl =>
+            Error.Validation("Sponsor.InvalidWebsiteUrl", "Informe o site completo, começando com https://.");
+
+        public static Error NotFound => Error.NotFound("Sponsor.NotFound", "Patrocinador não encontrado.");
+    }
+
     public static class Withdrawal
     {
         public static Error ItemsRequired =>

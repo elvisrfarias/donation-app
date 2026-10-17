@@ -4,6 +4,7 @@ using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Donations;
 using DoacaoApp.Domain.Notices;
 using DoacaoApp.Domain.Reviews;
+using DoacaoApp.Domain.Sponsors;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Identity;
 using DoacaoApp.Infrastructure.Persistence.Converters;
@@ -33,6 +34,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<Sponsor> Sponsors => Set<Sponsor>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -46,6 +48,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         configurationBuilder.Properties<ReviewId>().HaveConversion<ReviewIdConverter>();
         configurationBuilder.Properties<DonationId>().HaveConversion<DonationIdConverter>();
         configurationBuilder.Properties<NoticeId>().HaveConversion<NoticeIdConverter>();
+        configurationBuilder.Properties<SponsorId>().HaveConversion<SponsorIdConverter>();
     }
 
     protected override void OnModelCreating(ModelBuilder builder)

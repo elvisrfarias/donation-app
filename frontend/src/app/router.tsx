@@ -47,6 +47,9 @@ const RegisterWithdrawalPage = lazyWithReload(() =>
 const UsersPage = lazyWithReload(() =>
   import('@/views/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
+const SponsorsPage = lazyWithReload(() =>
+  import('@/views/pages/SponsorsPage').then((m) => ({ default: m.SponsorsPage })),
+)
 const NotFoundPage = lazyWithReload(() =>
   import('@/views/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -98,6 +101,12 @@ export const router = createBrowserRouter([
             element: withSuspense(<CollectionPointsPage />),
           },
           { path: 'users', element: withSuspense(<UsersPage />) },
+          {
+            path: 'sponsors',
+            element: (
+              <ProtectedRoute roles={['Admin']}>{withSuspense(<SponsorsPage />)}</ProtectedRoute>
+            ),
+          },
         ],
       },
       { path: 'stock', element: withSuspense(<StockPage />) },

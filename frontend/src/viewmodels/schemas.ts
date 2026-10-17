@@ -11,17 +11,48 @@ export const forgotPasswordSchema = z.object({
 })
 export type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
 
-/** Imagem do ponto de coleta — agora obrigatória ao cadastrar. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
-const imageFileSchema = z
-  .instanceof(File, { message: 'A imagem do ponto é obrigatória.' })
-  .refine((file) => file.size > 0, 'A imagem do ponto é obrigatória.')
-  .refine((file) => file.size <= MAX_IMAGE_BYTES, 'A imagem excede o limite de 10 MB.')
-  .refine(
-    (file) => ALLOWED_IMAGE_TYPES.includes(file.type),
-    'Formato não suportado. Use JPEG, PNG, WebP, GIF ou AVIF.',
-  )
+
+function requiredImageFile(missingMessage: string) {
+  return z
+    .instanceof(File, { message: missingMessage })
+    .refine((file) => file.size > 0, missingMessage)
+    .refine((file) => file.size <= MAX_IMAGE_BYTES, 'A imagem excede o limite de 10 MB.')
+    .refine(
+      (file) => ALLOWED_IMAGE_TYPES.includes(file.type),
+      'Formato não suportado. Use JPEG, PNG, WebP, GIF ou AVIF.',
+    )
+}
+
+/** Imagem do ponto de coleta — agora obrigatória ao cadastrar. */
+const imageFileSchema = requiredImageFile('A imagem do ponto é obrigatória.')
+
+const sponsorLogoSchema = requiredImageFile('A logo do patrocinador é obrigatória.')
+
+const SPONSOR_WEBSITE_MESSAGE = 'Informe o site completo, começando com https://.'
+
+const optionalWebsiteSchema = z
+  .string()
+  .max(300, 'Máximo de 300 caracteres.')
+  .refine((value) => value.trim() === '' || /^https?:\/\/\S+\.\S+$/i.test(value.trim()), {
+    message: SPONSOR_WEBSITE_MESSAGE,
+  })
+  .optional()
+
+export const createSponsorSchema = z.object({
+  name: z.string().trim().min(1, 'Nome é obrigatório.').max(120, 'Máximo de 120 caracteres.'),
+  tier: z.enum(['Diamond', 'Gold', 'Silver'], 'Escolha a categoria.'),
+  websiteUrl: optionalWebsiteSchema,
+  logo: sponsorLogoSchema,
+})
+export type CreateSponsorForm = z.infer<typeof createSponsorSchema>
+
+export const updateSponsorSchema = createSponsorSchema.extend({
+  logo: sponsorLogoSchema.optional(),
+  isActive: z.boolean(),
+})
+export type UpdateSponsorForm = z.infer<typeof updateSponsorSchema>
 
 const EXACT_LOCATION_MESSAGE = 'Marque no mapa o local exato do ponto de coleta.'
 

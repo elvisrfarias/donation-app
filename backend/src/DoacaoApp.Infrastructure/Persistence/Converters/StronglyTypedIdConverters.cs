@@ -3,6 +3,7 @@ using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Donations;
 using DoacaoApp.Domain.Notices;
 using DoacaoApp.Domain.Reviews;
+using DoacaoApp.Domain.Sponsors;
 using DoacaoApp.Domain.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -41,3 +42,6 @@ public sealed class DonationIdConverter()
 
 public sealed class NoticeIdConverter()
     : ValueConverter<NoticeId, Guid>(id => id.Value, value => NoticeId.From(value));
+
+public sealed class SponsorIdConverter()
+    : ValueConverter<SponsorId, Guid>(id => id.Value, value => SponsorId.From(value));

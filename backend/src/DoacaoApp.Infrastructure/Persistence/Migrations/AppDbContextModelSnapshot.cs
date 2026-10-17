@@ -393,6 +393,51 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                     b.ToTable("reviews", (string)null);
                 });
 
+            modelBuilder.Entity("DoacaoApp.Domain.Sponsors.Sponsor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("LogoFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logo_file_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("tier");
+
+                    b.Property<string>("WebsiteUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("website_url");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LogoFileId");
+
+                    b.HasIndex("IsActive", "Tier");
+
+                    b.ToTable("sponsors", (string)null);
+                });
+
             modelBuilder.Entity("DoacaoApp.Domain.Storage.StoredFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1179,6 +1224,15 @@ namespace DoacaoApp.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("PointId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DoacaoApp.Domain.Sponsors.Sponsor", b =>
+                {
+                    b.HasOne("DoacaoApp.Domain.Storage.StoredFile", null)
+                        .WithMany()
+                        .HasForeignKey("LogoFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

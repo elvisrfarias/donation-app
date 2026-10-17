@@ -47,6 +47,10 @@ export const queryKeys = {
   users: {
     all: ['users', 'all'] as const,
   },
+  sponsors: {
+    public: ['sponsors', 'public'] as const,
+    all: ['sponsors', 'all'] as const,
+  },
   geocode: (query: string) => ['geocode', query] as const,
   geocodeAddress: (query: string) => ['geocode-address', query] as const,
 }

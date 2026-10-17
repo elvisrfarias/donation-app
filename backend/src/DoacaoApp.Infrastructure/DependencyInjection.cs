@@ -7,6 +7,7 @@ using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Donations;
 using DoacaoApp.Domain.Notices;
 using DoacaoApp.Domain.Reviews;
+using DoacaoApp.Domain.Sponsors;
 using DoacaoApp.Domain.Storage;
 using DoacaoApp.Infrastructure.Authentication;
 using DoacaoApp.Infrastructure.Mailing;
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IDonationRepository, DonationRepository>();
         services.AddScoped<INoticeRepository, NoticeRepository>();
+        services.AddScoped<ISponsorRepository, SponsorRepository>();
         services.AddScoped<IBeneficiaryRepository, BeneficiaryRepository>();
         services.AddScoped<IStoredFileRepository, StoredFileRepository>();
         services.AddScoped<IIdentityService, IdentityService>();

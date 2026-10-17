@@ -41,6 +41,13 @@ export {
   useUsers,
 } from './useUsersViewModel'
 export { useReviewsViewModel } from './useReviewsViewModel'
+export {
+  useCreateSponsor,
+  useDeleteSponsor,
+  usePublicSponsors,
+  useSponsors,
+  useUpdateSponsor,
+} from './useSponsorsViewModel'
 export * from './schemas'
 export {
   useCancelDonation,

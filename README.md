@@ -213,6 +213,7 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 |---|---|---|
 | GET | `/api/public/collection-points` | Pontos ativos (endereço, contato, estoque público, avaliação) |
 | GET | `/api/public/collection-points/{pointId}/reviews` | Avaliações visíveis |
+| GET | `/api/public/sponsors` | Patrocinadores ativos, do Diamante à Prata (seção "Patrocinadores" da página inicial) |
 | POST | `/api/public/collection-points/{pointId}/reviews` | Cria avaliação |
 | POST | `/api/public/reviews/{reviewId}/report` | Denuncia avaliação |
 | GET | `/api/public/collection-points/{pointId}/notices` | Avisos públicos do mural |
@@ -248,6 +249,7 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 | POST / PUT / DELETE | `/api/collection-points/{id}/categories[/{categoryId}]` | Admin, Gestor — categorias do ponto |
 | POST / PUT / DELETE | `/api/collection-points/{id}/basket-templates[/{templateId}]` | Admin, Gestor — receitas de cesta |
 | PUT | `/api/collection-points/{id}/withdrawal-rule` | Admin, Gestor — tipo e máximo do ciclo |
+| GET / POST / PUT / DELETE | `/api/sponsors[/{id}]` | Admin — patrocinadores mensais (nome, categoria Diamante/Ouro/Prata, site, logo, exibido ou oculto) |
 | GET | `/api/beneficiaries`, `/{id}` | autenticado (Admin: todos; gestor: os vinculados ao seu ponto) |
 | POST | `/api/beneficiaries/lookup-by-cpf` (`{ "cpf": "..." }`) | Admin, Gestor — busca municipal no balcão; CPF no corpo (fora de logs). Sem vínculo com o ponto devolve só nome abreviado + CPF mascarado (`beneficiary: null`) e grava log de auditoria |
 | POST / PUT | `/api/beneficiaries`, `/{id}` | Admin, Gestor (os dados valem para todos os pontos) |

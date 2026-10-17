@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Boxes,
   ChevronDown,
+  Gem,
   HandHeart,
   KeyRound,
   LayoutDashboard,
@@ -63,6 +64,13 @@ const usersNavItem: NavItem = {
   to: `${ADMIN_ROUTE_PREFIX}/users`,
   label: 'Usuários',
   icon: ShieldUser,
+  end: false,
+}
+
+const sponsorsNavItem: NavItem = {
+  to: `${ADMIN_ROUTE_PREFIX}/sponsors`,
+  label: 'Patrocinadores',
+  icon: Gem,
   end: false,
 }
 
@@ -153,7 +161,9 @@ export function AppLayout() {
   const { donations } = usePointDonations(isManager ? ownPointId : null)
   const pendingDonations = donations.filter((donation) => donation.status === 'Pledged').length
   const donationsItem: NavItem = { ...donationsNavItem, badge: pendingDonations }
-  const adminNavItems: NavItem[] = [collectionPointsNavItem, usersNavItem]
+  const adminNavItems: NavItem[] = isAdmin
+    ? [collectionPointsNavItem, usersNavItem, sponsorsNavItem]
+    : [collectionPointsNavItem, usersNavItem]
   const sidebarNavItems: NavItem[] = isManager
     ? [...mainNavItems, donationsItem, noticesNavItem]
     : mainNavItems

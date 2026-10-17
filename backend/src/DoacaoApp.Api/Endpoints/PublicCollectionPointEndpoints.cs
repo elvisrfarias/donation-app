@@ -8,14 +8,16 @@ using DoacaoApp.Application.Notices.Queries;
 using DoacaoApp.Application.Reviews.Commands;
 using DoacaoApp.Application.Reviews.Contracts;
 using DoacaoApp.Application.Reviews.Queries;
+using DoacaoApp.Application.Sponsors.Contracts;
+using DoacaoApp.Application.Sponsors.Queries;
 using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace DoacaoApp.Api.Endpoints;
 
 /// <summary>
-/// Parte pública do sistema: pontos de coleta, avaliações da comunidade, mural de avisos e
-/// doações prometidas (Minimal API, anônimo).
+/// Parte pública do sistema: pontos de coleta, avaliações da comunidade, mural de avisos,
+/// doações prometidas e patrocinadores do projeto (Minimal API, anônimo).
 /// </summary>
 public static class PublicCollectionPointEndpoints
 {
@@ -31,6 +33,14 @@ public static class PublicCollectionPointEndpoints
             .Produces<IReadOnlyList<CollectionPointResponse>>()
             .WithSummary("Lista os pontos de coleta ativos, com endereço, contato e resumo das avaliações.")
             .WithDescription("Use sort=top-rated para ordenar do mais bem avaliado ao menos avaliado (ranking).");
+
+        app.MapGet("/api/public/sponsors",
+                async (ISender sender, CancellationToken ct) =>
+                    (await sender.Send(new ListPublicSponsorsQuery(), ct)).Match(value => Results.Ok(value)))
+            .AllowAnonymous()
+            .WithTags("Público")
+            .Produces<IReadOnlyList<SponsorResponse>>()
+            .WithSummary("Lista os patrocinadores ativos do projeto, do Diamante à Prata.");
 
         app.MapGet("/api/public/collection-points/{pointId:guid}/reviews",
                 async (Guid pointId, ISender sender, CancellationToken ct) =>
