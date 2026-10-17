@@ -98,7 +98,7 @@ public class AuthenticationValidatorsTests
     [Fact]
     public void UpdateUserValidator_AdminComPontoInformado_DeveFalhar()
     {
-        var command = new UpdateUserCommand(Guid.NewGuid(), "Fulano", "Admin", Guid.NewGuid());
+        var command = new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", null, "Admin", Guid.NewGuid());
 
         var result = new UpdateUserValidator().Validate(command);
 
@@ -111,7 +111,7 @@ public class AuthenticationValidatorsTests
     [InlineData("Viewer")]
     public void UpdateUserValidator_GestorOuAjudanteSemPonto_DeveFalhar(string role)
     {
-        var command = new UpdateUserCommand(Guid.NewGuid(), "Fulano", role, null);
+        var command = new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", null, role, null);
 
         var result = new UpdateUserValidator().Validate(command);
 
@@ -122,11 +122,43 @@ public class AuthenticationValidatorsTests
     [Fact]
     public void UpdateUserValidator_DadosValidos_DevePassar()
     {
-        var command = new UpdateUserCommand(Guid.NewGuid(), "Fulano", "Admin", null);
+        var command = new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", null, "Admin", null);
 
         var result = new UpdateUserValidator().Validate(command);
 
         result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("", "Fulano", null)]
+    [InlineData("nao-e-email", "Fulano", null)]
+    [InlineData("fulano@doacao.local", "Fulano", "1234")]
+    [InlineData("fulano@doacao.local", "Fulano", "(49) 99876-54321")]
+    public void UpdateUserValidator_EmailOuTelefoneInvalido_DeveFalhar(string email, string fullName, string? phone)
+    {
+        var command = new UpdateUserCommand(Guid.NewGuid(), email, fullName, phone, "Admin", null);
+
+        new UpdateUserValidator().Validate(command).IsValid.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("(49) 3442-1234")]
+    [InlineData("49998765432")]
+    public void UpdateUserValidator_TelefoneOpcionalValido_DevePassar(string? phone)
+    {
+        var command = new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", phone, "Admin", null);
+
+        new UpdateUserValidator().Validate(command).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegisterUserValidator_TelefoneInvalido_DeveFalhar()
+    {
+        var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Novo Usuário", "Admin", null, "123");
+
+        new RegisterUserValidator().Validate(command).IsValid.Should().BeFalse();
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Domain.ValueObjects;
 using DoacaoApp.Infrastructure.Authentication;
 using DoacaoApp.Infrastructure.Persistence;
 using System.Buffers.Text;
@@ -57,6 +58,7 @@ public sealed class IdentityService(
             UserName = request.Email,
             Email = request.Email,
             FullName = request.FullName,
+            PhoneNumber = request.PhoneNumber?.Value,
             CollectionPointId = request.CollectionPointId,
             EmailConfirmed = true,
         };
@@ -175,22 +177,42 @@ public sealed class IdentityService(
             return AuthErrors.UserNotFound;
         }
 
+        var emailChanged = !string.Equals(
+            userManager.NormalizeEmail(request.Email), user.NormalizedEmail, StringComparison.Ordinal);
+        if (emailChanged && await userManager.FindByEmailAsync(request.Email) is not null)
+        {
+            return AuthErrors.EmailAlreadyUsed;
+        }
+
         var currentRoles = await userManager.GetRolesAsync(user);
-        var accessChanged = user.CollectionPointId != request.CollectionPointId
+        var accessChanged = emailChanged
+            || user.CollectionPointId != request.CollectionPointId
             || currentRoles.Count != 1
             || currentRoles[0] != request.Role;
 
+        user.Email = request.Email;
+        user.UserName = request.Email;
         user.FullName = request.FullName;
+        user.PhoneNumber = request.PhoneNumber?.Value;
         user.CollectionPointId = request.CollectionPointId;
+
+        var updated = await userManager.UpdateAsync(user);
+        if (!updated.Succeeded)
+        {
+            return ToUpdateError(updated);
+        }
 
         await userManager.RemoveFromRolesAsync(user, currentRoles);
         await userManager.AddToRoleAsync(user, request.Role);
 
-        await userManager.UpdateAsync(user);
-
         if (accessChanged)
         {
             await EndAllSessionsAsync(user, cancellationToken);
+        }
+
+        if (emailChanged)
+        {
+            await InvalidatePasswordResetTokensAsync(user.Id, clock.UtcNow, cancellationToken);
         }
 
         return await ToUserResponseAsync(user);
@@ -443,8 +465,23 @@ public sealed class IdentityService(
         var roles = await userManager.GetRolesAsync(user);
         var isActive = !await userManager.IsLockedOutAsync(user);
 
-        return new UserResponse(user.Id, user.Email!, user.FullName, roles.ToList(), user.CollectionPointId, isActive);
+        return new UserResponse(
+            user.Id,
+            user.Email!,
+            user.FullName,
+            roles.ToList(),
+            user.CollectionPointId,
+            isActive,
+            FormattedPhoneOf(user));
     }
+
+    private static string? FormattedPhoneOf(ApplicationUser user) =>
+        PhoneNumber.Create(user.PhoneNumber) is { IsError: false } phone ? phone.Value.Formatted : user.PhoneNumber;
+
+    private static Error ToUpdateError(IdentityResult result) =>
+        result.Errors.Any(e => e.Code is nameof(IdentityErrorDescriber.DuplicateEmail) or nameof(IdentityErrorDescriber.DuplicateUserName))
+            ? AuthErrors.EmailAlreadyUsed
+            : AuthErrors.RegistrationFailed(string.Join("; ", result.Errors.Select(e => e.Description)));
 
     private async Task<AuthResult> IssueTokensAsync(
         ApplicationUser user,

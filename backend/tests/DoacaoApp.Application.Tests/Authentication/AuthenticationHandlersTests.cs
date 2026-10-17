@@ -225,13 +225,53 @@ public class AuthenticationHandlersTests
             .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["PointManager"], pointId, true));
 
         var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
-        var command = new UpdateUserCommand(userId, "Fulano", "PointManager", pointId);
+        var command = new UpdateUserCommand(
+            userId, "fulano@doacao.local", "Fulano", "(49) 99876-5432", "PointManager", pointId);
 
         await handler.Handle(command, CancellationToken.None);
 
         _identityService.Verify(s => s.UpdateUserAsync(
             It.Is<UpdateUserRequest>(r =>
-                r.UserId == userId && r.FullName == "Fulano" && r.Role == "PointManager" && r.CollectionPointId == pointId),
+                r.UserId == userId
+                && r.Email == "fulano@doacao.local"
+                && r.FullName == "Fulano"
+                && r.PhoneNumber!.Value == "49998765432"
+                && r.Role == "PointManager"
+                && r.CollectionPointId == pointId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateUserHandler_TelefoneVazio_ApagaOTelefone()
+    {
+        _identityService
+            .Setup(s => s.UpdateUserAsync(It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildUserResponse(role: "Admin"));
+
+        var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
+        await handler.Handle(
+            new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", "  ", "Admin", null),
+            CancellationToken.None);
+
+        _identityService.Verify(s => s.UpdateUserAsync(
+            It.Is<UpdateUserRequest>(r => r.PhoneNumber == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterUserHandler_RepassaOTelefoneSoComOsDigitos()
+    {
+        _identityService
+            .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildUserResponse(role: "Admin"));
+
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
+        await handler.Handle(
+            new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "Admin", null, "(49) 3442-1234"),
+            CancellationToken.None);
+
+        _identityService.Verify(s => s.RegisterAsync(
+            It.Is<RegisterRequest>(r => r.PhoneNumber!.Value == "4934421234"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -247,7 +287,7 @@ public class AuthenticationHandlersTests
             .ReturnsAsync(new UserResponse(userId, "a@x.com", "Fulano", ["Viewer"], Guid.NewGuid(), true));
 
         var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
-        var command = new UpdateUserCommand(userId, "Fulano", "Viewer", ownPointId);
+        var command = new UpdateUserCommand(userId, "fulano@doacao.local", "Fulano", null, "Viewer", ownPointId);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
@@ -262,7 +302,7 @@ public class AuthenticationHandlersTests
         _currentUser.Setup(u => u.CollectionPointId).Returns(Guid.NewGuid());
 
         var handler = new UpdateUserHandler(_identityService.Object, _currentUser.Object);
-        var command = new UpdateUserCommand(Guid.NewGuid(), "Fulano", "Admin", null);
+        var command = new UpdateUserCommand(Guid.NewGuid(), "fulano@doacao.local", "Fulano", null, "Admin", null);
 
         var result = await handler.Handle(command, CancellationToken.None);
 

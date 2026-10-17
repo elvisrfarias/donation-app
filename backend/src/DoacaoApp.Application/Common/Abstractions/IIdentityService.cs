@@ -1,3 +1,4 @@
+using DoacaoApp.Domain.ValueObjects;
 using ErrorOr;
 
 namespace DoacaoApp.Application.Common.Abstractions;
@@ -20,7 +21,8 @@ public sealed record RegisterRequest(
     string Password,
     string FullName,
     string Role,
-    Guid? CollectionPointId);
+    Guid? CollectionPointId,
+    PhoneNumber? PhoneNumber = null);
 
 /// <summary>Um usuário gerencial, para a grid administrativa de usuários.</summary>
 public sealed record UserResponse(
@@ -29,12 +31,15 @@ public sealed record UserResponse(
     string FullName,
     IReadOnlyList<string> Roles,
     Guid? CollectionPointId,
-    bool IsActive);
+    bool IsActive,
+    string? PhoneNumber = null);
 
-/// <summary>Dados para atualizar papel, nome e ponto de coleta de um usuário existente.</summary>
+/// <summary>Dados para atualizar e-mail, nome, telefone, papel e ponto de coleta de um usuário existente.</summary>
 public sealed record UpdateUserRequest(
     Guid UserId,
+    string Email,
     string FullName,
+    PhoneNumber? PhoneNumber,
     string Role,
     Guid? CollectionPointId);
 

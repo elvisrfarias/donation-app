@@ -8,12 +8,14 @@ export interface UserAccount {
   roles: Role[]
   collectionPointId: string | null
   isActive: boolean
+  phoneNumber: string | null
 }
 
 export interface CreateUserInput {
   email: string
   password: string
   fullName: string
+  phoneNumber?: string
   role: Role
   collectionPointId?: string | null
 }
@@ -23,7 +25,9 @@ export interface ResetUserPasswordInput {
 }
 
 export interface UpdateUserInput {
+  email: string
   fullName: string
+  phoneNumber?: string
   role: Role
   collectionPointId?: string | null
 }

@@ -19,7 +19,10 @@ export const userService = {
     return data
   },
 
-  /** Atualiza nome, papel e ponto de coleta de um usuário (requer role Admin). */
+  /**
+   * Atualiza e-mail, nome, telefone, papel e ponto de coleta de um usuário (Admin ou PointManager do ponto).
+   * Trocar e-mail, papel ou ponto encerra as sessões dele.
+   */
   async update(id: string, input: UpdateUserInput): Promise<UserAccount> {
     const { data } = await http.put<UserAccount>(`/auth/users/${id}`, input)
     return data

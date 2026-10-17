@@ -9,7 +9,12 @@ using Microsoft.AspNetCore.Authorization;
 namespace DoacaoApp.Api.Endpoints;
 
 /// <summary>Corpo de uma requisição de atualização de usuário (o Id vem na rota).</summary>
-public sealed record UpdateUserRequestBody(string FullName, string Role, Guid? CollectionPointId);
+public sealed record UpdateUserRequestBody(
+    string Email,
+    string FullName,
+    string? PhoneNumber,
+    string Role,
+    Guid? CollectionPointId);
 
 /// <summary>Corpo de uma redefinição administrativa de senha (o Id vem na rota).</summary>
 public sealed record ResetPasswordRequestBody(string NewPassword);
@@ -78,12 +83,12 @@ public static class AuthEndpoints
             .WithSummary("Lista os usuários gerenciais (Admin vê todos; PointManager só vê os do seu próprio ponto).");
 
         group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequestBody body, ISender sender, CancellationToken ct) =>
-                (await sender.Send(new UpdateUserCommand(id, body.FullName, body.Role, body.CollectionPointId), ct))
+                (await sender.Send(new UpdateUserCommand(id, body.Email, body.FullName, body.PhoneNumber, body.Role, body.CollectionPointId), ct))
                     .Match(value => Results.Ok(value)))
             .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces<UserResponse>()
             .ProducesValidationProblem()
-            .WithSummary("Atualiza nome, papel e ponto de coleta de um usuário (Admin edita qualquer um; PointManager só o seu próprio ponto).");
+            .WithSummary("Atualiza e-mail, nome, telefone, papel e ponto de coleta de um usuário (Admin edita qualquer um; PointManager só o seu próprio ponto). Trocar e-mail, papel ou ponto encerra as sessões dele.");
 
         group.MapPost("/users/{id:guid}/deactivate", async (Guid id, ISender sender, CancellationToken ct) =>
                 (await sender.Send(new DeactivateUserCommand(id), ct)).Match(_ => Results.NoContent()))

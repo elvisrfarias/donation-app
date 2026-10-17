@@ -241,6 +241,7 @@ export const createUserSchema = z
     email: z.email('Informe um e-mail válido.'),
     password: passwordSchema,
     fullName: z.string().min(1, 'Nome é obrigatório.').max(160),
+    phoneNumber: optionalPhoneSchema,
     role: userRoleSchema,
     collectionPointId: z.string().optional(),
   })
@@ -252,7 +253,9 @@ export type CreateUserForm = z.infer<typeof createUserSchema>
 
 export const updateUserSchema = z
   .object({
+    email: z.email('Informe um e-mail válido.'),
     fullName: z.string().min(1, 'Nome é obrigatório.').max(160),
+    phoneNumber: optionalPhoneSchema,
     role: userRoleSchema,
     collectionPointId: z.string().optional(),
   })

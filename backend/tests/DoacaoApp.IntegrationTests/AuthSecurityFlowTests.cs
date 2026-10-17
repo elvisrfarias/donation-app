@@ -83,6 +83,7 @@ public class AuthSecurityFlowTests(AuthSecurityFlowFixture fixture) : IClassFixt
 
         var update = await admin.PutAsJsonAsync($"/api/auth/users/{userId}", new
         {
+            email,
             fullName = "Rebaixado",
             role = "Viewer",
             collectionPointId = point.Id,
@@ -193,6 +194,74 @@ public class AuthSecurityFlowTests(AuthSecurityFlowFixture fixture) : IClassFixt
         unknown.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await ErrorCodeOf(lockedOut)).Should().Be("Auth.InvalidCredentials");
         (await ErrorCodeOf(unknown)).Should().Be("Auth.InvalidCredentials");
+    }
+
+    [Fact]
+    public async Task EdicaoDeEmailETelefone_DeveValerNoLoginEDerrubarAsSessoes()
+    {
+        var admin = await CreateAdminClientAsync();
+        var (userId, oldEmail) = await RegisterAdminAsync(admin);
+        var session = await LoginAsync(oldEmail, InitialPassword);
+        var newEmail = UniqueEmail();
+
+        var update = await admin.PutAsJsonAsync($"/api/auth/users/{userId}", new
+        {
+            email = newEmail,
+            fullName = "Nome Novo",
+            phoneNumber = "49998765432",
+            role = "Admin",
+            collectionPointId = (Guid?)null,
+        });
+
+        update.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = (await update.Content.ReadFromJsonAsync<UserResponse>())!;
+        updated.Email.Should().Be(newEmail);
+        updated.FullName.Should().Be("Nome Novo");
+        updated.PhoneNumber.Should().Be("(49) 99876-5432");
+        (await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await PostLoginAsync(oldEmail, InitialPassword)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await PostLoginAsync(newEmail, InitialPassword)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task EdicaoParaEmailDeOutroUsuario_DeveSerRecusadaSemAlterarNada()
+    {
+        var admin = await CreateAdminClientAsync();
+        var (userId, email) = await RegisterAdminAsync(admin);
+        var (_, takenEmail) = await RegisterAdminAsync(admin);
+
+        var update = await admin.PutAsJsonAsync($"/api/auth/users/{userId}", new
+        {
+            email = takenEmail.ToUpperInvariant(),
+            fullName = "Não Deveria Mudar",
+            phoneNumber = (string?)null,
+            role = "Admin",
+            collectionPointId = (Guid?)null,
+        });
+
+        update.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var users = (await admin.GetFromJsonAsync<List<UserResponse>>("/api/auth/users"))!;
+        users.Single(u => u.Id == userId).Should().Match<UserResponse>(u => u.Email == email && u.FullName == "Usuário de Teste");
+    }
+
+    [Fact]
+    public async Task EdicaoSoDeNomeETelefone_DeveManterAsSessoes()
+    {
+        var admin = await CreateAdminClientAsync();
+        var (userId, email) = await RegisterAdminAsync(admin);
+        var session = await LoginAsync(email, InitialPassword);
+
+        var update = await admin.PutAsJsonAsync($"/api/auth/users/{userId}", new
+        {
+            email,
+            fullName = "Só o Nome",
+            phoneNumber = "(49) 3442-1234",
+            role = "Admin",
+            collectionPointId = (Guid?)null,
+        });
+
+        update.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await GetWithTokenAsync(session.AccessToken)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     private async Task<HttpClient> CreateAdminClientAsync()

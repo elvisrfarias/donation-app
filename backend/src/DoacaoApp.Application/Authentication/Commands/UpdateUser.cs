@@ -7,13 +7,16 @@ using MediatR;
 namespace DoacaoApp.Application.Authentication.Commands;
 
 /// <summary>
-/// Atualiza nome, papel e ponto de coleta de um usuário existente. Admin edita qualquer usuário; um
+/// Atualiza e-mail, nome, telefone, papel e ponto de coleta de um usuário existente. Trocar o e-mail, o papel ou
+/// o ponto encerra as sessões do usuário. Admin edita qualquer usuário; um
 /// PointManager só edita PointManager/Viewer do seu próprio ponto, e não pode movê-los para outro ponto
 /// nem promovê-los a Admin.
 /// </summary>
 public sealed record UpdateUserCommand(
     Guid UserId,
+    string Email,
     string FullName,
+    string? PhoneNumber,
     string Role,
     Guid? CollectionPointId) : IRequest<ErrorOr<UserResponse>>;
 
@@ -22,7 +25,9 @@ public sealed class UpdateUserValidator : AbstractValidator<UpdateUserCommand>
     public UpdateUserValidator()
     {
         RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.PhoneNumber).MustBeValidOptionalPhone();
         RuleFor(x => x.Role).NotEmpty().Must(Roles.IsValid).WithMessage("Role inválida.");
 
         RuleFor(x => x.CollectionPointId)
@@ -67,7 +72,13 @@ public sealed class UpdateUserHandler(IIdentityService identityService, ICurrent
         }
 
         return await identityService.UpdateUserAsync(
-            new UpdateUserRequest(command.UserId, command.FullName, command.Role, command.CollectionPointId),
+            new UpdateUserRequest(
+                command.UserId,
+                command.Email,
+                command.FullName,
+                command.PhoneNumber.ToOptionalPhoneNumber(),
+                command.Role,
+                command.CollectionPointId),
             cancellationToken);
     }
 }

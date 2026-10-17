@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, KeyRound, Pencil, UserPlus, Users as UsersIcon } from 'lucide-react'
 import { useState } from 'react'
+import { maskPhone } from '@/lib/phoneInput'
 import { roleLabels, type Role, type UserAccount } from '@/models/types'
 import {
   createUserSchema,
@@ -45,8 +46,24 @@ export function UsersPage() {
   const pointOptions: SelectOption[] = points.map((p) => ({ value: p.id, label: p.name }))
   const pointNameById = new Map(points.map((p) => [p.id, p.name]))
 
+  const emailField: FormFieldConfig = {
+    name: 'email',
+    type: 'email',
+    label: 'E-mail',
+    autoComplete: 'off',
+    required: true,
+  }
+
   const userFields: FormFieldConfig[] = [
     { name: 'fullName', type: 'text', label: 'Nome completo', required: true },
+    {
+      name: 'phoneNumber',
+      type: 'text',
+      label: 'Telefone',
+      mask: 'phone',
+      autoComplete: 'off',
+      placeholder: '(49) 99999-9999',
+    },
     { name: 'role', type: 'select', label: 'Papel', options: roleOptions, required: true },
     {
       name: 'collectionPointId',
@@ -59,7 +76,7 @@ export function UsersPage() {
   ]
 
   const createFields: FormFieldConfig[] = [
-    { name: 'email', type: 'email', label: 'E-mail', required: true },
+    emailField,
     {
       name: 'password',
       type: 'password',
@@ -70,10 +87,16 @@ export function UsersPage() {
     ...userFields,
   ]
 
+  const editFields: FormFieldConfig[] = [
+    { ...emailField, hint: 'Ao trocar o e-mail, as sessões abertas deste usuário são encerradas.' },
+    ...userFields,
+  ]
+
   const createDefaults: CreateUserForm = {
     email: '',
     password: '',
     fullName: '',
+    phoneNumber: '',
     role: 'PointManager',
     collectionPointId: isAdmin ? '' : ownPointId,
   }
@@ -89,7 +112,9 @@ export function UsersPage() {
   }
 
   const editDefaults: UpdateUserForm | null = editingUser && {
+    email: editingUser.email,
     fullName: editingUser.fullName,
+    phoneNumber: maskPhone(editingUser.phoneNumber ?? ''),
     role: editingUser.roles[0] ?? 'Viewer',
     collectionPointId: editingUser.collectionPointId ?? '',
   }
@@ -107,6 +132,12 @@ export function UsersPage() {
       accessorKey: 'email',
       header: 'E-mail',
       meta: { label: 'E-mail', filterPlaceholder: 'Filtrar e-mail…' },
+    },
+    {
+      id: 'phoneNumber',
+      accessorFn: (row) => row.phoneNumber ?? '—',
+      header: 'Telefone',
+      meta: { label: 'Telefone', filterPlaceholder: 'Filtrar telefone…' },
     },
     {
       id: 'roles',
@@ -215,14 +246,14 @@ export function UsersPage() {
           open={!!editingUser}
           onOpenChange={(open) => !open && setEditingUser(null)}
           title="Editar usuário"
-          description={`Atualize o papel e o ponto de coleta de ${editingUser.fullName}.`}
+          description={`Atualize os dados de acesso e de contato de ${editingUser.fullName}.`}
         >
           {updateError && <Alert tone="error">{updateError.displayMessage}</Alert>}
           <FormComponent
             key={editingUser.id}
             schema={updateUserSchema}
             defaultValues={editDefaults}
-            fields={userFields}
+            fields={editFields}
             onSubmit={async (values) => {
               await update({ id: editingUser.id, values })
               setEditingUser(null)

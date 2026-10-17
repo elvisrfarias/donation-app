@@ -16,7 +16,8 @@ public sealed record RegisterUserCommand(
     string Password,
     string FullName,
     string Role,
-    Guid? CollectionPointId) : IRequest<ErrorOr<UserResponse>>;
+    Guid? CollectionPointId,
+    string? PhoneNumber = null) : IRequest<ErrorOr<UserResponse>>;
 
 public sealed class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
 {
@@ -25,6 +26,7 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Password).MustSatisfyPasswordPolicy();
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.PhoneNumber).MustBeValidOptionalPhone();
         RuleFor(x => x.Role).NotEmpty().Must(Roles.IsValid).WithMessage("Role inválida.");
 
         RuleFor(x => x.CollectionPointId)
@@ -58,7 +60,13 @@ public sealed class RegisterUserHandler(IIdentityService identityService, ICurre
         }
 
         return identityService.RegisterAsync(
-            new RegisterRequest(command.Email, command.Password, command.FullName, command.Role, command.CollectionPointId),
+            new RegisterRequest(
+                command.Email,
+                command.Password,
+                command.FullName,
+                command.Role,
+                command.CollectionPointId,
+                command.PhoneNumber.ToOptionalPhoneNumber()),
             cancellationToken);
     }
 }
