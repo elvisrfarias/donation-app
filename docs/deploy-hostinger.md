@@ -1,12 +1,21 @@
 # Deploy em VPS KVM (Hostinger)
 
-Produção roda numa única VPS com Docker Compose. Só o **Caddy** publica portas (80/443) e emite o certificado
-Let's Encrypt sozinho; banco, MinIO, API e frontend ficam na rede interna.
+Produção roda numa única VPS com Docker Compose. Só o **nginx de borda** (`edge`) publica portas (80/443);
+banco, MinIO, API e frontend ficam na rede interna. O Cloudflare fica na frente (DNS com proxy).
 
 ```
-internet ─► Caddy ─┬─ APP_DOMAIN     ─► frontend (nginx) ─► /api ─► api ─► postgres
-                   └─ STORAGE_DOMAIN ─► minio (URLs pré-assinadas das imagens)
+internet ─► Cloudflare ─► edge (nginx) ─┬─ APP_DOMAIN     ─► frontend (nginx) ─► /api ─► api ─► postgres
+                                        └─ STORAGE_DOMAIN ─► minio (só GET de URLs pré-assinadas)
 ```
+
+- **TLS**: o container `certbot` emite e renova os certificados Let's Encrypt (HTTP-01 pelo webroot do
+  edge) e os grava em `/certs`; o edge recarrega sozinho quando eles mudam. No primeiro boot ele cria um
+  autoassinado temporário para o nginx subir. No Cloudflare, use SSL/TLS no modo **Full (strict)**.
+- **Edge** (`edge/`): TLS 1.2+, HSTS, IP real do visitante via `CF-Connecting-IP` (só das faixas do
+  Cloudflare), limites por IP, hosts/SNI desconhecidos descartados e a API admin do MinIO bloqueada.
+  Se as faixas do Cloudflare mudarem, atualize `edge/snippets/cloudflare-realip.conf`.
+- **Frontend**: CSP, cabeçalhos de segurança e cache em `frontend/nginx/`.
+- Containers sem capabilities (`cap_drop: ALL`) e com `no-new-privileges`; o edge roda read-only.
 
 ## Pré-requisitos
 
@@ -33,7 +42,7 @@ internet ─► Caddy ─┬─ APP_DOMAIN     ─► frontend (nginx) ─► /a
 
 | Variável | Observação |
 |---|---|
-| `APP_DOMAIN`, `STORAGE_DOMAIN`, `ACME_EMAIL` | Usadas pelo Caddy; sem DNS correto o certificado não é emitido |
+| `APP_DOMAIN`, `STORAGE_DOMAIN`, `ACME_EMAIL` | Usadas pelo edge e pelo certbot; sem DNS correto o certificado não é emitido (`docker logs doacao-certbot`) |
 | `Jwt__Secret` | ≥ 32 caracteres; trocar invalida as sessões |
 | `POSTGRES_PASSWORD` | Deve ser a mesma usada em `ConnectionStrings__Database` |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do bucket |

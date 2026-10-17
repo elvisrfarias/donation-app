@@ -55,4 +55,30 @@ describe('tokenStorage', () => {
 
     expect(tokenStorage.get()).toBeNull()
   })
+
+  it('adota a sessão gravada por outra aba (evento storage) em vez do cache em memória', () => {
+    tokenStorage.save(authResult)
+    const rotatedJson = JSON.stringify({
+      ...tokenStorage.get(),
+      accessToken: 'access-2',
+      refreshToken: 'refresh-2',
+    })
+    localStorage.setItem('doacao.auth.session', rotatedJson)
+
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'doacao.auth.session', newValue: rotatedJson }),
+    )
+
+    expect(tokenStorage.getRefreshToken()).toBe('refresh-2')
+  })
+
+  it('reload() relê o localStorage mesmo com sessão em cache', () => {
+    tokenStorage.save(authResult)
+    localStorage.setItem(
+      'doacao.auth.session',
+      JSON.stringify({ ...tokenStorage.get(), refreshToken: 'refresh-de-outra-aba' }),
+    )
+
+    expect(tokenStorage.reload()?.refreshToken).toBe('refresh-de-outra-aba')
+  })
 })

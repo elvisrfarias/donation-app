@@ -27,6 +27,11 @@ export interface LoginInput {
   password: string
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string
+  newPassword: string
+}
+
 export const roleLabels: Record<Role, string> = {
   Admin: 'Administrador',
   PointManager: 'Gestor de Ponto',

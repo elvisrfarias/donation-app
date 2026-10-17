@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace DoacaoApp.Application.Storage;
 
 /// <summary>Restrições de upload de imagens — aplicadas na validação dos comandos.</summary>
@@ -8,18 +10,27 @@ public static class SupportedImage
 
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
+    private static readonly FrozenDictionary<string, string> ExtensionsByContentType =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["image/jpeg"] = ".jpg",
+            ["image/png"] = ".png",
+            ["image/webp"] = ".webp",
+            ["image/gif"] = ".gif",
+            ["image/avif"] = ".avif",
+        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Content-types aceitos (comparação case-insensitive).</summary>
-    public static readonly IReadOnlySet<string> ContentTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-        "image/avif",
-    };
+    public static IReadOnlyCollection<string> ContentTypes => ExtensionsByContentType.Keys;
 
     public static bool IsAllowed(string? contentType) =>
-        !string.IsNullOrWhiteSpace(contentType) && ContentTypes.Contains(contentType);
+        !string.IsNullOrWhiteSpace(contentType) && ExtensionsByContentType.ContainsKey(contentType);
+
+    /// <summary>
+    /// Extensão do objeto no storage derivada do content-type já validado — nunca do nome do arquivo
+    /// enviado pelo cliente, que poderia gravar algo como <c>.html</c> ou <c>.svg</c> no bucket.
+    /// </summary>
+    public static string ExtensionFor(string contentType) => ExtensionsByContentType[contentType];
 
     /// <summary>
     /// Confere os primeiros bytes do arquivo contra a assinatura real do formato — o

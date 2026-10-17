@@ -2,6 +2,7 @@ import { http } from '@/models/api/httpClient'
 import type {
   AddBeneficiaryKinshipInput,
   Beneficiary,
+  BeneficiaryCpfLookup,
   BeneficiaryWithdrawalHistory,
   RegisterBeneficiaryInput,
   UpdateBeneficiaryInput,
@@ -18,10 +19,16 @@ export const beneficiaryService = {
     return data
   },
 
-  /** Busca rápida do beneficiário pelo CPF, no município inteiro (usada no registro de retirada). */
-  async findByCpf(cpf: string): Promise<Beneficiary> {
+  /**
+   * Busca rápida do beneficiário pelo CPF, no município inteiro (balcão de retirada e cadastro).
+   * O CPF vai no corpo do POST para não aparecer em URLs/logs de acesso; sem vínculo com o ponto,
+   * o backend devolve só a projeção mascarada.
+   */
+  async lookupByCpf(cpf: string): Promise<BeneficiaryCpfLookup> {
     const digits = cpf.replace(/\D/g, '')
-    const { data } = await http.get<Beneficiary>(`/beneficiaries/by-cpf/${digits}`)
+    const { data } = await http.post<BeneficiaryCpfLookup>('/beneficiaries/lookup-by-cpf', {
+      cpf: digits,
+    })
     return data
   },
 

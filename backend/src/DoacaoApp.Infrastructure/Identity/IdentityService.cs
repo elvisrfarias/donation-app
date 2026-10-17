@@ -11,7 +11,9 @@ namespace DoacaoApp.Infrastructure.Identity;
 
 /// <summary>
 /// Implementação de <see cref="IIdentityService"/> sobre o ASP.NET Core Identity.
-/// Orquestra criação/login de usuários, emissão de JWT e rotação de refresh tokens.
+/// Orquestra criação/login de usuários, emissão de JWT e rotação de refresh tokens. Refresh tokens são
+/// persistidos só como hash SHA-256; qualquer mudança sensível (senha, papel, ponto, desativação) troca o
+/// security stamp e revoga todos os refresh tokens do usuário, derrubando as sessões existentes.
 /// </summary>
 public sealed class IdentityService(
     UserManager<ApplicationUser> userManager,
@@ -20,9 +22,15 @@ public sealed class IdentityService(
     IDateTimeProvider clock,
     IOptions<JwtOptions> jwtOptions) : IIdentityService
 {
+    private const string DummyPasswordForTimingEqualization = "senha-inexistente-para-equalizar-tempo-1";
+
+    private static readonly TimeSpan ConcurrentRotationGracePeriod = TimeSpan.FromSeconds(30);
+
+    private static string? _dummyPasswordHash;
+
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
 
-    public async Task<ErrorOr<AuthResult>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    public async Task<ErrorOr<UserResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         if (!Roles.IsValid(request.Role))
         {
@@ -52,20 +60,16 @@ public sealed class IdentityService(
 
         await userManager.AddToRoleAsync(user, request.Role);
 
-        return await IssueTokensAsync(user, cancellationToken);
+        return await ToUserResponseAsync(user);
     }
 
     public async Task<ErrorOr<AuthResult>> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByEmailAsync(email);
-        if (user is null)
+        if (user is null || await userManager.IsLockedOutAsync(user))
         {
+            VerifyAgainstDummyHash(password);
             return AuthErrors.InvalidCredentials;
-        }
-
-        if (await userManager.IsLockedOutAsync(user))
-        {
-            return AuthErrors.AccountLockedOut;
         }
 
         if (!await userManager.CheckPasswordAsync(user, password))
@@ -83,16 +87,29 @@ public sealed class IdentityService(
     {
         var now = clock.UtcNow;
 
-        var stored = await dbContext.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == refreshToken, cancellationToken);
+        var stored = await FindRefreshTokenAsync(refreshToken, cancellationToken);
+        if (stored is null)
+        {
+            return AuthErrors.InvalidRefreshToken;
+        }
 
-        if (stored is null || !stored.IsActive(now))
+        if (stored.IsRevoked)
+        {
+            if (!IsConcurrentRotationRace(stored, now))
+            {
+                await RevokeAllRefreshTokensAsync(stored.UserId, cancellationToken);
+            }
+
+            return AuthErrors.InvalidRefreshToken;
+        }
+
+        if (!stored.IsActive(now))
         {
             return AuthErrors.InvalidRefreshToken;
         }
 
         var user = await userManager.FindByIdAsync(stored.UserId.ToString());
-        if (user is null)
+        if (user is null || await userManager.IsLockedOutAsync(user))
         {
             return AuthErrors.InvalidRefreshToken;
         }
@@ -104,9 +121,7 @@ public sealed class IdentityService(
 
     public async Task<ErrorOr<Success>> RevokeAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        var stored = await dbContext.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == refreshToken, cancellationToken);
-
+        var stored = await FindRefreshTokenAsync(refreshToken, cancellationToken);
         if (stored is null || stored.IsRevoked)
         {
             return AuthErrors.InvalidRefreshToken;
@@ -150,14 +165,23 @@ public sealed class IdentityService(
             return AuthErrors.UserNotFound;
         }
 
+        var currentRoles = await userManager.GetRolesAsync(user);
+        var accessChanged = user.CollectionPointId != request.CollectionPointId
+            || currentRoles.Count != 1
+            || currentRoles[0] != request.Role;
+
         user.FullName = request.FullName;
         user.CollectionPointId = request.CollectionPointId;
 
-        var currentRoles = await userManager.GetRolesAsync(user);
         await userManager.RemoveFromRolesAsync(user, currentRoles);
         await userManager.AddToRoleAsync(user, request.Role);
 
         await userManager.UpdateAsync(user);
+
+        if (accessChanged)
+        {
+            await EndAllSessionsAsync(user, cancellationToken);
+        }
 
         return await ToUserResponseAsync(user);
     }
@@ -172,8 +196,132 @@ public sealed class IdentityService(
 
         await userManager.SetLockoutEnabledAsync(user, true);
         await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+        await EndAllSessionsAsync(user, cancellationToken);
 
         return Result.Success;
+    }
+
+    public async Task<ErrorOr<AuthResult>> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId.ToString());
+        if (user is null || await userManager.IsLockedOutAsync(user))
+        {
+            return AuthErrors.NotAuthenticated;
+        }
+
+        if (!await userManager.CheckPasswordAsync(user, request.CurrentPassword))
+        {
+            await userManager.AccessFailedAsync(user);
+            return AuthErrors.InvalidCurrentPassword;
+        }
+
+        var passwordSet = await ReplacePasswordAsync(user, request.NewPassword);
+        if (passwordSet.IsError)
+        {
+            return passwordSet.Errors;
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
+        await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+
+        return await IssueTokensAsync(user, cancellationToken);
+    }
+
+    public async Task<ErrorOr<Success>> ResetPasswordAsync(Guid userId, string newPassword, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return AuthErrors.UserNotFound;
+        }
+
+        var passwordSet = await ReplacePasswordAsync(user, newPassword);
+        if (passwordSet.IsError)
+        {
+            return passwordSet.Errors;
+        }
+
+        await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+
+        return Result.Success;
+    }
+
+    public async Task<bool> IsSessionValidAsync(Guid userId, string securityStamp, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+
+        // Só a desativação (lockout permanente) derruba a sessão a cada requisição. O lockout
+        // temporário por senhas erradas não: senão qualquer um que soubesse o e-mail de alguém
+        // poderia expulsá-lo errando a senha 5 vezes. Ele continua barrando login e refresh.
+        return user is not null
+            && user.LockoutEnd != DateTimeOffset.MaxValue
+            && string.Equals(user.SecurityStamp, securityStamp, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Valida a nova senha contra a política do Identity antes de tocar no hash (para nunca deixar o usuário
+    /// sem senha) e grava hash + novo security stamp numa única atualização.
+    /// </summary>
+    private async Task<ErrorOr<Success>> ReplacePasswordAsync(ApplicationUser user, string newPassword)
+    {
+        var validationErrors = new List<IdentityError>();
+        foreach (var validator in userManager.PasswordValidators)
+        {
+            var validation = await validator.ValidateAsync(userManager, user, newPassword);
+            validationErrors.AddRange(validation.Errors);
+        }
+
+        if (validationErrors.Count > 0)
+        {
+            return AuthErrors.PasswordRejected(string.Join("; ", validationErrors.Select(e => e.Description)));
+        }
+
+        user.PasswordHash = userManager.PasswordHasher.HashPassword(user, newPassword);
+        await userManager.UpdateSecurityStampAsync(user);
+
+        return Result.Success;
+    }
+
+    private async Task EndAllSessionsAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        await userManager.UpdateSecurityStampAsync(user);
+        await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+    }
+
+    private Task<int> RevokeAllRefreshTokensAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+
+        return dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAtUtc == null && t.ExpiresAtUtc > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAtUtc, now), cancellationToken);
+    }
+
+    /// <summary>
+    /// Reuso de um token já revogado indica roubo, e derruba todas as sessões do usuário. A exceção é um token
+    /// recém-rotacionado apresentado de novo dentro de poucos segundos: é a corrida de duas abas renovando ao
+    /// mesmo tempo, e só aquela requisição é recusada.
+    /// </summary>
+    private static bool IsConcurrentRotationRace(RefreshToken token, DateTime nowUtc) =>
+        token.ReplacedByToken is not null
+        && token.RevokedAtUtc is { } revokedAt
+        && nowUtc - revokedAt < ConcurrentRotationGracePeriod;
+
+    private Task<RefreshToken?> FindRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var tokenHash = RefreshTokenHasher.Hash(refreshToken);
+        return dbContext.RefreshTokens.FirstOrDefaultAsync(t => t.Token == tokenHash, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gasta o mesmo custo de BCrypt de uma senha real quando o e-mail não existe ou a conta está bloqueada,
+    /// para o tempo de resposta não revelar qual dos casos aconteceu.
+    /// </summary>
+    private void VerifyAgainstDummyHash(string password)
+    {
+        var dummyUser = new ApplicationUser();
+        _dummyPasswordHash ??= userManager.PasswordHasher.HashPassword(dummyUser, DummyPasswordForTimingEqualization);
+        userManager.PasswordHasher.VerifyHashedPassword(dummyUser, _dummyPasswordHash, password);
     }
 
     private async Task<UserResponse> ToUserResponseAsync(ApplicationUser user)
@@ -189,25 +337,31 @@ public sealed class IdentityService(
         CancellationToken cancellationToken,
         RefreshToken? replaced = null)
     {
+        if (string.IsNullOrEmpty(user.SecurityStamp))
+        {
+            await userManager.UpdateSecurityStampAsync(user);
+        }
+
         var roles = await userManager.GetRolesAsync(user);
         var (accessToken, accessExpires) = tokenGenerator.GenerateAccessToken(user, roles);
 
         var now = clock.UtcNow;
         var refreshValue = tokenGenerator.GenerateRefreshToken();
+        var refreshHash = RefreshTokenHasher.Hash(refreshValue);
         var refreshExpires = now.AddHours(_jwtOptions.RefreshTokenHours);
 
         dbContext.RefreshTokens.Add(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            Token = refreshValue,
+            Token = refreshHash,
             CreatedAtUtc = now,
             ExpiresAtUtc = refreshExpires,
         });
 
         if (replaced is not null)
         {
-            replaced.ReplacedByToken = refreshValue;
+            replaced.ReplacedByToken = refreshHash;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

@@ -12,7 +12,8 @@ namespace DoacaoApp.Application.CollectionPoints.Queries;
 /// <summary>
 /// Histórico de retiradas de um beneficiário (todos os pontos) + saldo do ciclo vigente segundo a
 /// regra do ponto consultado. Escopada ao ponto: um gestor consulta apenas pelo próprio ponto, que é
-/// onde a retirada vai acontecer; o histórico em si é compartilhado entre todos os pontos.
+/// onde a retirada vai acontecer, e só de beneficiários vinculados a ele; o histórico em si é
+/// compartilhado entre todos os pontos.
 /// </summary>
 public sealed record GetBeneficiaryWithdrawalHistoryQuery(Guid BeneficiaryId, Guid PointId)
     : IRequest<ErrorOr<BeneficiaryWithdrawalHistoryResponse>>, IScopedToCollectionPoint
@@ -23,7 +24,8 @@ public sealed record GetBeneficiaryWithdrawalHistoryQuery(Guid BeneficiaryId, Gu
 public sealed class GetBeneficiaryWithdrawalHistoryHandler(
     IBeneficiaryRepository beneficiaryRepository,
     ICollectionPointRepository pointRepository,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICurrentUser currentUser)
     : IRequestHandler<GetBeneficiaryWithdrawalHistoryQuery, ErrorOr<BeneficiaryWithdrawalHistoryResponse>>
 {
     /// <summary>
@@ -39,7 +41,7 @@ public sealed class GetBeneficiaryWithdrawalHistoryHandler(
     {
         var beneficiary = await beneficiaryRepository.GetByIdAsync(
             BeneficiaryId.From(query.BeneficiaryId), cancellationToken);
-        if (beneficiary is null)
+        if (beneficiary is null || !currentUser.CanAccess(beneficiary))
         {
             return DomainErrors.Beneficiary.NotFound;
         }

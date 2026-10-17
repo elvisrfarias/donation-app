@@ -25,6 +25,14 @@ public class CpfTests
         result.Value.Formatted.Should().Be("111.444.777-35");
     }
 
+    [Fact]
+    public void Masked_DeveOcultarOsTresPrimeirosDigitosEOsVerificadores()
+    {
+        var result = Cpf.Create("11144477735");
+
+        result.Value.Masked.Should().Be("***.444.777-**");
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

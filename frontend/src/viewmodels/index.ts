@@ -1,5 +1,6 @@
 export { useAuth } from './useAuth'
 export { useLoginViewModel } from './useLoginViewModel'
+export { useChangePasswordViewModel } from './useChangePasswordViewModel'
 export { useCollectionPointsMapViewModel } from './useCollectionPointsMapViewModel'
 export type { MapFilters } from './useCollectionPointsMapViewModel'
 export {
@@ -31,7 +32,13 @@ export {
   useUpdateBeneficiary,
 } from './useBeneficiariesViewModel'
 export { useRegisterWithdrawal, useUpdateWithdrawal } from './useRegisterWithdrawalViewModel'
-export { useCreateUser, useDeactivateUser, useUpdateUser, useUsers } from './useUsersViewModel'
+export {
+  useCreateUser,
+  useDeactivateUser,
+  useResetUserPassword,
+  useUpdateUser,
+  useUsers,
+} from './useUsersViewModel'
 export { useReviewsViewModel } from './useReviewsViewModel'
 export * from './schemas'
 export {

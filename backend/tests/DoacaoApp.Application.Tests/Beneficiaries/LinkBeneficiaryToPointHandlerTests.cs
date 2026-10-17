@@ -1,10 +1,12 @@
 using DoacaoApp.Application.Beneficiaries.Commands;
+using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.Tests.Common;
 using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -15,6 +17,7 @@ public class LinkBeneficiaryToPointHandlerTests
     private readonly Mock<IBeneficiaryRepository> _beneficiaryRepo = new();
     private readonly Mock<ICollectionPointRepository> _pointRepo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
+    private readonly Mock<ICurrentUser> _currentUser = new();
     private readonly FakeClock _clock = new(TestData.Now);
 
     public LinkBeneficiaryToPointHandlerTests()
@@ -23,7 +26,13 @@ public class LinkBeneficiaryToPointHandlerTests
     }
 
     private LinkBeneficiaryToPointHandler CreateSut() =>
-        new(_beneficiaryRepo.Object, _pointRepo.Object, _unitOfWork.Object, _clock);
+        new(
+            _beneficiaryRepo.Object,
+            _pointRepo.Object,
+            _unitOfWork.Object,
+            _clock,
+            _currentUser.Object,
+            NullLogger<LinkBeneficiaryToPointHandler>.Instance);
 
     [Fact]
     public async Task Handle_BeneficiarioDeOutroPonto_VinculaAoPontoESalva()

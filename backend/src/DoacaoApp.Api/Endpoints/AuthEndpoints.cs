@@ -11,6 +11,9 @@ namespace DoacaoApp.Api.Endpoints;
 /// <summary>Corpo de uma requisição de atualização de usuário (o Id vem na rota).</summary>
 public sealed record UpdateUserRequestBody(string FullName, string Role, Guid? CollectionPointId);
 
+/// <summary>Corpo de uma redefinição administrativa de senha (o Id vem na rota).</summary>
+public sealed record ResetPasswordRequestBody(string NewPassword);
+
 /// <summary>Endpoints de autenticação (Minimal API). Protegidos por rate limiting.</summary>
 public static class AuthEndpoints
 {
@@ -29,7 +32,8 @@ public static class AuthEndpoints
         group.MapPost("/register", async (RegisterUserCommand command, ISender sender, CancellationToken ct) =>
                 (await sender.Send(command, ct)).Match(value => Results.Ok(value)))
             .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
-            .Produces<AuthResult>()
+            .Produces<UserResponse>()
+            .ProducesValidationProblem()
             .WithSummary("Cria um novo usuário gerencial (Admin cria qualquer papel; PointManager cria PointManager/Viewer no seu próprio ponto).");
 
         group.MapPost("/refresh", async (RefreshTokenCommand command, ISender sender, CancellationToken ct) =>
@@ -44,6 +48,14 @@ public static class AuthEndpoints
             .AllowAnonymous()
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Revoga um refresh token (logout).");
+
+        group.MapPost("/change-password", async (ChangePasswordCommand command, ISender sender, CancellationToken ct) =>
+                (await sender.Send(command, ct)).Match(value => Results.Ok(value)))
+            .RequireAuthorization()
+            .Produces<AuthResult>()
+            .ProducesValidationProblem()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .WithSummary("Troca a senha do usuário autenticado, encerra as demais sessões e devolve um novo par de tokens.");
 
         group.MapGet("/users", async (ISender sender, CancellationToken ct) =>
                 (await sender.Send(new ListUsersQuery(), ct)).Match(value => Results.Ok(value)))
@@ -64,6 +76,13 @@ public static class AuthEndpoints
             .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Desativa um usuário, bloqueando novos logins (Admin qualquer um; PointManager só do seu próprio ponto).");
+
+        group.MapPost("/users/{id:guid}/reset-password", async (Guid id, ResetPasswordRequestBody body, ISender sender, CancellationToken ct) =>
+                (await sender.Send(new ResetUserPasswordCommand(id, body.NewPassword), ct)).Match(_ => Results.NoContent()))
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{Roles.Admin},{Roles.PointManager}" })
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .WithSummary("Redefine a senha de um usuário e encerra as sessões dele (Admin qualquer um; PointManager só do seu próprio ponto).");
 
         return app;
     }

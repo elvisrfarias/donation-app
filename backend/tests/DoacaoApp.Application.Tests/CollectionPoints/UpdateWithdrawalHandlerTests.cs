@@ -13,6 +13,7 @@ namespace DoacaoApp.Application.Tests.CollectionPoints;
 public class UpdateWithdrawalHandlerTests
 {
     private readonly Mock<ICollectionPointRepository> _pointRepo = new();
+    private readonly Mock<IBeneficiaryRepository> _beneficiaryRepo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
 
     public UpdateWithdrawalHandlerTests()
@@ -20,7 +21,53 @@ public class UpdateWithdrawalHandlerTests
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
     }
 
-    private UpdateWithdrawalHandler CreateSut() => new(_pointRepo.Object, _unitOfWork.Object);
+    private UpdateWithdrawalHandler CreateSut() => new(_pointRepo.Object, _beneficiaryRepo.Object, _unitOfWork.Object);
+
+    [Fact]
+    public async Task Handle_BeneficiarioDesvinculadoDoPonto_DeveBloquearENaoSalvar()
+    {
+        var (point, withdrawal, footwear) = GivenEditableClothingWithdrawal();
+        GivenBeneficiaryOfWithdrawal(TestData.Beneficiary());
+
+        var result = await CreateSut().Handle(
+            new UpdateWithdrawalCommand(point.Id.Value, withdrawal.Id.Value, [new WithdrawalItemEntry(footwear.Value, 1)], null),
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Withdrawal.BeneficiaryNotLinkedToPoint");
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_BeneficiarioInativo_DeveBloquearENaoSalvar()
+    {
+        var (point, withdrawal, footwear) = GivenEditableClothingWithdrawal();
+        var inactive = TestData.Beneficiary(pointId: point.Id);
+        inactive.Deactivate();
+        GivenBeneficiaryOfWithdrawal(inactive);
+
+        var result = await CreateSut().Handle(
+            new UpdateWithdrawalCommand(point.Id.Value, withdrawal.Id.Value, [new WithdrawalItemEntry(footwear.Value, 1)], null),
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Withdrawal.BeneficiaryInactive");
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private (CollectionPoint Point, Withdrawal Withdrawal, StockItemId Footwear) GivenEditableClothingWithdrawal()
+    {
+        var point = TestData.Point();
+        var clothing = TestData.AddStockItem(point, "Camiseta", "un", 10, categoryId: TestData.AddCategory(point, "Roupas"));
+        var footwear = TestData.AddStockItem(point, "Sandália", "par", 5, categoryId: TestData.AddCategory(point, "Calçados"));
+        var withdrawal = point.RegisterWithdrawal(
+            TestData.Beneficiary(), [TestData.Item(clothing)], 0, TestData.Now, null).Value;
+        GivenRepositories(point, beneficiaryHistory: [withdrawal], countInCycle: 0);
+        return (point, withdrawal, footwear);
+    }
+
+    private void GivenBeneficiaryOfWithdrawal(Beneficiary beneficiary) =>
+        _beneficiaryRepo
+            .Setup(r => r.GetByIdAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(beneficiary);
 
     [Fact]
     public async Task Handle_QuandoEAMaisRecenteDoBeneficiario_DeveAtualizarESalvar()
@@ -234,6 +281,7 @@ public class UpdateWithdrawalHandlerTests
 
     private void GivenRepositories(CollectionPoint point, IReadOnlyList<Withdrawal> beneficiaryHistory, int countInCycle)
     {
+        GivenBeneficiaryOfWithdrawal(TestData.Beneficiary(pointId: point.Id));
         _pointRepo.Setup(r => r.GetByIdAsync(point.Id, It.IsAny<CancellationToken>())).ReturnsAsync(point);
         _pointRepo
             .Setup(r => r.GetBeneficiaryWithdrawalHistoryAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()))

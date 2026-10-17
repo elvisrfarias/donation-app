@@ -1,4 +1,5 @@
 using DoacaoApp.Application.CollectionPoints.Queries;
+using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.Tests.Common;
 using DoacaoApp.Domain.Beneficiaries;
@@ -13,10 +14,13 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
 {
     private readonly Mock<IBeneficiaryRepository> _beneficiaryRepo = new();
     private readonly Mock<ICollectionPointRepository> _pointRepo = new();
+    private readonly Mock<ICurrentUser> _currentUser = new();
     private readonly FakeClock _clock = new(TestData.Now);
 
+    public GetBeneficiaryWithdrawalHistoryHandlerTests() => _currentUser.Setup(u => u.IsAdmin).Returns(true);
+
     private GetBeneficiaryWithdrawalHistoryHandler CreateSut() =>
-        new(_beneficiaryRepo.Object, _pointRepo.Object, _clock);
+        new(_beneficiaryRepo.Object, _pointRepo.Object, _clock, _currentUser.Object);
 
     [Fact]
     public async Task Handle_RetornaOSaldoDoCicloSegundoARegraDoPontoConsultado()
@@ -96,6 +100,36 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_GestorConsultandoBeneficiarioNaoVinculadoAoSeuPonto_RetornaNotFound()
+    {
+        var point = GivenPoint(maxPerCycle: 3);
+        var beneficiary = GivenBeneficiaryWithUsage(point, usedInCycle: 0);
+        GivenManagerOf(point);
+
+        var result = await CreateSut().Handle(
+            new GetBeneficiaryWithdrawalHistoryQuery(beneficiary.Id.Value, point.Id.Value), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Beneficiary.NotFound");
+        _pointRepo.Verify(
+            r => r.GetBeneficiaryWithdrawalHistoryAsync(It.IsAny<BeneficiaryId>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_GestorConsultandoBeneficiarioVinculadoAoSeuPonto_RetornaOHistorico()
+    {
+        var point = GivenPoint(maxPerCycle: 3);
+        var beneficiary = GivenBeneficiaryWithUsage(point, usedInCycle: 0);
+        beneficiary.LinkToPoint(point.Id, TestData.Now);
+        GivenManagerOf(point);
+
+        var result = await CreateSut().Handle(
+            new GetBeneficiaryWithdrawalHistoryQuery(beneficiary.Id.Value, point.Id.Value), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Handle_BeneficiarioInexistente_RetornaNotFound()
     {
         var point = GivenPoint(maxPerCycle: 1);
@@ -133,6 +167,12 @@ public class GetBeneficiaryWithdrawalHistoryHandlerTests
 
         query.Should().BeAssignableTo<IScopedToCollectionPoint>()
             .Which.CollectionPointId.Should().Be(pointId);
+    }
+
+    private void GivenManagerOf(CollectionPoint point)
+    {
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(point.Id.Value);
     }
 
     private CollectionPoint GivenPoint(int maxPerCycle)

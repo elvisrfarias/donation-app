@@ -22,9 +22,16 @@ RUN pnpm run build
 #  Imagem "unprivileged": todo o processo (master + workers) roda como usuário
 #  não-root desde o boot — por isso a porta é 8080, não 80 (privilegiada).
 # ============================================================================
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+# 1.30 = linha estável atual (a 1.27 saiu de suporte e vinha com OpenSSL vulnerável).
+FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
-COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
+# Configuração como template: o entrypoint oficial roda envsubst em /etc/nginx/templates
+# e grava em /etc/nginx/conf.d. O filtro limita a troca às variáveis do app, preservando
+# as variáveis do próprio nginx ($host, $uri…).
+ENV NGINX_ENVSUBST_FILTER=^STORAGE_PUBLIC_URL$ \
+    STORAGE_PUBLIC_URL=http://localhost:9000
+COPY nginx/default.conf /etc/nginx/templates/default.conf.template
+COPY nginx/security-headers.inc /etc/nginx/templates/security-headers.inc.template
 COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 
 # White-label em runtime: gera /theme.css a partir de BRAND_PRIMARY no boot.

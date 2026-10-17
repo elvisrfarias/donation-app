@@ -1,5 +1,6 @@
 using DoacaoApp.Application.Beneficiaries.Contracts;
 using DoacaoApp.Application.Common.Abstractions;
+using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
@@ -13,7 +14,8 @@ namespace DoacaoApp.Application.Beneficiaries.Commands;
 /// <summary>
 /// Registra um vínculo de parentesco de um beneficiário com outro (localizado pelo CPF).
 /// O vínculo é sempre espelhado no outro beneficiário com o tipo inverso. Os vínculos são
-/// informativos: não alteram a cota de retiradas de nenhum dos dois.
+/// informativos: não alteram a cota de retiradas de nenhum dos dois. Um gestor só registra vínculos
+/// de beneficiários vinculados ao seu ponto.
 /// </summary>
 public sealed record AddBeneficiaryKinshipCommand(
     Guid BeneficiaryId,
@@ -33,7 +35,8 @@ public sealed class AddBeneficiaryKinshipValidator : AbstractValidator<AddBenefi
 public sealed class AddBeneficiaryKinshipHandler(
     IBeneficiaryRepository repository,
     IUnitOfWork unitOfWork,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICurrentUser currentUser)
     : IRequestHandler<AddBeneficiaryKinshipCommand, ErrorOr<BeneficiaryResponse>>
 {
     public async Task<ErrorOr<BeneficiaryResponse>> Handle(
@@ -41,7 +44,7 @@ public sealed class AddBeneficiaryKinshipHandler(
         CancellationToken cancellationToken)
     {
         var subject = await repository.GetByIdAsync(BeneficiaryId.From(command.BeneficiaryId), cancellationToken);
-        if (subject is null)
+        if (subject is null || !currentUser.CanAccess(subject))
         {
             return DomainErrors.Beneficiary.NotFound;
         }

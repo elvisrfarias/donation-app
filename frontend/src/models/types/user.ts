@@ -18,6 +18,10 @@ export interface CreateUserInput {
   collectionPointId?: string | null
 }
 
+export interface ResetUserPasswordInput {
+  newPassword: string
+}
+
 export interface UpdateUserInput {
   fullName: string
   role: Role

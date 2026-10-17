@@ -8,9 +8,6 @@ public static class AuthErrors
     public static Error InvalidCredentials =>
         Error.Unauthorized("Auth.InvalidCredentials", "E-mail ou senha inválidos.");
 
-    public static Error AccountLockedOut =>
-        Error.Unauthorized("Auth.AccountLockedOut", "Conta temporariamente bloqueada por excesso de tentativas. Tente novamente mais tarde.");
-
     public static Error InvalidRefreshToken =>
         Error.Unauthorized("Auth.InvalidRefreshToken", "Refresh token inválido, expirado ou revogado.");
 
@@ -28,4 +25,13 @@ public static class AuthErrors
 
     public static Error RegistrationFailed(string detail) =>
         Error.Validation("Auth.RegistrationFailed", detail);
+
+    public static Error InvalidCurrentPassword =>
+        Error.Validation("Auth.InvalidCurrentPassword", "A senha atual não confere.");
+
+    public static Error PasswordRejected(string detail) =>
+        Error.Validation("Auth.PasswordRejected", detail);
+
+    public static Error NotAuthenticated =>
+        Error.Unauthorized("Auth.NotAuthenticated", "Sessão inválida. Faça login novamente.");
 }

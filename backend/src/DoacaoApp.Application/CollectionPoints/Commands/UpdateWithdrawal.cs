@@ -1,5 +1,6 @@
 using DoacaoApp.Application.Common.Security;
 using DoacaoApp.Application.CollectionPoints.Contracts;
+using DoacaoApp.Domain.Beneficiaries;
 using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.Errors;
@@ -12,7 +13,8 @@ namespace DoacaoApp.Application.CollectionPoints.Commands;
 /// <summary>
 /// Corrige os itens/observações/cesta de uma retirada já registrada. Só a retirada mais recente do
 /// beneficiário (considerando TODOS os pontos do município) pode ser editada — um ajuste tardio
-/// poderia destoar do estoque e do histórico de ciclo já consolidados desde então.
+/// poderia destoar do estoque e do histórico de ciclo já consolidados desde então. Como no registro, o
+/// beneficiário precisa continuar ativo e vinculado ao ponto.
 /// </summary>
 public sealed record UpdateWithdrawalCommand(
     Guid PointId,
@@ -47,6 +49,7 @@ public sealed class UpdateWithdrawalValidator : AbstractValidator<UpdateWithdraw
 
 public sealed class UpdateWithdrawalHandler(
     ICollectionPointRepository pointRepository,
+    IBeneficiaryRepository beneficiaryRepository,
     IUnitOfWork unitOfWork)
     : IRequestHandler<UpdateWithdrawalCommand, ErrorOr<WithdrawalResponse>>
 {
@@ -65,6 +68,18 @@ public sealed class UpdateWithdrawalHandler(
         if (existing is null)
         {
             return DomainErrors.Withdrawal.NotFound;
+        }
+
+        var beneficiary = await beneficiaryRepository.GetByIdAsync(existing.BeneficiaryId, cancellationToken);
+        if (beneficiary is null)
+        {
+            return DomainErrors.Beneficiary.NotFound;
+        }
+
+        var eligibility = WithdrawalEligibility.Check(beneficiary, point.Id);
+        if (eligibility.IsError)
+        {
+            return eligibility.Errors;
         }
 
         var beneficiaryHistory = await pointRepository.GetBeneficiaryWithdrawalHistoryAsync(

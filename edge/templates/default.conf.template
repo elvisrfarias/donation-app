@@ -1,0 +1,128 @@
+# nginx de borda (único container com portas publicadas: 80 e 443 do host).
+# Template processado por envsubst no boot: só ${APP_DOMAIN} e ${STORAGE_DOMAIN}
+# são trocados (NGINX_ENVSUBST_FILTER no compose). Certificados em /certs/<domínio>/,
+# mantidos pelo container certbot.
+
+# ---- HTTP (80): só a validação do Let's Encrypt e o redirecionamento para HTTPS ----
+server {
+    listen 8080 default_server;
+    listen [::]:8080 default_server;
+    server_name _;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    # Healthcheck do container (só de dentro dele).
+    location = /healthz {
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # Hosts desconhecidos (scanners batendo no IP) são descartados sem resposta.
+    location / {
+        return 444;
+    }
+}
+
+server {
+    listen 8080;
+    listen [::]:8080;
+    server_name ${APP_DOMAIN} ${STORAGE_DOMAIN};
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---- HTTPS: SNI desconhecido é recusado já no handshake ----
+server {
+    listen 8443 ssl default_server;
+    listen [::]:8443 ssl default_server;
+    http2 on;
+    ssl_reject_handshake on;
+}
+
+# ---- Aplicação (SPA + API) ----
+server {
+    listen 8443 ssl;
+    listen [::]:8443 ssl;
+    http2 on;
+    server_name ${APP_DOMAIN};
+
+    ssl_certificate     /certs/${APP_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /certs/${APP_DOMAIN}/privkey.pem;
+    include /etc/nginx/snippets/tls.conf;
+
+    # Os cabeçalhos da aplicação (CSP, X-Frame-Options…) vêm do nginx do frontend;
+    # aqui só o HSTS, que é responsabilidade de quem termina o TLS.
+    include /etc/nginx/snippets/hsts.conf;
+
+    limit_conn edge_conn 50;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    set $frontend http://frontend:8080;
+
+    location /api/auth/ {
+        limit_req zone=edge_auth burst=10 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass $frontend;
+    }
+
+    location /api/ {
+        limit_req zone=edge_api burst=40 nodelay;
+        # Uploads de imagem (/api/files) podem chegar a ~10 MB.
+        client_max_body_size 20m;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass $frontend;
+    }
+
+    location / {
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass $frontend;
+    }
+}
+
+# ---- Storage público (MinIO): só leitura de objetos via URL pré-assinada ----
+server {
+    listen 8443 ssl;
+    listen [::]:8443 ssl;
+    http2 on;
+    server_name ${STORAGE_DOMAIN};
+
+    ssl_certificate     /certs/${STORAGE_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /certs/${STORAGE_DOMAIN}/privkey.pem;
+    include /etc/nginx/snippets/tls.conf;
+
+    include /etc/nginx/snippets/hsts.conf;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Cross-Origin-Resource-Policy "cross-origin" always;
+
+    limit_conn edge_conn 50;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    set $minio http://minio:9000;
+
+    # API de administração, métricas e health do MinIO não ficam expostos.
+    location ^~ /minio/ {
+        return 404;
+    }
+
+    location / {
+        # Uploads passam pela API (rede interna); pela internet, só leitura.
+        limit_except GET HEAD {
+            deny all;
+        }
+        limit_req zone=edge_files burst=100 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        # Host original intacto: faz parte da assinatura das URLs pré-assinadas.
+        proxy_pass $minio;
+    }
+}

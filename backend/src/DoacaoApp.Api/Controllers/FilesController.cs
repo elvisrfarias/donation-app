@@ -55,8 +55,12 @@ public sealed class FilesController(ISender sender) : ApiController(sender)
     }
 
     /// <summary>Metadados de um arquivo + URL temporária de download.</summary>
+    /// <remarks>
+    /// Requer a role <c>Admin</c>: a URL assinada dá acesso também a arquivos privados. As imagens
+    /// públicas dos pontos chegam ao mapa pela própria listagem pública de pontos.
+    /// </remarks>
     [HttpGet("{id:guid}")]
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [ProducesResponseType(typeof(StoredFileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
@@ -66,8 +70,9 @@ public sealed class FilesController(ISender sender) : ApiController(sender)
     }
 
     /// <summary>Lista os arquivos de um dono (ex.: fotos de um ponto de coleta).</summary>
+    /// <remarks>Requer a role <c>Admin</c>.</remarks>
     [HttpGet]
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [ProducesResponseType(typeof(IReadOnlyList<StoredFileResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListByOwner(
         [FromQuery] string ownerType,

@@ -77,6 +77,26 @@ export interface Beneficiary {
   kinships: BeneficiaryKinship[]
 }
 
+/**
+ * BeneficiaryCpfLookupResponse do backend (POST /beneficiaries/lookup-by-cpf). Quem já tem acesso
+ * ao cadastro (Admin ou ponto vinculado) recebe o registro completo em `beneficiary`; os demais
+ * recebem só o nome abreviado ("Maria S."), o CPF mascarado e se a pessoa está ativa.
+ */
+export interface BeneficiaryCpfLookup {
+  id: string
+  name: string
+  cpf: string
+  isActive: boolean
+  /** Vínculo com o ponto do gestor logado (sempre `false` para o Admin, que não tem ponto). */
+  isLinkedToMyPoint: boolean
+  beneficiary: Beneficiary | null
+}
+
+/** Se o resultado da busca por CPF já está vinculado ao ponto informado. */
+export function isLookupLinkedTo(lookup: BeneficiaryCpfLookup, pointId: string): boolean {
+  return lookup.beneficiary?.linkedPointIds.includes(pointId) ?? false
+}
+
 export interface RegisterBeneficiaryInput {
   name: string
   cpf: string

@@ -24,12 +24,15 @@ public sealed class WithdrawalsController(ISender sender) : ApiController(sender
 {
     /// <summary>Registra uma retirada de um beneficiário em um ponto de coleta.</summary>
     /// <remarks>
-    /// Bloqueado (409) quando o beneficiário já atingiu o limite do ciclo vigente,
-    /// considerando o histórico de TODOS os pontos do município.
+    /// Bloqueado (409) quando o beneficiário já atingiu o limite do ciclo vigente, considerando o
+    /// histórico de TODOS os pontos do município, ou quando está inativo/não vinculado ao ponto.
+    /// <c>occurredAtUtc</c> é opcional (padrão: agora); não pode estar no futuro e, para gestores,
+    /// não pode ser anterior a 7 dias.
     /// </remarks>
     /// <response code="201">Retirada registrada.</response>
+    /// <response code="400">Dados inválidos ou data da retirada fora da janela permitida.</response>
     /// <response code="404">Beneficiário ou ponto não encontrado.</response>
-    /// <response code="409">Limite de retiradas do ciclo atingido / ponto inativo.</response>
+    /// <response code="409">Limite do ciclo atingido, ponto inativo ou beneficiário inativo/não vinculado ao ponto.</response>
     [HttpPost]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
     [ProducesResponseType(typeof(WithdrawalResponse), StatusCodes.Status201Created)]
@@ -51,7 +54,7 @@ public sealed class WithdrawalsController(ISender sender) : ApiController(sender
     /// </remarks>
     /// <response code="200">Retirada atualizada.</response>
     /// <response code="404">Ponto ou retirada não encontrados.</response>
-    /// <response code="409">Retirada não é mais a mais recente, item sem estoque ou limite do ciclo atingido.</response>
+    /// <response code="409">Retirada não é mais a mais recente, item sem estoque, limite do ciclo atingido ou beneficiário inativo/não vinculado ao ponto.</response>
     [HttpPut("{withdrawalId:guid}")]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
     [ProducesResponseType(typeof(WithdrawalResponse), StatusCodes.Status200OK)]

@@ -14,7 +14,7 @@ mural de avisos e promessas de doação (ver [Colaboração](#colaboração-púb
 |---|---|
 | Backend | .NET 9 / C# 13, Clean Architecture + DDD + CQRS (MediatR), EF Core 9 + PostgreSQL 16 |
 | Frontend | React 19 + Vite 8 + TypeScript, MVVM, Tailwind v4, mapa OpenStreetMap — ver [frontend/README.md](frontend/README.md) |
-| Infra | Docker Compose, MinIO/S3 (imagens), Caddy (TLS em produção) |
+| Infra | Docker Compose, MinIO/S3 (imagens), nginx de borda + certbot (TLS em produção) |
 
 ## Início rápido
 
@@ -45,7 +45,7 @@ Rode sempre da raiz; `make help` lista tudo.
 |---|---|
 | `make dev` / `make dev-reset` | Reinicia a stack de desenvolvimento (o `-reset` apaga banco e arquivos e re-seeda) |
 | `make dev-logs` | Logs do Vite e da API |
-| `make prod` / `make prod-logs` | Stack de produção (nginx + Caddy) — ver [docs/deploy-hostinger.md](docs/deploy-hostinger.md) |
+| `make prod` / `make prod-logs` | Stack de produção (nginx de borda + certbot) — ver [docs/deploy-hostinger.md](docs/deploy-hostinger.md) |
 | `make test` | Testes unitários (Domain + Application) em container do SDK |
 | `make test-integration` | Testes de integração (exigem Docker no host) |
 | `make migration name=Nome` | Nova migration do EF Core |
@@ -86,8 +86,8 @@ Rode sempre da raiz; `make help` lista tudo.
 ├── docker-compose.yml        # base: postgres, minio, api, frontend, pgadmin
 ├── docker-compose.override.yml  # portas expostas (aplicado automaticamente)
 ├── docker-compose.dev.yml    # frontend com Vite + HMR
-├── docker-compose.prod.yml   # produção: só o Caddy publica portas (80/443)
-├── Caddyfile                 # proxy reverso + TLS (Let's Encrypt)
+├── docker-compose.prod.yml   # produção: só o nginx de borda publica portas (80/443)
+├── edge/                     # nginx de borda (TLS, HSTS, limites, IP real) + certbot
 ├── Makefile                  # atalhos (make help)
 └── .env.example / .env.prod.example
 ```
@@ -246,19 +246,19 @@ Com a API no ar: documentação interativa em **`/scalar/v1`** (botão **Authori
 | POST / PUT / DELETE | `/api/collection-points/{id}/basket-templates[/{templateId}]` | Admin, Gestor — receitas de cesta |
 | PUT | `/api/collection-points/{id}/withdrawal-rule` | Admin, Gestor — tipo e máximo do ciclo |
 | GET | `/api/beneficiaries`, `/{id}` | autenticado (Admin: todos; gestor: os vinculados ao seu ponto) |
-| GET | `/api/beneficiaries/by-cpf/{cpf}` | Admin, Gestor (busca municipal, usada na retirada) |
+| POST | `/api/beneficiaries/lookup-by-cpf` (`{ "cpf": "..." }`) | Admin, Gestor — busca municipal no balcão; CPF no corpo (fora de logs). Sem vínculo com o ponto devolve só nome abreviado + CPF mascarado (`beneficiary: null`) e grava log de auditoria |
 | POST / PUT | `/api/beneficiaries`, `/{id}` | Admin, Gestor (os dados valem para todos os pontos) |
-| POST | `/api/beneficiaries/{id}/points` | Admin, Gestor — vincula pessoa já cadastrada a um ponto (409 se já vinculada) |
-| POST | `/api/beneficiaries/{id}/kinships` | Admin, Gestor — parentesco informativo, espelhado |
-| GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, Gestor — histórico + saldo do ciclo pela regra do ponto |
-| POST | `/api/withdrawals` | Admin, Gestor — cesta (receita + quantidade) e/ou itens livres |
-| PUT | `/api/withdrawals/{id}` | Admin, Gestor — só a retirada mais recente do beneficiário |
+| POST | `/api/beneficiaries/{id}/points` | Admin, Gestor — vincula pessoa já cadastrada a um ponto (409 se já vinculada; log de auditoria) |
+| POST | `/api/beneficiaries/{id}/kinships` | Admin, Gestor — parentesco informativo, espelhado (gestor: só de beneficiário vinculado ao seu ponto) |
+| GET | `/api/beneficiaries/{id}/withdrawals?pointId=` | Admin, Gestor — histórico + saldo do ciclo pela regra do ponto (gestor: só de beneficiário vinculado ao seu ponto) |
+| POST | `/api/withdrawals` | Admin, Gestor — cesta (receita + quantidade) e/ou itens livres; beneficiário ativo e vinculado ao ponto; `occurredAtUtc` opcional, nunca no futuro e, para gestor, no máximo 7 dias atrás |
+| PUT | `/api/withdrawals/{id}` | Admin, Gestor — só a retirada mais recente do beneficiário (ativo e vinculado ao ponto) |
 | GET | `/api/collection-points/{id}/donations` | Admin, Gestor |
 | POST | `…/donations/{donationId}/receive` · `/cancel` | Admin, Gestor (409 se já fechada) |
 | GET | `/api/notices` | Admin, Gestor — mural da rede |
 | POST / DELETE | `/api/collection-points/{id}/notices[/{noticeId}]` | Admin, Gestor (`audience`: `Public` ou `Managers`; DELETE arquiva) |
 | GET | `/api/collection-points/{id}/activity` | Admin, Gestor — feed de atividade |
-| POST | `/api/files` · GET `/api/files/{id}` · GET `/api/files?ownerType=&ownerId=` | upload (Admin, Gestor; máx. 20 MB) e consulta (autenticado, URL pré-assinada) |
+| POST | `/api/files` · GET `/api/files/{id}` · GET `/api/files?ownerType=&ownerId=` | upload (Admin, Gestor; máx. 20 MB; extensão do objeto vem do tipo validado) e consulta (Admin, URL pré-assinada) |
 | DELETE | `/api/files/{id}` | Admin (soft-delete) |
 | POST | `/api/reviews/{id}/hide` · `/restore` | Admin (moderação) |
 
@@ -286,7 +286,9 @@ O hasher é registrado **antes** de `AddIdentityCore` (que usa `TryAdd`) para pr
 - **Serilog** estruturado (console + arquivo em `logs/`), com `CorrelationId` em todo log.
 - **Correlation ID** por request (`X-Correlation-ID`, reaproveitado ou gerado), devolvido na resposta.
 - **Health checks** em `/health` e `/health/ready` (inclui o PostgreSQL).
-- **Rate limiting** nas rotas de autenticação (seção `IpRateLimiting` do `appsettings.json`).
+- **Rate limiting** por IP real (após `ForwardedHeaders`) nas rotas de autenticação, nas escritas públicas
+  (avaliações e doações: 10/10 min; denúncias: 20/10 min) e na busca por CPF (60/10 min) — seção
+  `IpRateLimiting` do `appsettings.json`. Regras com curinga de id (`/*/`) somam todas as rotas num só contador.
 
 ## Object Storage (MinIO/S3)
 

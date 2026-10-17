@@ -14,7 +14,9 @@ import { Link } from 'react-router-dom'
 import { beneficiaryService } from '@/models/services'
 import {
   cycleTypeLabels,
+  isLookupLinkedTo,
   type Beneficiary,
+  type BeneficiaryCpfLookup,
   type BasketTemplate,
   type CollectionPoint,
   type Withdrawal,
@@ -25,6 +27,7 @@ import {
   useBeneficiaryWithdrawalHistory,
   useCollectionPoint,
   useCollectionPoints,
+  useLinkBeneficiaryToPoint,
   useRegisterWithdrawal,
   useUpdateWithdrawal,
 } from '@/viewmodels'
@@ -38,6 +41,7 @@ import {
 import { clampQuantity, parseQuantity } from '@/views/components/stock/stockDraft'
 import { CpfLookup } from '@/views/components/withdrawal/CpfLookup'
 import { CycleUsage } from '@/views/components/withdrawal/CycleUsage'
+import { LinkToPointNotice } from '@/views/components/withdrawal/LinkToPointNotice'
 import { WithdrawalItemBadges } from '@/views/components/withdrawal/WithdrawalItemBadge'
 import {
   availableQuantityForItem,
@@ -105,6 +109,17 @@ function withdrawalColumns(currentPointId: string): ColumnDef<Withdrawal>[] {
       },
     },
   ]
+}
+
+function fullLookupOf(beneficiary: Beneficiary): BeneficiaryCpfLookup {
+  return {
+    id: beneficiary.id,
+    name: beneficiary.name,
+    cpf: beneficiary.cpf,
+    isActive: beneficiary.isActive,
+    isLinkedToMyPoint: true,
+    beneficiary,
+  }
 }
 
 function describeItemsHint(items: WithdrawalDraftItem[], hasAnyItem: boolean): string {
@@ -632,6 +647,7 @@ export function RegisterWithdrawalPage() {
   const { points } = useCollectionPoints()
   const registerWithdrawal = useRegisterWithdrawal()
   const updateWithdrawal = useUpdateWithdrawal()
+  const linkBeneficiary = useLinkBeneficiaryToPoint()
 
   const availablePoints = isAdmin ? points : points.filter((p) => p.id === user?.collectionPointId)
   const [chosenPointId, setChosenPointId] = useState('')
@@ -643,7 +659,8 @@ export function RegisterWithdrawalPage() {
    */
   const { point, refetch: refetchPoint } = useCollectionPoint(pointId || null)
 
-  const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null)
+  const [beneficiary, setBeneficiary] = useState<BeneficiaryCpfLookup | null>(null)
+  const isLinkedToPoint = beneficiary !== null && !!pointId && isLookupLinkedTo(beneficiary, pointId)
   const [isSearching, setIsSearching] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -654,7 +671,7 @@ export function RegisterWithdrawalPage() {
     history,
     isLoading: isLoadingHistory,
     error: historyError,
-  } = useBeneficiaryWithdrawalHistory(beneficiary?.id ?? null, pointId || null)
+  } = useBeneficiaryWithdrawalHistory(isLinkedToPoint ? beneficiary.id : null, pointId || null)
 
   const limitReached = history?.remainingInCurrentCycle === 0
   const isInactive = beneficiary !== null && !beneficiary.isActive
@@ -666,11 +683,22 @@ export function RegisterWithdrawalPage() {
     setFeedbackBasketNote(null)
     setIsSearching(true)
     try {
-      setBeneficiary(await beneficiaryService.findByCpf(cpf))
+      linkBeneficiary.reset()
+      setBeneficiary(await beneficiaryService.lookupByCpf(cpf))
     } catch {
       setLookupError('Nenhum beneficiário encontrado com esse CPF. Verifique o número.')
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  async function linkToCurrentPoint() {
+    if (!beneficiary || !pointId) return
+    try {
+      const linked = await linkBeneficiary.linkToPoint({ beneficiaryId: beneficiary.id, pointId })
+      setBeneficiary(fullLookupOf(linked))
+    } catch {
+      return
     }
   }
 
@@ -763,6 +791,15 @@ export function RegisterWithdrawalPage() {
               </Alert>
             )}
 
+            {!isLinkedToPoint && point && (
+              <LinkToPointNotice
+                pointName={point.name}
+                isLinking={linkBeneficiary.isPending}
+                errorMessage={linkBeneficiary.error?.displayMessage}
+                onLink={() => void linkToCurrentPoint()}
+              />
+            )}
+
             {feedback === 'registered' && (
               <Alert tone="success" title="Retirada registrada!">
                 Já aparece na lista abaixo.
@@ -776,41 +813,45 @@ export function RegisterWithdrawalPage() {
               </Alert>
             )}
 
-            {history && <CycleUsage history={history} />}
-            {historyError && <Alert tone="error">{historyError.displayMessage}</Alert>}
+            {isLinkedToPoint && (
+              <>
+                {history && <CycleUsage history={history} />}
+                {historyError && <Alert tone="error">{historyError.displayMessage}</Alert>}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-stone-800">Retiradas deste beneficiário</h3>
-              {point && (
-                <Button
-                  variant="brand"
-                  size="sm"
-                  leftIcon={<PackagePlus className="size-4" />}
-                  disabled={isInactive}
-                  onClick={() => void openAddModal()}
-                >
-                  Adicionar retirada
-                </Button>
-              )}
-            </div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-stone-800">Retiradas deste beneficiário</h3>
+                  {point && (
+                    <Button
+                      variant="brand"
+                      size="sm"
+                      leftIcon={<PackagePlus className="size-4" />}
+                      disabled={isInactive}
+                      onClick={() => void openAddModal()}
+                    >
+                      Adicionar retirada
+                    </Button>
+                  )}
+                </div>
 
-            <DataTable
-              columns={columns}
-              data={history?.withdrawals ?? []}
-              isLoading={isLoadingHistory}
-              actions={rowActions}
-              searchPlaceholder="Buscar retirada…"
-              emptyMessage="Este beneficiário ainda não fez nenhuma retirada."
-            />
-            <p className="text-xs text-stone-500">
-              Só é possível editar a retirada mais recente do beneficiário, e apenas quando ela foi
-              feita neste ponto.
-            </p>
+                <DataTable
+                  columns={columns}
+                  data={history?.withdrawals ?? []}
+                  isLoading={isLoadingHistory}
+                  actions={rowActions}
+                  searchPlaceholder="Buscar retirada…"
+                  emptyMessage="Este beneficiário ainda não fez nenhuma retirada."
+                />
+                <p className="text-xs text-stone-500">
+                  Só é possível editar a retirada mais recente do beneficiário, e apenas quando ela foi
+                  feita neste ponto.
+                </p>
+              </>
+            )}
           </div>
         )}
       </Card>
 
-      {beneficiary && point && (
+      {beneficiary && isLinkedToPoint && point && (
         <WithdrawalFormModal
           open={addModalOpen}
           onOpenChange={setAddModalOpen}

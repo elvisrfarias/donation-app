@@ -3,10 +3,12 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '@/models/api/problemDetails'
 import { beneficiaryService, collectionPointService, withdrawalService } from '@/models/services'
 import type {
   BasketTemplate,
   Beneficiary,
+  BeneficiaryCpfLookup,
   BeneficiaryWithdrawalHistory,
   CollectionPoint,
   Withdrawal,
@@ -115,6 +117,24 @@ const maria: Beneficiary = {
   kinships: [],
 }
 
+const mariaLookup: BeneficiaryCpfLookup = {
+  id: maria.id,
+  name: maria.name,
+  cpf: maria.cpf,
+  isActive: true,
+  isLinkedToMyPoint: true,
+  beneficiary: maria,
+}
+
+const maskedMariaFromOtherPoint: BeneficiaryCpfLookup = {
+  id: maria.id,
+  name: 'Maria S.',
+  cpf: '***.444.777-**',
+  isActive: true,
+  isLinkedToMyPoint: false,
+  beneficiary: null,
+}
+
 function historyWith(
   used: number,
   withdrawals: BeneficiaryWithdrawalHistory['withdrawals'] = [],
@@ -191,7 +211,9 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('busca pelo CPF, com máscara, e mostra a lista de retiradas do beneficiário', async () => {
-    const findByCpf = vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    const lookupByCpf = vi
+      .spyOn(beneficiaryService, 'lookupByCpf')
+      .mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(1))
     renderPage()
 
@@ -202,12 +224,58 @@ describe('RegisterWithdrawalPage', () => {
     await userEvent.type(input, '{Enter}')
 
     expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
-    expect(findByCpf).toHaveBeenCalledWith('111.444.777-35')
+    expect(lookupByCpf).toHaveBeenCalledWith('111.444.777-35')
     expect(await screen.findByText(/Cestas básicas no ciclo: 1 de 3/)).toBeInTheDocument()
     expect(screen.getByText('2 restantes')).toBeInTheDocument()
     expect(screen.getByText(/Ciclo atual: 01\/01\/2026 a 31\/12\/2026/)).toBeInTheDocument()
     expect(
       screen.getByText('Este beneficiário ainda não fez nenhuma retirada.'),
+    ).toBeInTheDocument()
+  })
+
+  it('quando a pessoa não é atendida pelo ponto, mostra só os dados mascarados e oferece vincular', async () => {
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(maskedMariaFromOtherPoint)
+    const getHistory = vi
+      .spyOn(beneficiaryService, 'getWithdrawalHistory')
+      .mockResolvedValue(historyWith(0))
+    const linkToPoint = vi
+      .spyOn(beneficiaryService, 'linkToPoint')
+      .mockResolvedValue({ ...maria, linkedPointIds: ['other-point', 'point-1'] })
+    renderPage()
+
+    await screen.findByText(/Limite deste ponto/)
+    await userEvent.type(screen.getByLabelText('CPF do beneficiário'), '11144477735{Enter}')
+
+    expect(await screen.findByText('Maria S.')).toBeInTheDocument()
+    expect(screen.getByText('CPF ***.444.777-**')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /adicionar retirada/i })).not.toBeInTheDocument()
+    expect(getHistory).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /vincular a Casa Solidária/i }))
+
+    expect(linkToPoint).toHaveBeenCalledWith('ben-1', 'point-1')
+    expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /adicionar retirada/i })).toBeEnabled()
+    expect(getHistory).toHaveBeenCalledWith('ben-1', 'point-1')
+  })
+
+  it('mostra o erro do vínculo quando o backend recusa', async () => {
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(maskedMariaFromOtherPoint)
+    vi.spyOn(beneficiaryService, 'linkToPoint').mockRejectedValue(
+      new ApiError({
+        status: 403,
+        title: 'Scope.CollectionPointForbidden',
+        detail: 'Você só pode operar no seu próprio ponto de coleta.',
+      }),
+    )
+    renderPage()
+
+    await screen.findByText(/Limite deste ponto/)
+    await userEvent.type(screen.getByLabelText('CPF do beneficiário'), '11144477735{Enter}')
+    await userEvent.click(await screen.findByRole('button', { name: /vincular a Casa Solidária/i }))
+
+    expect(
+      await screen.findByText('Você só pode operar no seu próprio ponto de coleta.'),
     ).toBeInTheDocument()
   })
 
@@ -221,7 +289,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('avisa quando o CPF não é encontrado', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockRejectedValue(new Error('404'))
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockRejectedValue(new Error('404'))
     renderPage()
 
     await screen.findByText(/Limite deste ponto/)
@@ -231,7 +299,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('lista todo tipo de retirada do beneficiário, com os itens e o ponto de cada uma', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(1, [
         {
@@ -266,7 +334,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('abre o modal de Adicionar retirada sem nenhum item pré-selecionado', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -280,7 +348,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('adiciona um item pelo seletor, mostra a linha com stepper e permite remover', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -301,7 +369,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('a quantidade de um item não passa do estoque disponível', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -321,7 +389,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('não oferece mais um item já adicionado no seletor', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -334,7 +402,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('itens livres (roupas, calçados…) nunca são bloqueados pelo limite do ciclo', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
     renderPage()
 
@@ -351,7 +419,7 @@ describe('RegisterWithdrawalPage', () => {
 
   it('bloqueia o registro ao escolher uma cesta básica com o limite do ciclo atingido', async () => {
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
     renderPage()
 
@@ -374,7 +442,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('registra pela modal, fecha ao concluir e mantém o beneficiário para a próxima retirada', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
       id: 'w-1',
@@ -406,7 +474,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('registra vários itens de uma vez, cada um com sua quantidade', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
       id: 'w-8',
@@ -443,7 +511,7 @@ describe('RegisterWithdrawalPage', () => {
 
   it('com o limite de cestas esgotado, bloqueia enquanto a cesta estiver selecionada e libera ao remover', async () => {
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(3))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
       id: 'w-9',
@@ -481,7 +549,7 @@ describe('RegisterWithdrawalPage', () => {
 
   it('registra retirada com cesta básica, envia basketTemplateId/basketQuantity e mostra as cestas restantes', async () => {
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointWithBasket)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     const register = vi.spyOn(withdrawalService, 'register').mockResolvedValue({
       id: 'w-10',
@@ -537,7 +605,7 @@ describe('RegisterWithdrawalPage', () => {
       ...point,
       basketTemplates: [scarceBasket],
     } as CollectionPoint)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -560,7 +628,7 @@ describe('RegisterWithdrawalPage', () => {
     const emptyPoint = { ...point, stockItems: [] } as CollectionPoint
     vi.spyOn(collectionPointService, 'listPublic').mockResolvedValue([emptyPoint])
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(emptyPoint)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -575,7 +643,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('não permite escolher um item que o ponto não tem em estoque', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -595,7 +663,7 @@ describe('RegisterWithdrawalPage', () => {
       ),
     } as CollectionPoint
     vi.spyOn(collectionPointService, 'getById').mockResolvedValue(pointNotTrackingFootwear)
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     renderPage()
 
@@ -609,7 +677,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('busca o estoque atualizado do ponto ao abrir o modal de adicionar retirada', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(historyWith(0))
     const getById = vi.spyOn(collectionPointService, 'getById').mockResolvedValue(point)
     renderPage()
@@ -622,7 +690,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('só mostra o botão de editar na retirada mais recente feita neste ponto', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(0, [
         {
@@ -656,7 +724,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('não mostra o botão de editar quando a retirada mais recente do beneficiário foi em outro ponto', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(0, [
         {
@@ -686,7 +754,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('edita a retirada mais recente, pré-preenchendo os itens e as observações atuais', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(0, [
         {
@@ -741,7 +809,7 @@ describe('RegisterWithdrawalPage', () => {
      * O ponto tem só 5kg de arroz em estoque, mas esta retirada (que já está sendo editada) já
      * tinha reservado 3kg antes — então o máximo permitido no stepper é 5 + 3 = 8kg, não 5kg.
      */
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(0, [
         {
@@ -776,7 +844,7 @@ describe('RegisterWithdrawalPage', () => {
   })
 
   it('quando o backend recusa a edição, mostra o erro e mantém a modal aberta', async () => {
-    vi.spyOn(beneficiaryService, 'findByCpf').mockResolvedValue(maria)
+    vi.spyOn(beneficiaryService, 'lookupByCpf').mockResolvedValue(mariaLookup)
     vi.spyOn(beneficiaryService, 'getWithdrawalHistory').mockResolvedValue(
       historyWith(0, [
         {

@@ -1,9 +1,10 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Ban, Pencil, UserPlus, Users as UsersIcon } from 'lucide-react'
+import { Ban, KeyRound, Pencil, UserPlus, Users as UsersIcon } from 'lucide-react'
 import { useState } from 'react'
 import { roleLabels, type Role, type UserAccount } from '@/models/types'
 import {
   createUserSchema,
+  PASSWORD_POLICY_HINT,
   updateUserSchema,
   useAuth,
   useCollectionPoint,
@@ -15,6 +16,7 @@ import {
   type CreateUserForm,
   type UpdateUserForm,
 } from '@/viewmodels'
+import { ResetUserPasswordModal } from '@/views/components/auth/ResetUserPasswordModal'
 import { DataTable, type RowAction } from '@/views/components/data-table'
 import { FormComponent, type FormFieldConfig, type SelectOption } from '@/views/components/form'
 import { ModalComponent } from '@/views/components/modal'
@@ -34,6 +36,7 @@ export function UsersPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null)
+  const [passwordResetUser, setPasswordResetUser] = useState<UserAccount | null>(null)
 
   const points = isAdmin ? allPoints : ownPoint ? [ownPoint] : []
   const roleOptions: SelectOption[] = Object.entries(roleLabels)
@@ -62,7 +65,7 @@ export function UsersPage() {
       type: 'password',
       label: 'Senha',
       required: true,
-      hint: 'Mínimo de 8 caracteres.',
+      hint: PASSWORD_POLICY_HINT,
     },
     ...userFields,
   ]
@@ -136,6 +139,12 @@ export function UsersPage() {
       label: 'Editar',
       icon: <Pencil className="size-4" />,
       onClick: openEdit,
+    },
+    {
+      label: 'Redefinir senha',
+      icon: <KeyRound className="size-4" />,
+      hidden: (account) => account.id === user?.userId,
+      onClick: setPasswordResetUser,
     },
     {
       label: 'Desativar',
@@ -224,6 +233,8 @@ export function UsersPage() {
           />
         </ModalComponent>
       )}
+
+      <ResetUserPasswordModal user={passwordResetUser} onClose={() => setPasswordResetUser(null)} />
     </div>
   )
 }

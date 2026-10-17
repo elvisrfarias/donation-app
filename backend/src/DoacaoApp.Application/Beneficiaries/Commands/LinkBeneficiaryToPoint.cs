@@ -8,12 +8,14 @@ using DoacaoApp.Domain.Errors;
 using ErrorOr;
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace DoacaoApp.Application.Beneficiaries.Commands;
 
 /// <summary>
 /// Vincula um beneficiário já cadastrado (CPF único no município) a mais um ponto de coleta. É a
 /// decisão do gestor do ponto: só o próprio ponto pode ser vinculado por ele; o Admin escolhe o ponto.
+/// Como o vínculo dá acesso ao cadastro completo, cada vínculo fica registrado no log de auditoria.
 /// </summary>
 public sealed record LinkBeneficiaryToPointCommand(Guid BeneficiaryId, Guid PointId)
     : IRequest<ErrorOr<BeneficiaryResponse>>, IScopedToCollectionPoint
@@ -34,7 +36,9 @@ public sealed class LinkBeneficiaryToPointHandler(
     IBeneficiaryRepository beneficiaryRepository,
     ICollectionPointRepository pointRepository,
     IUnitOfWork unitOfWork,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICurrentUser currentUser,
+    ILogger<LinkBeneficiaryToPointHandler> logger)
     : IRequestHandler<LinkBeneficiaryToPointCommand, ErrorOr<BeneficiaryResponse>>
 {
     public async Task<ErrorOr<BeneficiaryResponse>> Handle(
@@ -61,6 +65,12 @@ public sealed class LinkBeneficiaryToPointHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Auditoria: usuário {UserId} vinculou o beneficiário {BeneficiaryId} ao ponto {PointId}.",
+            currentUser.UserId,
+            beneficiary.Id.Value,
+            point.Id.Value);
 
         return beneficiary.ToResponse();
     }

@@ -28,6 +28,16 @@ function fromAuthResult(r: AuthResult): AuthSession {
 
 let cache: AuthSession | null | undefined
 
+function forgetCache(): void {
+  cache = undefined
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === STORAGE_KEY && event.newValue) forgetCache()
+  })
+}
+
 /**
  * Persistência da sessão de autenticação (Model). O store Zustand é a camada
  * reativa por cima disto; o interceptor HTTP lê os tokens daqui diretamente.
@@ -66,5 +76,14 @@ export const tokenStorage = {
 
   getRefreshToken(): string | null {
     return this.get()?.refreshToken ?? null
+  },
+
+  /**
+   * Relê a sessão do `localStorage`, descartando o cache em memória. Usado quando outra aba pode ter
+   * rotacionado o refresh token (o backend recusa um refresh token já usado).
+   */
+  reload(): AuthSession | null {
+    forgetCache()
+    return this.get()
   },
 }

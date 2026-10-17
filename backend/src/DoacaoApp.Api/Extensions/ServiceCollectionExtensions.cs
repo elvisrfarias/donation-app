@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using AspNetCoreRateLimit;
 using DoacaoApp.Api.Middleware;
 using DoacaoApp.Api.OpenApi;
+using DoacaoApp.Api.RateLimiting;
 using DoacaoApp.Api.Services;
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
@@ -67,6 +68,11 @@ public static class ServiceCollectionExtensions
                     RoleClaimType = ClaimTypes.Role,
                     NameClaimType = ClaimTypes.Name,
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = AccessTokenSessionValidator.ValidateAsync,
+                };
             });
 
         services.AddAuthorizationBuilder()
@@ -104,7 +110,7 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
         services.Configure<IpRateLimitOptions>(configuration.GetSection("IpRateLimiting"));
         services.AddInMemoryRateLimiting();
-        services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+        services.AddSingleton<IRateLimitConfiguration, IdPlaceholderRateLimitConfiguration>();
     }
 
     private static void AddObservability(this IServiceCollection services, IConfiguration configuration)

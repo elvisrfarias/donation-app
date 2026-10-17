@@ -56,7 +56,7 @@ public sealed class UploadImageHandler(
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
-        var objectKey = BuildObjectKey(command.Visibility, command.FileName, now);
+        var objectKey = BuildObjectKey(command.Visibility, command.ContentType, now);
 
         StoredObject stored;
         try
@@ -104,10 +104,10 @@ public sealed class UploadImageHandler(
         return fileResult.Value.ToResponse(url.ToString());
     }
 
-    private static string BuildObjectKey(FileVisibility visibility, string fileName, DateTime nowUtc)
+    private static string BuildObjectKey(FileVisibility visibility, string contentType, DateTime nowUtc)
     {
         var prefix = visibility == FileVisibility.Public ? "public" : "private";
-        var extension = (Path.GetExtension(fileName) ?? string.Empty).Trim().ToLowerInvariant();
+        var extension = SupportedImage.ExtensionFor(contentType);
         return $"{prefix}/images/{nowUtc:yyyy}/{nowUtc:MM}/{Guid.NewGuid():N}{extension}";
     }
 

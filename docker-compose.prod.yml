@@ -1,33 +1,98 @@
 # Produção (VPS única): docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# Apenas o Caddy publica portas (80/443). Banco, MinIO, API e frontend ficam só na rede interna.
+# Apenas o nginx de borda (edge) publica portas (80/443). Banco, MinIO, API e frontend
+# ficam só na rede interna. O Cloudflare fica na frente do edge (proxy + DNS).
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: doacao-caddy
+  # Borda: TLS, HSTS, IP real via Cloudflare, limites por IP e roteamento por domínio.
+  edge:
+    image: nginxinc/nginx-unprivileged:1.30-alpine@sha256:782bb89768cc87b7f95c18b95baa1af250e5d451f26794f59363540161147c01
+    container_name: doacao-edge
     restart: unless-stopped
+    <<: [*hardening, *logging]
+    read_only: true
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:8080"
+      - "443:8443"
     environment:
-      ACME_EMAIL: ${ACME_EMAIL}
       APP_DOMAIN: ${APP_DOMAIN}
       STORAGE_DOMAIN: ${STORAGE_DOMAIN}
+      # envsubst só troca estas; variáveis do nginx ($host…) ficam intactas.
+      NGINX_ENVSUBST_FILTER: ^(APP_DOMAIN|STORAGE_DOMAIN)$
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./edge/templates:/etc/nginx/templates:ro
+      - ./edge/snippets:/etc/nginx/snippets:ro
+      - ./edge/docker-entrypoint.d/50-reload-on-cert-change.sh:/docker-entrypoint.d/50-reload-on-cert-change.sh:ro
+      - edge_certs:/certs:ro
+      - certbot_webroot:/var/www/certbot:ro
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - frontend
-      - minio
+      certbot:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - doacao-net
+
+  # Emite e renova os certificados do Let's Encrypt (HTTP-01 pelo webroot do edge).
+  certbot:
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    container_name: doacao-certbot
+    restart: unless-stopped
+    <<: *logging
+    security_opt:
+      - no-new-privileges:true
+    entrypoint: ["/opt/certbot/run.sh"]
+    environment:
+      CERT_DOMAINS: ${APP_DOMAIN} ${STORAGE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./edge/certbot/run.sh:/opt/certbot/run.sh:ro
+      - letsencrypt:/etc/letsencrypt
+      - edge_certs:/certs
+      - certbot_webroot:/var/www/certbot
+    healthcheck:
+      test: ["CMD-SHELL", "for d in $$CERT_DOMAINS; do test -s /certs/$$d/fullchain.pem || exit 1; done"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
     networks:
       - doacao-net
 
   frontend:
+    <<: [*hardening, *logging]
     environment:
       # Prévias de link (og:image), canonical e sitemap usam a URL pública do domínio.
       SITE_URL: https://${APP_DOMAIN}
+      # Origem das imagens liberada na Content-Security-Policy.
+      STORAGE_PUBLIC_URL: https://${STORAGE_DOMAIN}
+
+  minio:
+    <<: [*hardening, *logging]
 
   api:
+    <<: [*hardening, *logging]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       RunMigrationsOnStartup: "true"
@@ -37,12 +102,8 @@ services:
       # localhost: o HEALTHCHECK do backend/Dockerfile chama http://localhost:8080/health
       AllowedHosts: ${APP_DOMAIN};localhost
       Storage__PublicUrl: https://${STORAGE_DOMAIN}
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
 
 volumes:
-  caddy_data:
-  caddy_config:
+  letsencrypt:
+  edge_certs:
+  certbot_webroot:

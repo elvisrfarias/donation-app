@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Infrastructure.Identity;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,7 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options, IDateTimePro
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(ClaimTypes.Name, user.FullName),
+            new(AuthClaimTypes.SecurityStamp, user.SecurityStamp ?? string.Empty),
         };
 
         if (user.CollectionPointId is { } pointId)

@@ -8,21 +8,22 @@ namespace DoacaoApp.Application.Authentication.Commands;
 
 /// <summary>
 /// Registra um novo usuário gerencial. Admin cria qualquer papel em qualquer ponto; um PointManager só
-/// pode criar PointManager/Viewer no seu próprio ponto de coleta.
+/// pode criar PointManager/Viewer no seu próprio ponto de coleta. Devolve só o usuário criado: os tokens
+/// de sessão nunca são entregues a quem cadastrou.
 /// </summary>
 public sealed record RegisterUserCommand(
     string Email,
     string Password,
     string FullName,
     string Role,
-    Guid? CollectionPointId) : IRequest<ErrorOr<AuthResult>>;
+    Guid? CollectionPointId) : IRequest<ErrorOr<UserResponse>>;
 
 public sealed class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
 {
     public RegisterUserValidator()
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128);
+        RuleFor(x => x.Password).MustSatisfyPasswordPolicy();
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Role).NotEmpty().Must(Roles.IsValid).WithMessage("Role inválida.");
 
@@ -39,20 +40,20 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
 }
 
 public sealed class RegisterUserHandler(IIdentityService identityService, ICurrentUser currentUser)
-    : IRequestHandler<RegisterUserCommand, ErrorOr<AuthResult>>
+    : IRequestHandler<RegisterUserCommand, ErrorOr<UserResponse>>
 {
-    public Task<ErrorOr<AuthResult>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
+    public Task<ErrorOr<UserResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         if (!currentUser.IsAdmin)
         {
             if (command.Role is not (Roles.PointManager or Roles.Viewer))
             {
-                return Task.FromResult<ErrorOr<AuthResult>>(AuthErrors.InsufficientPermissionsToAssignRole);
+                return Task.FromResult<ErrorOr<UserResponse>>(AuthErrors.InsufficientPermissionsToAssignRole);
             }
 
             if (command.CollectionPointId != currentUser.CollectionPointId)
             {
-                return Task.FromResult<ErrorOr<AuthResult>>(ScopeErrors.CollectionPointForbidden);
+                return Task.FromResult<ErrorOr<UserResponse>>(ScopeErrors.CollectionPointForbidden);
             }
         }
 

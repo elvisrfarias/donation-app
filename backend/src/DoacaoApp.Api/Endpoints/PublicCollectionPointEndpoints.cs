@@ -9,6 +9,7 @@ using DoacaoApp.Application.Reviews.Commands;
 using DoacaoApp.Application.Reviews.Contracts;
 using DoacaoApp.Application.Reviews.Queries;
 using MediatR;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DoacaoApp.Api.Endpoints;
 
@@ -53,12 +54,14 @@ public static class PublicCollectionPointEndpoints
             .WithSummary("Registra a avaliação da comunidade sobre um ponto de coleta.");
 
         app.MapPost("/api/public/reviews/{reviewId:guid}/report",
-                async (Guid reviewId, ISender sender, CancellationToken ct) =>
-                    (await sender.Send(new ReportReviewCommand(reviewId), ct))
-                    .Match(_ => Results.NoContent()))
+                async (Guid reviewId, HttpContext http, IMemoryCache cache, ISender sender, CancellationToken ct) =>
+                    ReviewReportDeduplicator.TryRegister(cache, http.Connection.RemoteIpAddress, reviewId)
+                        ? (await sender.Send(new ReportReviewCommand(reviewId), ct)).Match(_ => Results.NoContent())
+                        : Results.NoContent())
             .AllowAnonymous()
             .WithTags("Público")
-            .WithSummary("Denuncia uma avaliação inadequada para moderação.");
+            .WithSummary("Denuncia uma avaliação inadequada para moderação.")
+            .WithDescription("Repetir a denúncia da mesma avaliação a partir do mesmo IP em 24 h não soma ao contador.");
 
         app.MapGet("/api/public/collection-points/{pointId:guid}/notices",
                 async (Guid pointId, ISender sender, CancellationToken ct) =>

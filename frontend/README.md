@@ -102,7 +102,7 @@ geocodificação do Nominatim, que é o passo final para o pino exato no mapa.
 
 `docker build -t doacao-frontend ./frontend` gera uma imagem **nginx** que serve os
 estáticos e faz proxy de `/api` para o serviço `api`. No monorepo, use `make dev` (desenvolvimento) ou
-`make prod` (produção, atrás do Caddy) na raiz para subir tudo.
+`make prod` (produção, atrás do nginx de borda) na raiz para subir tudo.
 
 ## Testes
 

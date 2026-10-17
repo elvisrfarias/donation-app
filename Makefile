@@ -116,7 +116,7 @@ prod: ## Reinicia TODA a stack de produção (frontend nginx + API em Production
 	$(COMPOSE_PROD) down --remove-orphans
 	$(COMPOSE_PROD) up -d --build
 	@$(COMPOSE_PROD) ps
-	@printf '\n  Stack de PRODUÇÃO no ar (Caddy + HTTPS). Logs: make prod-logs\n\n'
+	@printf '\n  Stack de PRODUÇÃO no ar (nginx de borda + HTTPS). Logs: make prod-logs\n\n'
 
 prod-reset: ## Igual ao prod, mas APAGA os volumes (zera e re-seeda) — exige CONFIRM=yes; faz backup antes
 	@test "$(CONFIRM)" = "yes" || { echo "Isso apaga TODOS os dados de PRODUÇÃO (banco + arquivos). Rode: make prod-reset CONFIRM=yes"; exit 1; }
@@ -150,14 +150,14 @@ backup: backup-db backup-storage ## Backup completo: banco (pg_dump) + arquivos 
 
 backup-db: ## Backup do Postgres -> backups/db-<timestamp>.dump
 	@mkdir -p $(BACKUP_DIR)
-	docker exec doacao-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc' > $(BACKUP_DIR)/db-$(STAMP).dump \
+	umask 077; docker exec doacao-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc' > $(BACKUP_DIR)/db-$(STAMP).dump \
 	  || { rm -f $(BACKUP_DIR)/db-$(STAMP).dump; echo "Falha no pg_dump; backup descartado."; exit 1; }
 	@echo "Backup do banco salvo em $(BACKUP_DIR)/db-$(STAMP).dump"
 
 backup-storage: ## Backup dos arquivos do MinIO -> backups/storage-<timestamp>.tar.gz
 	@mkdir -p $(BACKUP_DIR)
 	docker run --rm --volumes-from doacao-minio -v "$(CURDIR)/$(BACKUP_DIR)":/backup alpine \
-	  tar czf /backup/storage-$(STAMP).tar.gz -C /data .
+	  sh -c "umask 077 && tar czf /backup/storage-$(STAMP).tar.gz -C /data ."
 	@echo "Backup dos arquivos salvo em $(BACKUP_DIR)/storage-$(STAMP).tar.gz"
 
 restore-db: ## Restaura o Postgres -> make restore-db file=backups/db-XXXX.dump

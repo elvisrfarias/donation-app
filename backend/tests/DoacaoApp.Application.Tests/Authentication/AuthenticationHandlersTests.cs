@@ -31,6 +31,9 @@ public class AuthenticationHandlersTests
         Now.AddMinutes(15),
         Now.AddDays(7));
 
+    private static UserResponse BuildUserResponse(Guid? collectionPointId = null, string role = "PointManager") =>
+        new(Guid.NewGuid(), "novo@doacao.local", "Fulano", [role], collectionPointId, true);
+
     [Fact]
     public async Task LoginHandler_RepassaCredenciaisEDevolveResultadoDoIdentityService()
     {
@@ -52,14 +55,14 @@ public class AuthenticationHandlersTests
     {
         _identityService
             .Setup(s => s.LoginAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AuthErrors.AccountLockedOut);
+            .ReturnsAsync(AuthErrors.InvalidCredentials);
 
         var handler = new LoginHandler(_identityService.Object);
         var result = await handler.Handle(
             new LoginCommand("admin@doacao.local", "senha-errada"), CancellationToken.None);
 
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("Auth.AccountLockedOut");
+        result.FirstError.Code.Should().Be("Auth.InvalidCredentials");
     }
 
     [Fact]
@@ -68,7 +71,7 @@ public class AuthenticationHandlersTests
         var pointId = Guid.NewGuid();
         _identityService
             .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BuildAuthResult());
+            .ReturnsAsync(BuildUserResponse());
 
         var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
         var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "PointManager", pointId);
@@ -124,7 +127,7 @@ public class AuthenticationHandlersTests
         _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
         _identityService
             .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BuildAuthResult());
+            .ReturnsAsync(BuildUserResponse());
 
         var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
         var command = new RegisterUserCommand("novo@doacao.local", "SenhaForte1", "Fulano", "Viewer", ownPointId);
@@ -133,6 +136,23 @@ public class AuthenticationHandlersTests
 
         result.IsError.Should().BeFalse();
         _identityService.Verify(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterUserHandler_DevolveSoOUsuarioCriado_SemTokensDeSessao()
+    {
+        var createdUser = BuildUserResponse(Guid.NewGuid());
+        _identityService
+            .Setup(s => s.RegisterAsync(It.IsAny<RegisterRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdUser);
+
+        var handler = new RegisterUserHandler(_identityService.Object, _currentUser.Object);
+        var command = new RegisterUserCommand(
+            "novo@doacao.local", "SenhaForte1", "Fulano", "PointManager", createdUser.CollectionPointId);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.Value.Should().Be(createdUser);
     }
 
     [Fact]
@@ -298,5 +318,135 @@ public class AuthenticationHandlersTests
 
         result.IsError.Should().BeFalse();
         _identityService.Verify(s => s.DeactivateUserAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ChangePasswordHandler_UsaOUsuarioAutenticadoEDevolveNovosTokens()
+    {
+        var userId = Guid.NewGuid();
+        var authResult = BuildAuthResult();
+        _currentUser.Setup(u => u.UserId).Returns(userId);
+        _identityService
+            .Setup(s => s.ChangePasswordAsync(It.IsAny<ChangePasswordRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(authResult);
+
+        var handler = new ChangePasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ChangePasswordCommand("SenhaAtual1", "SenhaNova2"), CancellationToken.None);
+
+        result.Value.Should().Be(authResult);
+        _identityService.Verify(s => s.ChangePasswordAsync(
+            It.Is<ChangePasswordRequest>(r =>
+                r.UserId == userId && r.CurrentPassword == "SenhaAtual1" && r.NewPassword == "SenhaNova2"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ChangePasswordHandler_SemUsuarioAutenticado_DeveRecusar()
+    {
+        _currentUser.Setup(u => u.UserId).Returns((Guid?)null);
+
+        var handler = new ChangePasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ChangePasswordCommand("SenhaAtual1", "SenhaNova2"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Auth.NotAuthenticated");
+        _identityService.Verify(
+            s => s.ChangePasswordAsync(It.IsAny<ChangePasswordRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePasswordHandler_QuandoSenhaAtualNaoConfere_PropagaOErro()
+    {
+        _currentUser.Setup(u => u.UserId).Returns(Guid.NewGuid());
+        _identityService
+            .Setup(s => s.ChangePasswordAsync(It.IsAny<ChangePasswordRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthErrors.InvalidCurrentPassword);
+
+        var handler = new ChangePasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ChangePasswordCommand("errada123", "SenhaNova2"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Auth.InvalidCurrentPassword");
+    }
+
+    [Fact]
+    public async Task ResetUserPasswordHandler_QuandoAdmin_RedefineSemConsultarOPonto()
+    {
+        var userId = Guid.NewGuid();
+        _identityService
+            .Setup(s => s.ResetPasswordAsync(userId, "SenhaNova2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+
+        var handler = new ResetUserPasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ResetUserPasswordCommand(userId, "SenhaNova2"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _identityService.Verify(s => s.GetUserByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _identityService.Verify(s => s.ResetPasswordAsync(userId, "SenhaNova2", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetUserPasswordHandler_QuandoPointManagerRedefineUsuarioDoProprioPonto_DevePermitir()
+    {
+        var ownPointId = Guid.NewGuid();
+        var target = BuildUserResponse(ownPointId, "Viewer");
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(ownPointId);
+        _identityService.Setup(s => s.GetUserByIdAsync(target.Id, It.IsAny<CancellationToken>())).ReturnsAsync(target);
+        _identityService
+            .Setup(s => s.ResetPasswordAsync(target.Id, "SenhaNova2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+
+        var handler = new ResetUserPasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ResetUserPasswordCommand(target.Id, "SenhaNova2"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _identityService.Verify(s => s.ResetPasswordAsync(target.Id, "SenhaNova2", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetUserPasswordHandler_QuandoPointManagerRedefineUsuarioDeOutroPonto_DeveBloquear()
+    {
+        var target = BuildUserResponse(Guid.NewGuid(), "Viewer");
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(Guid.NewGuid());
+        _identityService.Setup(s => s.GetUserByIdAsync(target.Id, It.IsAny<CancellationToken>())).ReturnsAsync(target);
+
+        var handler = new ResetUserPasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ResetUserPasswordCommand(target.Id, "SenhaNova2"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Scope.CollectionPointForbidden");
+        _identityService.Verify(
+            s => s.ResetPasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetUserPasswordHandler_QuandoPointManagerSemPontoTentaRedefinirAdmin_DeveBloquear()
+    {
+        var admin = BuildUserResponse(null, "Admin");
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns((Guid?)null);
+        _identityService.Setup(s => s.GetUserByIdAsync(admin.Id, It.IsAny<CancellationToken>())).ReturnsAsync(admin);
+
+        var handler = new ResetUserPasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ResetUserPasswordCommand(admin.Id, "SenhaNova2"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Scope.CollectionPointForbidden");
+        _identityService.Verify(
+            s => s.ResetPasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetUserPasswordHandler_QuandoUsuarioNaoExiste_PropagaNotFound()
+    {
+        var userId = Guid.NewGuid();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(Guid.NewGuid());
+        _identityService
+            .Setup(s => s.GetUserByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthErrors.UserNotFound);
+
+        var handler = new ResetUserPasswordHandler(_identityService.Object, _currentUser.Object);
+        var result = await handler.Handle(new ResetUserPasswordCommand(userId, "SenhaNova2"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Auth.UserNotFound");
     }
 }

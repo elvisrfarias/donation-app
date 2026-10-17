@@ -2,7 +2,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useApiList, useApiMutation } from '@/lib/apiHooks'
 import { queryKeys } from '@/lib/queryClient'
 import { userService } from '@/models/services'
-import type { CreateUserInput, UpdateUserInput, UserAccount } from '@/models/types'
+import type {
+  CreateUserInput,
+  ResetUserPasswordInput,
+  UpdateUserInput,
+  UserAccount,
+} from '@/models/types'
 
 /** Lista de usuários gerenciais (Admin). */
 export function useUsers() {
@@ -18,7 +23,7 @@ export function useUsers() {
 export function useCreateUser() {
   const queryClient = useQueryClient()
 
-  const { mutate, ...rest } = useApiMutation<void, CreateUserInput>({
+  const { mutate, ...rest } = useApiMutation<UserAccount, CreateUserInput>({
     mutationFn: (input) => userService.create(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
@@ -54,4 +59,13 @@ export function useDeactivateUser() {
   })
 
   return { deactivate: mutate, ...rest }
+}
+
+/** Mutação de redefinição de senha de outro usuário (Admin ou PointManager do ponto). */
+export function useResetUserPassword() {
+  const { mutate, ...rest } = useApiMutation<void, { id: string; values: ResetUserPasswordInput }>({
+    mutationFn: ({ id, values }) => userService.resetPassword(id, values),
+  })
+
+  return { resetPassword: mutate, ...rest }
 }

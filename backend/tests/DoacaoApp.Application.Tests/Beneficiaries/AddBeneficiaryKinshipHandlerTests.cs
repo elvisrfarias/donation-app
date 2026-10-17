@@ -1,6 +1,8 @@
 using DoacaoApp.Application.Beneficiaries.Commands;
+using DoacaoApp.Application.Common.Abstractions;
 using DoacaoApp.Application.Tests.Common;
 using DoacaoApp.Domain.Beneficiaries;
+using DoacaoApp.Domain.CollectionPoints;
 using DoacaoApp.Domain.Common;
 using DoacaoApp.Domain.ValueObjects;
 using FluentAssertions;
@@ -13,12 +15,16 @@ public class AddBeneficiaryKinshipHandlerTests
 {
     private readonly Mock<IBeneficiaryRepository> _repo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
+    private readonly Mock<ICurrentUser> _currentUser = new();
     private readonly FakeClock _clock = new(TestData.Now);
 
-    public AddBeneficiaryKinshipHandlerTests() =>
+    public AddBeneficiaryKinshipHandlerTests()
+    {
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _currentUser.Setup(u => u.IsAdmin).Returns(true);
+    }
 
-    private AddBeneficiaryKinshipHandler CreateSut() => new(_repo.Object, _unitOfWork.Object, _clock);
+    private AddBeneficiaryKinshipHandler CreateSut() => new(_repo.Object, _unitOfWork.Object, _clock, _currentUser.Object);
 
     [Fact]
     public async Task Handle_Valido_DeveRegistrarOVinculoEspelhadoComTipoInverso()
@@ -33,6 +39,43 @@ public class AddBeneficiaryKinshipHandlerTests
         subject.Kinships.Should().ContainSingle(k => k.RelatedBeneficiaryId == related.Id && k.Type == KinshipType.Pai);
         related.Kinships.Should().ContainSingle(k => k.RelatedBeneficiaryId == subject.Id && k.Type == KinshipType.Filho);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_GestorDeOutroPonto_RetornaNotFoundSemTocarEmNenhumCadastro()
+    {
+        var (subject, related) = GivenSubjectAndRelated();
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(CollectionPointId.New().Value);
+
+        var command = new AddBeneficiaryKinshipCommand(subject.Id.Value, TestData.ValidCpfB, KinshipType.Pai);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Beneficiary.NotFound");
+        subject.Kinships.Should().BeEmpty();
+        related.Kinships.Should().BeEmpty();
+        _repo.Verify(r => r.GetByCpfAsync(It.IsAny<Cpf>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_GestorDoPontoVinculadoAoSujeito_RegistraOVinculo()
+    {
+        var pointId = CollectionPointId.New();
+        var subject = TestData.Beneficiary("João", TestData.ValidCpfA, pointId);
+        var related = TestData.Beneficiary("Maria", TestData.ValidCpfB);
+        _repo.Setup(r => r.GetByIdAsync(subject.Id, It.IsAny<CancellationToken>())).ReturnsAsync(subject);
+        _repo.Setup(r => r.GetByCpfAsync(related.Cpf, It.IsAny<CancellationToken>())).ReturnsAsync(related);
+        _currentUser.Setup(u => u.IsAdmin).Returns(false);
+        _currentUser.Setup(u => u.CollectionPointId).Returns(pointId.Value);
+
+        var command = new AddBeneficiaryKinshipCommand(subject.Id.Value, TestData.ValidCpfB, KinshipType.Irmao);
+
+        var result = await CreateSut().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        subject.Kinships.Should().ContainSingle();
     }
 
     [Fact]

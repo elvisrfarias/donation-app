@@ -12,6 +12,6 @@ que **existe no código**; o que ainda não existe aparece marcado como lacuna.
 | [usabilidade-nielsen-material.md](usabilidade-nielsen-material.md) | h — verificação e validação | Avaliação heurística (Nielsen), aderência ao Material Design e acessibilidade |
 | [validacao-com-usuarios.md](validacao-com-usuarios.md) | d, g, h — validações presenciais | Roteiro e quadro para registrar as validações com a comunidade (a preencher) |
 
-O guia operacional de produção (VPS, Caddy, backup) está em [deploy-hostinger.md](deploy-hostinger.md); a visão geral do sistema, em [../README.md](../README.md).
+O guia operacional de produção (VPS, nginx de borda, backup) está em [deploy-hostinger.md](deploy-hostinger.md); a visão geral do sistema, em [../README.md](../README.md).
 
 Os diagramas são Mermaid e renderizam direto no GitHub e no VS Code.

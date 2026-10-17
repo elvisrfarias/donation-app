@@ -191,10 +191,50 @@ function requiresCollectionPoint(role: z.infer<typeof userRoleSchema>): boolean 
   return role === 'PointManager' || role === 'Viewer'
 }
 
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_MAX_LENGTH = 128
+const PASSWORDS_MISMATCH_MESSAGE = 'As senhas não conferem.'
+
+/** Espelha a política de senha do backend (Identity): 8 a 128 caracteres com pelo menos um número. */
+export const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `Mínimo de ${PASSWORD_MIN_LENGTH} caracteres.`)
+  .max(PASSWORD_MAX_LENGTH, `Máximo de ${PASSWORD_MAX_LENGTH} caracteres.`)
+  .regex(/[0-9]/, 'Inclua pelo menos um número.')
+
+export const PASSWORD_POLICY_HINT = `Mínimo de ${PASSWORD_MIN_LENGTH} caracteres, com pelo menos um número.`
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Informe a senha atual.'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: PASSWORDS_MISMATCH_MESSAGE,
+    path: ['confirmPassword'],
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    message: 'A nova senha deve ser diferente da atual.',
+    path: ['newPassword'],
+  })
+export type ChangePasswordForm = z.infer<typeof changePasswordSchema>
+
+export const resetUserPasswordSchema = z
+  .object({
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: PASSWORDS_MISMATCH_MESSAGE,
+    path: ['confirmPassword'],
+  })
+export type ResetUserPasswordForm = z.infer<typeof resetUserPasswordSchema>
+
 export const createUserSchema = z
   .object({
     email: z.email('Informe um e-mail válido.'),
-    password: z.string().min(8, 'Mínimo de 8 caracteres.').max(128),
+    password: passwordSchema,
     fullName: z.string().min(1, 'Nome é obrigatório.').max(160),
     role: userRoleSchema,
     collectionPointId: z.string().optional(),

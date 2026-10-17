@@ -265,5 +265,21 @@ public static class DomainErrors
 
         public static Error BasketTemplateInactive =>
             Error.Conflict("Withdrawal.BasketTemplateInactive", "A receita de cesta selecionada está inativa.");
+
+        public static Error BeneficiaryInactive =>
+            Error.Conflict("Withdrawal.BeneficiaryInactive", "Este beneficiário está inativo e não pode retirar.");
+
+        public static Error BeneficiaryNotLinkedToPoint =>
+            Error.Conflict(
+                "Withdrawal.BeneficiaryNotLinkedToPoint",
+                "O beneficiário não está vinculado a este ponto. Vincule-o ao ponto antes de registrar a retirada.");
+
+        public static Error OccurredInTheFuture =>
+            Error.Validation("Withdrawal.OccurredInTheFuture", "A data da retirada não pode estar no futuro.");
+
+        public static Error OccurredTooLongAgo(int maxDaysInThePast) =>
+            Error.Validation(
+                "Withdrawal.OccurredTooLongAgo",
+                $"A data da retirada não pode ser anterior a {maxDaysInThePast} dias. Para lançamentos mais antigos, procure um administrador.");
     }
 }

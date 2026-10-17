@@ -19,6 +19,8 @@ public sealed record WithdrawalItemEntry(Guid StockItemId, int Quantity);
 /// segue a regra de equidade (limite do ponto no ciclo vigente, somando o histórico de TODOS os pontos
 /// do município, e baixa automática no estoque); os demais itens (itens livres) não têm limite de
 /// ciclo, mas descontam do estoque do ponto igualmente e ficam registrados no histórico do beneficiário.
+/// O beneficiário precisa estar ativo e vinculado ao ponto; o instante informado não pode estar no
+/// futuro nem, para gestores, mais de <see cref="WithdrawalOccurrenceWindow.ManagerMaxDaysInThePast"/> dias no passado.
 /// </summary>
 public sealed record RegisterWithdrawalCommand(
     Guid PointId,
@@ -56,14 +58,19 @@ public sealed class RegisterWithdrawalHandler(
     ICollectionPointRepository pointRepository,
     IBeneficiaryRepository beneficiaryRepository,
     IUnitOfWork unitOfWork,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICurrentUser currentUser)
     : IRequestHandler<RegisterWithdrawalCommand, ErrorOr<WithdrawalResponse>>
 {
     public async Task<ErrorOr<WithdrawalResponse>> Handle(
         RegisterWithdrawalCommand command,
         CancellationToken cancellationToken)
     {
-        var occurredAt = (command.OccurredAtUtc ?? clock.UtcNow).ToUniversalTime();
+        var occurredAt = WithdrawalOccurrenceWindow.Resolve(command.OccurredAtUtc, clock.UtcNow, currentUser.IsAdmin);
+        if (occurredAt.IsError)
+        {
+            return occurredAt.Errors;
+        }
 
         var beneficiary = await beneficiaryRepository.GetByIdAsync(
             BeneficiaryId.From(command.BeneficiaryId), cancellationToken);
@@ -78,7 +85,13 @@ public sealed class RegisterWithdrawalHandler(
             return DomainErrors.CollectionPoint.NotFound;
         }
 
-        var (startUtc, endUtc) = point.WithdrawalRule.GetCurrentPeriod(occurredAt);
+        var eligibility = WithdrawalEligibility.Check(beneficiary, point.Id);
+        if (eligibility.IsError)
+        {
+            return eligibility.Errors;
+        }
+
+        var (startUtc, endUtc) = point.WithdrawalRule.GetCurrentPeriod(occurredAt.Value);
 
         var alreadyInCycle = command.BasketTemplateId is not null
             ? await pointRepository.CountBeneficiaryBasketWithdrawalsAsync(
@@ -91,7 +104,7 @@ public sealed class RegisterWithdrawalHandler(
             beneficiary,
             ToDomainItems(command.Items),
             alreadyInCycle,
-            occurredAt,
+            occurredAt.Value,
             command.Notes,
             basket);
 

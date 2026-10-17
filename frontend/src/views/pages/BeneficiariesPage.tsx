@@ -4,7 +4,12 @@ import { useMemo, useState } from 'react'
 import { isoToBrazilian } from '@/lib/dateInput'
 import { ApiError } from '@/models/api/problemDetails'
 import { beneficiaryService } from '@/models/services'
-import { type AddBeneficiaryKinshipInput, type Beneficiary } from '@/models/types'
+import {
+  isLookupLinkedTo,
+  type AddBeneficiaryKinshipInput,
+  type Beneficiary,
+  type BeneficiaryCpfLookup,
+} from '@/models/types'
 import {
   registerBeneficiarySchema,
   updateBeneficiarySchema,
@@ -138,7 +143,7 @@ function beneficiaryColumns(options: {
 }
 
 interface ExistingBeneficiary {
-  beneficiary: Beneficiary
+  lookup: BeneficiaryCpfLookup
   pointId: string
 }
 
@@ -259,8 +264,8 @@ export function BeneficiariesPage() {
   }
 
   async function findExistingBeneficiary(values: RegisterBeneficiaryForm) {
-    const found = await beneficiaryService.findByCpf(values.cpf)
-    setExisting({ beneficiary: found, pointId: values.registeredByPointId })
+    const found = await beneficiaryService.lookupByCpf(values.cpf)
+    setExisting({ lookup: found, pointId: values.registeredByPointId })
   }
 
   async function handleRegister(values: RegisterBeneficiaryForm) {
@@ -287,7 +292,7 @@ export function BeneficiariesPage() {
   async function handleLinkExisting() {
     if (!existing) return
     const linked = await linkBeneficiary.linkToPoint({
-      beneficiaryId: existing.beneficiary.id,
+      beneficiaryId: existing.lookup.id,
       pointId: existing.pointId,
     })
     rememberPoint(existing.pointId)
@@ -297,9 +302,9 @@ export function BeneficiariesPage() {
   }
 
   function handleEditExisting() {
-    if (!existing) return
+    if (!existing?.lookup.beneficiary) return
     setBeneficiaryOpen(false)
-    openEditBeneficiary(existing.beneficiary)
+    openEditBeneficiary(existing.lookup.beneficiary)
     setExisting(null)
   }
 
@@ -404,11 +409,11 @@ export function BeneficiariesPage() {
         >
           {existing ? (
             <ExistingBeneficiaryNotice
-              beneficiary={existing.beneficiary}
+              beneficiary={existing.lookup}
               pointName={
                 availablePoints.find((p) => p.id === existing.pointId)?.name ?? 'seu ponto'
               }
-              alreadyLinked={existing.beneficiary.linkedPointIds.includes(existing.pointId)}
+              alreadyLinked={isLookupLinkedTo(existing.lookup, existing.pointId)}
               isLinking={linkBeneficiary.isPending}
               errorMessage={linkBeneficiary.error?.displayMessage}
               onLink={handleLinkExisting}

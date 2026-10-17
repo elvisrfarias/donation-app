@@ -3,7 +3,8 @@ import type { Beneficiary } from '@/models/types'
 import { Alert, Button } from '@/views/components/ui'
 
 interface ExistingBeneficiaryNoticeProps {
-  beneficiary: Beneficiary
+  /** Nome e CPF como vieram da busca: mascarados quando a pessoa ainda não é atendida pelo ponto. */
+  beneficiary: Pick<Beneficiary, 'name' | 'cpf'>
   pointName: string
   alreadyLinked: boolean
   isLinking: boolean

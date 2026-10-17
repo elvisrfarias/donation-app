@@ -144,4 +144,61 @@ public class AuthenticationValidatorsTests
 
         result.IsValid.Should().BeFalse();
     }
+
+    [Fact]
+    public void RegisterUserValidator_SenhaSemNumero_DeveFalhar()
+    {
+        var command = new RegisterUserCommand("novo@doacao.local", "SenhaSemNumero", "Novo Usuário", "Admin", null);
+
+        var result = new RegisterUserValidator().Validate(command);
+
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(RegisterUserCommand.Password));
+    }
+
+    [Fact]
+    public void ChangePasswordValidator_DadosValidos_DevePassar()
+    {
+        var result = new ChangePasswordValidator().Validate(new ChangePasswordCommand("SenhaAtual1", "SenhaNova2"));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("", "SenhaNova2", nameof(ChangePasswordCommand.CurrentPassword))]
+    [InlineData("SenhaAtual1", "curta1", nameof(ChangePasswordCommand.NewPassword))]
+    [InlineData("SenhaAtual1", "SenhaSemNumero", nameof(ChangePasswordCommand.NewPassword))]
+    [InlineData("SenhaAtual1", "SenhaAtual1", nameof(ChangePasswordCommand.NewPassword))]
+    public void ChangePasswordValidator_DadosInvalidos_DeveFalhar(string currentPassword, string newPassword, string property)
+    {
+        var result = new ChangePasswordValidator().Validate(new ChangePasswordCommand(currentPassword, newPassword));
+
+        result.Errors.Should().Contain(e => e.PropertyName == property);
+    }
+
+    [Fact]
+    public void ResetUserPasswordValidator_DadosValidos_DevePassar()
+    {
+        var result = new ResetUserPasswordValidator().Validate(new ResetUserPasswordCommand(Guid.NewGuid(), "SenhaNova2"));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("curta1")]
+    [InlineData("SenhaSemNumero")]
+    public void ResetUserPasswordValidator_SenhaForaDaPolitica_DeveFalhar(string newPassword)
+    {
+        var result = new ResetUserPasswordValidator().Validate(new ResetUserPasswordCommand(Guid.NewGuid(), newPassword));
+
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ResetUserPasswordCommand.NewPassword));
+    }
+
+    [Fact]
+    public void ResetUserPasswordValidator_SemUsuario_DeveFalhar()
+    {
+        var result = new ResetUserPasswordValidator().Validate(new ResetUserPasswordCommand(Guid.Empty, "SenhaNova2"));
+
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ResetUserPasswordCommand.UserId));
+    }
 }

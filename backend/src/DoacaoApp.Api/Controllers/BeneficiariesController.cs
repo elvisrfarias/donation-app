@@ -34,6 +34,9 @@ public sealed record UpdateBeneficiaryRequest(
 /// <summary>Corpo de uma requisição de vínculo do beneficiário a um ponto de coleta.</summary>
 public sealed record LinkBeneficiaryToPointRequest(Guid PointId);
 
+/// <summary>Corpo da busca de beneficiário por CPF.</summary>
+public sealed record LookupBeneficiaryByCpfRequest(string Cpf);
+
 /// <summary>Corpo de uma requisição de vínculo de parentesco.</summary>
 public sealed record AddBeneficiaryKinshipRequest(string RelatedBeneficiaryCpf, KinshipType Type);
 
@@ -52,15 +55,24 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
         return Respond(result, Ok);
     }
 
-    /// <summary>Busca rápida do beneficiário pelo CPF (preenche a retirada).</summary>
-    [HttpGet("by-cpf/{cpf}")]
+    /// <summary>
+    /// Busca rápida do beneficiário pelo CPF no município (balcão de retirada / cadastro). O CPF vai
+    /// no corpo, não na URL, para não ficar registrado em logs de acesso. Quem não tem acesso ao
+    /// cadastro (beneficiário não vinculado ao seu ponto) recebe só nome abreviado e CPF mascarado.
+    /// </summary>
+    /// <response code="200">Beneficiário encontrado (completo ou mascarado, conforme o acesso).</response>
+    /// <response code="400">CPF inválido.</response>
+    /// <response code="404">Nenhum beneficiário com esse CPF.</response>
+    [HttpPost("lookup-by-cpf")]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]
-    [ProducesResponseType(typeof(BeneficiaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BeneficiaryCpfLookupResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> FindByCpf(string cpf, CancellationToken cancellationToken)
+    public async Task<IActionResult> LookupByCpf(
+        [FromBody] LookupBeneficiaryByCpfRequest request,
+        CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(new FindBeneficiaryByCpfQuery(cpf), cancellationToken);
+        var result = await Sender.Send(new FindBeneficiaryByCpfQuery(request.Cpf), cancellationToken);
         return Respond(result, Ok);
     }
 
@@ -149,7 +161,8 @@ public sealed class BeneficiariesController(ISender sender) : ApiController(send
 
     /// <summary>
     /// Registra um vínculo de parentesco do beneficiário com outro (localizado pelo CPF). O vínculo
-    /// é espelhado no outro beneficiário e é apenas informativo: não altera a cota de retiradas.
+    /// é espelhado no outro beneficiário e é apenas informativo: não altera a cota de retiradas. O gestor
+    /// só registra vínculos de beneficiários vinculados ao seu ponto (404 para os demais).
     /// </summary>
     [HttpPost("{beneficiaryId:guid}/kinships")]
     [Authorize(Roles = Roles.Admin + "," + Roles.PointManager)]

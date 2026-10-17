@@ -36,6 +36,14 @@ export type RefreshOutcome =
 
 let refreshing: Promise<RefreshOutcome> | null = null
 
+/** Outra aba pode ter rotacionado o refresh token enquanto este ainda estava em uso: adota a sessão dela. */
+function sessionRotatedByAnotherTab(usedRefreshToken: string): RefreshOutcome | null {
+  const latest = tokenStorage.reload()
+  return latest && latest.refreshToken !== usedRefreshToken
+    ? { ok: true, accessToken: latest.accessToken }
+    : null
+}
+
 async function refreshAccessToken(): Promise<RefreshOutcome> {
   const refreshToken = tokenStorage.getRefreshToken()
   if (!refreshToken) return { ok: false, reason: 'invalid' }
@@ -45,7 +53,8 @@ async function refreshAccessToken(): Promise<RefreshOutcome> {
     return { ok: true, accessToken: data.accessToken }
   } catch (error) {
     const status = toApiError(error).status
-    return { ok: false, reason: status === 0 || status >= 500 ? 'transient' : 'invalid' }
+    if (status === 0 || status >= 500) return { ok: false, reason: 'transient' }
+    return sessionRotatedByAnotherTab(refreshToken) ?? { ok: false, reason: 'invalid' }
   }
 }
 

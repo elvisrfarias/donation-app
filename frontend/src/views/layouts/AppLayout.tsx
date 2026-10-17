@@ -3,6 +3,7 @@ import {
   Boxes,
   ChevronDown,
   HandHeart,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Map,
@@ -17,6 +18,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { cn, initials } from '@/lib/utils'
 import { roleLabels } from '@/models/types/auth'
 import { useAuth, usePointDonations } from '@/viewmodels'
+import { ChangePasswordModal } from '@/views/components/auth/ChangePasswordModal'
 import { AppLogo } from '@/views/components/common/AppLogo'
 
 interface NavItem {
@@ -146,6 +148,7 @@ export function AppLayout() {
   const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
   const { pathname: currentPathname } = useLocation()
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const ownPointId = isAdmin ? null : (user?.collectionPointId ?? null)
   const { donations } = usePointDonations(isManager ? ownPointId : null)
   const pendingDonations = donations.filter((donation) => donation.status === 'Pledged').length
@@ -202,8 +205,16 @@ export function AppLayout() {
           </div>
           <button
             type="button"
+            onClick={() => setChangePasswordOpen(true)}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <KeyRound className="size-3.5" />
+            Trocar senha
+          </button>
+          <button
+            type="button"
             onClick={handleLogout}
-            className="hover:text-brand-700 mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/15 transition-colors ring-inset hover:bg-white hover:ring-white"
+            className="hover:text-brand-700 mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/15 transition-colors ring-inset hover:bg-white hover:ring-white"
           >
             <LogOut className="size-4" />
             Sair
@@ -214,14 +225,25 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/80 px-4 py-3 backdrop-blur-md lg:hidden">
           <AppLogo compact />
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100"
-          >
-            <LogOut className="size-4" />
-            Sair
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setChangePasswordOpen(true)}
+              aria-label="Trocar senha"
+              title="Trocar senha"
+              className="inline-flex size-9 items-center justify-center rounded-xl text-stone-600 transition-colors hover:bg-stone-100"
+            >
+              <KeyRound className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100"
+            >
+              <LogOut className="size-4" />
+              Sair
+            </button>
+          </div>
         </header>
 
         <main
@@ -262,6 +284,8 @@ export function AppLayout() {
           </NavLink>
         ))}
       </nav>
+
+      <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </div>
   )
 }

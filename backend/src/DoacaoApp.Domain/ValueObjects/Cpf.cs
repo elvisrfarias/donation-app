@@ -20,6 +20,12 @@ public sealed record Cpf
     public string Formatted =>
         $"{Value[..3]}.{Value[3..6]}.{Value[6..9]}-{Value[9..]}";
 
+    /// <summary>
+    /// Versão anonimizada para exibição a quem não tem acesso ao cadastro: ***.000.000-**
+    /// (oculta os 3 primeiros e os 2 verificadores, padrão usado em publicações oficiais).
+    /// </summary>
+    public string Masked => $"***.{Value[3..6]}.{Value[6..9]}-**";
+
     public static ErrorOr<Cpf> Create(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))
