@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AnyFieldApi } from '@tanstack/react-form'
-import { CheckIcon, ChevronsUpDownIcon, ImagePlus, PlusIcon, X } from 'lucide-react'
+import { CheckIcon, ChevronsUpDownIcon, Eye, EyeOff, ImagePlus, PlusIcon, X } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Command,
@@ -78,6 +78,30 @@ function useAsyncValueChange(onLoadingChange: (loading: boolean) => void) {
   }
 }
 
+function PasswordVisibilityToggle({
+  isVisible,
+  disabled,
+  onToggle,
+}: {
+  isVisible: boolean
+  disabled?: boolean
+  onToggle: () => void
+}) {
+  const VisibilityIcon = isVisible ? EyeOff : Eye
+  return (
+    <button
+      type="button"
+      aria-label={isVisible ? 'Ocultar senha' : 'Mostrar senha'}
+      aria-pressed={isVisible}
+      disabled={disabled}
+      onClick={onToggle}
+      className="absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 disabled:pointer-events-none disabled:opacity-50"
+    >
+      <VisibilityIcon className="size-4" />
+    </button>
+  )
+}
+
 function TextControl({
   field,
   id,
@@ -86,6 +110,9 @@ function TextControl({
   const error = fieldError(field)
   const [isLoading, setIsLoading] = useState(false)
   const trackAsyncValueChange = useAsyncValueChange(setIsLoading)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const isPassword = config.type === 'password'
+  const inputType = isPassword && isPasswordVisible ? 'text' : config.type
 
   return (
     <FieldShell
@@ -98,14 +125,14 @@ function TextControl({
       <div className="relative">
         <Input
           id={id}
-          type={config.type}
+          type={inputType}
           placeholder={config.placeholder}
           autoComplete={config.autoComplete}
           maxLength={config.maxLength}
           disabled={config.disabled}
           aria-invalid={!!error}
           aria-busy={isLoading}
-          className={cn(isLoading && 'pr-10')}
+          className={cn((isLoading || isPassword) && 'pr-10', isLoading && isPassword && 'pr-18')}
           value={(field.state.value as string | undefined) ?? ''}
           inputMode={config.mask ? 'numeric' : undefined}
           onChange={(e) => {
@@ -116,7 +143,19 @@ function TextControl({
           onBlur={field.handleBlur}
         />
         {isLoading && (
-          <Spinner className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2" />
+          <Spinner
+            className={cn(
+              'pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2',
+              isPassword && 'right-11',
+            )}
+          />
+        )}
+        {isPassword && (
+          <PasswordVisibilityToggle
+            isVisible={isPasswordVisible}
+            disabled={config.disabled}
+            onToggle={() => setIsPasswordVisible((visible) => !visible)}
+          />
         )}
       </div>
     </FieldShell>
