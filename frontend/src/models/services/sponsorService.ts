@@ -1,3 +1,4 @@
+import { downscaleImage, LOGO_MAX_DIMENSION } from '@/lib/imageDownscale'
 import { http } from '@/models/api/httpClient'
 import type { CreateSponsorInput, Sponsor, UpdateSponsorInput, UploadedImage } from '@/models/types'
 
@@ -31,7 +32,7 @@ export const sponsorService = {
   /** Envia a logo como arquivo público; o id devolvido vai no cadastro/edição do patrocinador. */
   async uploadLogo(file: File): Promise<UploadedImage> {
     const form = new FormData()
-    form.append('file', file)
+    form.append('file', await downscaleImage(file, LOGO_MAX_DIMENSION))
     form.append('visibility', 'Public')
     form.append('ownerType', 'Sponsor')
     const { data } = await http.post<UploadedImage>('/files', form, {

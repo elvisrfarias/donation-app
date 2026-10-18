@@ -1,3 +1,4 @@
+import { downscaleImage, PHOTO_MAX_DIMENSION } from '@/lib/imageDownscale'
 import { http } from '@/models/api/httpClient'
 import type {
   CollectionPoint,
@@ -29,7 +30,7 @@ export const collectionPointService = {
   /** Envia a imagem do ponto (visibilidade pública) e devolve o id/URL do arquivo. */
   async uploadImage(file: File): Promise<UploadedImage> {
     const form = new FormData()
-    form.append('file', file)
+    form.append('file', await downscaleImage(file, PHOTO_MAX_DIMENSION))
     form.append('visibility', 'Public')
     form.append('ownerType', 'CollectionPoint')
     const { data } = await http.post<UploadedImage>('/files', form, {
