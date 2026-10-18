@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { Compass } from 'lucide-react'
-import { Button } from '@/views/components/ui'
+import { usePageMeta } from '@/lib/pageMeta'
+import { Button } from '@/views/components/ui/Button'
 
 export function NotFoundPage() {
+  usePageMeta({ title: 'Página não encontrada | Dooa', indexable: false })
+
   return (
     <div className="bg-canvas flex min-h-dvh flex-col items-center justify-center gap-5 p-6 text-center">
       <span className="from-brand-500 to-brand-700 shadow-brand grid size-16 place-items-center rounded-3xl bg-linear-to-br text-white">

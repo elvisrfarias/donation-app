@@ -30,7 +30,7 @@ export function AppLogo({
               inverted ? 'text-white' : 'text-stone-900',
             )}
           >
-            Do<span className={inverted ? 'text-brand-200' : 'text-brand-500'}>oa</span>
+            Do<span className={inverted ? 'text-brand-200' : 'text-brand-600'}>oa</span>
           </p>
           <p
             className={cn('text-[11px] font-medium', inverted ? 'text-white/70' : 'text-stone-500')}

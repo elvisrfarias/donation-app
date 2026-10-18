@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Send } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
+import { usePageMeta } from '@/lib/pageMeta'
 import {
   forgotPasswordSchema,
   useAuth,
@@ -16,6 +17,7 @@ const forgotPasswordDefaults: ForgotPasswordForm = { email: '' }
 const backToLogin = { to: '/login', label: 'Voltar para o login' }
 
 export function ForgotPasswordPage() {
+  usePageMeta({ title: 'Esqueci minha senha | Dooa', indexable: false })
   const { isAuthenticated } = useAuth()
   const { requestPasswordReset, error } = useRequestPasswordReset()
   const [sentTo, setSentTo] = useState<string | null>(null)

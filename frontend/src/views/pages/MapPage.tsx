@@ -1,14 +1,11 @@
-import { type CSSProperties, useRef, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import {
-  Building2,
   ChevronLeft,
   ChevronRight,
-  Church,
   Clock,
+  ExternalLink,
   HandHeart,
   HeartHandshake,
-  Landmark,
-  LogIn,
   MapPin,
   MessageSquare,
   Phone,
@@ -16,79 +13,25 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { sharePoint } from '@/lib/pointActions'
-import {
-  collectionPointTypeLabels,
-  formatAddress,
-  type CollectionPoint,
-  type CollectionPointType,
-} from '@/models/types'
-import { useCollectionPointsMapViewModel } from '@/viewmodels'
-import { AppLogo } from '@/views/components/common/AppLogo'
+import { DEFAULT_PAGE_TITLE, usePageMeta } from '@/lib/pageMeta'
+import { pointPagePath, sharePoint } from '@/lib/pointActions'
+import { collectionPointTypeLabels, formatAddress, type CollectionPoint } from '@/models/types'
+import { useCollectionPointsMapViewModel } from '@/viewmodels/useCollectionPointsMapViewModel'
 import { CollectionPointsMap } from '@/views/components/map/CollectionPointsMap'
-import { colorByType } from '@/views/components/map/markerIcon'
+import { pointTypeIcon, pointTypeSoftStyle } from '@/views/components/map/pointTypeStyle'
+import { PledgeDonationModal, PointReviewsModal } from '@/views/components/points/lazyPointModals'
 import { LandingSections } from '@/views/components/landing/LandingSections'
-import { PledgeDonationModal } from '@/views/components/donations/PledgeDonationModal'
-import { PointReviewsModal } from '@/views/components/reviews/PointReviewsModal'
+import { SiteHeader } from '@/views/components/landing/SiteHeader'
 import { StarRating } from '@/views/components/reviews/StarRating'
 import { FALLBACK_ICON, ICON_BY_KEY } from '@/views/components/stock/categoryIcons'
-import { Alert, CenteredSpinner, EmptyState, Select } from '@/views/components/ui'
-
-const typeIcon: Record<CollectionPointType, typeof Building2> = {
-  Association: Building2,
-  Church,
-  PublicEntity: Landmark,
-}
-
-const softStyle = (type: CollectionPointType): CSSProperties => {
-  const c = colorByType[type]
-  return {
-    backgroundColor: `color-mix(in oklab, ${c}, white 90%)`,
-    color: `color-mix(in oklab, ${c}, black 20%)`,
-    boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c}, white 80%)`,
-  }
-}
+import { Alert, CenteredSpinner, EmptyState } from '@/views/components/ui/feedback'
+import { Select } from '@/views/components/ui/Select'
 
 const PAGE_SIZE = 5
 const SIDE_BY_SIDE_LAYOUT_QUERY = '(min-width: 1024px)'
 
-const navLinks = [
-  { href: '#sobre', label: 'Sobre' },
-  { href: '#como-funciona', label: 'Como funciona' },
-  { href: '#apoie', label: 'Apoiar' },
-]
-
-function SiteHeader() {
-  return (
-    <header className="animate-in fade-in slide-in-from-top-4 sticky top-0 z-1050 border-b border-stone-200/80 bg-white/85 backdrop-blur duration-500">
-      <div className="mx-auto flex h-16 max-w-384 items-center justify-between gap-4 px-4 sm:px-6">
-        <Link to="/" title="Início">
-          <AppLogo />
-        </Link>
-        <nav className="hidden items-center gap-1 md:flex">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="hover:bg-brand-50 hover:text-brand-700 rounded-full px-4 py-2 text-sm font-semibold text-stone-600 transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
-        <Link
-          to="/login"
-          className="from-brand-500 to-brand-700 shadow-brand hover:shadow-lift inline-flex h-10 items-center gap-2 rounded-full bg-linear-to-r px-5 text-sm font-semibold text-white transition-all"
-        >
-          <LogIn className="size-4" />
-          Entrar
-        </Link>
-      </div>
-    </header>
-  )
-}
-
 export function MapPage() {
+  usePageMeta({ title: DEFAULT_PAGE_TITLE, canonicalPath: '/' })
   const vm = useCollectionPointsMapViewModel()
   const [page, setPage] = useState(0)
   const [reviewsPoint, setReviewsPoint] = useState<CollectionPoint | null>(null)
@@ -189,7 +132,7 @@ export function MapPage() {
               ) : (
                 <ul className="space-y-2.5">
                   {pageItems.map(({ item, position, distanceKm }, index) => {
-                    const Icon = typeIcon[item.type]
+                    const Icon = pointTypeIcon[item.type]
                     const selected = item.id === vm.selectedId
                     return (
                       <li
@@ -212,7 +155,7 @@ export function MapPage() {
                         >
                           <div
                             className="grid size-16 shrink-0 place-items-center rounded-xl"
-                            style={softStyle(item.type)}
+                            style={pointTypeSoftStyle(item.type)}
                           >
                             <Icon className="size-7" />
                           </div>
@@ -221,7 +164,7 @@ export function MapPage() {
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                               <span
                                 className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                                style={softStyle(item.type)}
+                                style={pointTypeSoftStyle(item.type)}
                               >
                                 {collectionPointTypeLabels[item.type]}
                               </span>
@@ -333,7 +276,14 @@ export function MapPage() {
                             )}
                           </div>
                         </button>
-                        <div className="mt-1 flex items-center justify-end gap-1">
+                        <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
+                          <Link
+                            to={pointPagePath(item)}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 sm:min-h-0"
+                          >
+                            <ExternalLink className="size-3.5" aria-hidden />
+                            Página do ponto
+                          </Link>
                           <button
                             type="button"
                             onClick={() => sharePoint(item)}
@@ -385,8 +335,14 @@ export function MapPage() {
 
       <LandingSections />
 
-      <PointReviewsModal point={reviewsPoint} onClose={() => setReviewsPoint(null)} />
-      <PledgeDonationModal point={pledgePoint} onClose={() => setPledgePoint(null)} />
+      <Suspense fallback={null}>
+        {reviewsPoint && (
+          <PointReviewsModal point={reviewsPoint} onClose={() => setReviewsPoint(null)} />
+        )}
+        {pledgePoint && (
+          <PledgeDonationModal point={pledgePoint} onClose={() => setPledgePoint(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

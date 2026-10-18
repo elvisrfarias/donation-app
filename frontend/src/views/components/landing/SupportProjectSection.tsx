@@ -3,7 +3,7 @@ import { Check, Copy, Heart } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { PIX_COPY_AND_PASTE_CODE, PIX_RECEIVER_NAME } from '@/lib/donationPix'
 import { Reveal } from '@/views/components/common/Reveal'
-import { Button } from '@/views/components/ui'
+import { Button } from '@/views/components/ui/Button'
 
 const COPIED_FEEDBACK_MILLISECONDS = 2500
 

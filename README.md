@@ -294,6 +294,21 @@ porque:
 
 O hasher é registrado **antes** de `AddIdentityCore` (que usa `TryAdd`) para prevalecer sobre o padrão.
 
+## SEO e prévias de link
+
+- **Páginas renderizadas pela API:** o nginx do frontend manda `/`, `/pontos/{id}/{slug}` e `/sitemap.xml` para
+  `/api/public/seo/...`. A API lê o `index.html` do build (`Seo__IndexHtmlUrl`, padrão `http://frontend:8080/index.html`)
+  e devolve a página com título, descrição, `canonical`, Open Graph/Twitter, JSON-LD (`ItemList` no início, `Place`
+  em cada ponto) e o conteúdo em `<noscript>`. O app React carrega normalmente por cima. Se a API falhar, o nginx
+  serve o `index.html` estático.
+- **Página de cada ponto:** `/pontos/{id}/{slug}`. Um slug desatualizado redireciona com 301 para o atual, e o
+  `og:image` aponta para `/api/public/collection-points/{id}/image`, um endereço fixo que redireciona para uma URL
+  pré-assinada nova.
+- **Fora do índice:** `/login`, `/forgot-password`, `/reset-password` e `/app/*` saem com `X-Robots-Tag: noindex`.
+  Caminhos inexistentes respondem 404 de verdade.
+- **Domínio canônico:** `https://${APP_DOMAIN}`. O `www` redireciona com 301 (certificado próprio no certbot).
+- `Seo__SiteUrl` (produção: `https://${APP_DOMAIN}`) é a base de canonical, `og:url` e sitemap.
+
 ## Observabilidade
 
 - **Serilog** estruturado (console + arquivo em `logs/`), com `CorrelationId` em todo log.

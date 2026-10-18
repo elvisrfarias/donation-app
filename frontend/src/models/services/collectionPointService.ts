@@ -38,6 +38,12 @@ export const collectionPointService = {
     return data
   },
 
+  /** Um ponto ativo, com os dados públicos do mapa — base da página do ponto (anônimo). */
+  async getPublic(id: string, signal?: AbortSignal): Promise<CollectionPoint> {
+    const { data } = await http.get<CollectionPoint>(`/public/collection-points/${id}`, { signal })
+    return data
+  },
+
   /** Lista administrativa (autenticada) de todos os pontos, ativos e inativos (requer role Admin). */
   async listForManagement(signal?: AbortSignal): Promise<CollectionPoint[]> {
     const { data } = await http.get<CollectionPoint[]>('/collection-points', { signal })

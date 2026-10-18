@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { setForcedLogoutHandler } from '@/models/api/httpClient'
 import { scheduleProactiveRefresh, stopProactiveRefresh } from '@/models/api/tokenRefreshScheduler'
 import { tokenStorage } from '@/models/api/tokenStorage'
-import { authService } from '@/models/services'
+import { authService } from '@/models/services/authService'
 import type { AuthResult, AuthUser, Role } from '@/models/types/auth'
 
 type AuthStatus = 'authenticated' | 'unauthenticated'

@@ -16,6 +16,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { usePageMeta } from '@/lib/pageMeta'
 import { cn, initials } from '@/lib/utils'
 import { roleLabels } from '@/models/types/auth'
 import { useAuth, usePointDonations } from '@/viewmodels'
@@ -153,6 +154,7 @@ function AdminMenu({ items }: { items: NavItem[] }) {
 }
 
 export function AppLayout() {
+  usePageMeta({ title: 'Área de gestão | Dooa', indexable: false })
   const { user, logout, isAdmin, isManager } = useAuth()
   const navigate = useNavigate()
   const { pathname: currentPathname } = useLocation()

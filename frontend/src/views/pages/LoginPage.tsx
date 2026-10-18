@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { usePageMeta } from '@/lib/pageMeta'
 import { loginSchema, useAuth, useLoginViewModel } from '@/viewmodels'
 import { AuthPageLayout } from '@/views/components/auth/AuthPageLayout'
 import { FormComponent } from '@/views/components/form'
@@ -10,6 +11,7 @@ interface LocationState {
 }
 
 export function LoginPage() {
+  usePageMeta({ title: 'Entrar | Dooa', indexable: false })
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()

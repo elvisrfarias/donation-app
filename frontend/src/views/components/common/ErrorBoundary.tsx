@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { logger } from '@/lib/logger'
-import { Button } from '@/views/components/ui'
+import { Button } from '@/views/components/ui/Button'
 
 interface ErrorBoundaryProps {
   children: ReactNode

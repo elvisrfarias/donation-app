@@ -7,6 +7,15 @@ function pointMapsQuery(point: CollectionPoint): string {
     : formatAddress(point.address)
 }
 
+/** Caminho da página pública do ponto, a que o Google indexa e que vai nos compartilhamentos. */
+export function pointPagePath(point: Pick<CollectionPoint, 'id' | 'slug'>): string {
+  return `/pontos/${point.id}/${point.slug}`
+}
+
+export function pointPageUrl(point: Pick<CollectionPoint, 'id' | 'slug'>): string {
+  return new URL(pointPagePath(point), window.location.origin).href
+}
+
 /** Link do Google Maps para o ponto (usa coordenadas quando houver; senão o endereço). */
 export function pointMapsUrl(point: CollectionPoint): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pointMapsQuery(point))}`
@@ -25,6 +34,7 @@ export function buildPointShareText(point: CollectionPoint): string {
     `📍 ${formatAddress(point.address)}`,
     point.openingHours ? `🕒 ${point.openingHours}` : null,
     point.needs.length > 0 ? `🎁 Precisa agora: ${point.needs.join(', ')}` : null,
+    `🔗 ${pointPageUrl(point)}`,
     `🗺️ ${pointMapsUrl(point)}`,
   ].filter(Boolean)
   return lines.join('\n')
@@ -38,7 +48,7 @@ export async function sharePoint(point: CollectionPoint): Promise<void> {
   const text = buildPointShareText(point)
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
-      await navigator.share({ title: point.name, text })
+      await navigator.share({ title: point.name, text, url: pointPageUrl(point) })
     } catch {
       // Usuário cancelou a folha nativa — não faz fallback.
     }

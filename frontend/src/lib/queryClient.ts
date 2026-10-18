@@ -20,6 +20,7 @@ export const queryKeys = {
     public: ['collection-points', 'public'] as const,
     management: ['collection-points', 'management'] as const,
     detail: (pointId: string) => ['collection-points', 'detail', pointId] as const,
+    publicDetail: (pointId: string) => ['collection-points', 'public', pointId] as const,
     reviews: (pointId: string) => ['collection-points', pointId, 'reviews'] as const,
     dashboard: (pointId: string, from?: string, to?: string) =>
       from && to

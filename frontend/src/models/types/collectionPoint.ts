@@ -198,6 +198,8 @@ export interface CollectionPoint {
   reviewCount: number
   /** Nº de beneficiários distintos já atendidos no ponto (indicador de impacto). */
   beneficiariesServed: number
+  /** Trecho legível da página pública do ponto: /pontos/{id}/{slug}. */
+  slug: string
 }
 
 export type DashboardGranularity = 'Day' | 'Month'

@@ -1,6 +1,6 @@
 import { RotateCcw } from 'lucide-react'
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom'
-import { Button } from '@/views/components/ui'
+import { Button } from '@/views/components/ui/Button'
 
 export function RouteError() {
   const error = useRouteError()

@@ -6,6 +6,7 @@ using AspNetCoreRateLimit;
 using DoacaoApp.Api.Middleware;
 using DoacaoApp.Api.OpenApi;
 using DoacaoApp.Api.RateLimiting;
+using DoacaoApp.Api.Seo;
 using DoacaoApp.Api.Services;
 using DoacaoApp.Application.Authentication;
 using DoacaoApp.Application.Common.Abstractions;
@@ -37,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddRateLimiting(configuration);
         services.AddObservability(configuration);
         services.AddApiDocumentation();
+        services.AddSeoPages(configuration);
 
         return services;
     }

@@ -5,6 +5,7 @@ import { AppProviders } from '@/app/providers'
 import { router } from '@/app/router'
 import { applyBrandFavicon } from '@/lib/brandFavicon'
 import { ErrorBoundary } from '@/views/components/common/ErrorBoundary'
+import '@fontsource-variable/plus-jakarta-sans'
 import './index.css'
 
 applyBrandFavicon()

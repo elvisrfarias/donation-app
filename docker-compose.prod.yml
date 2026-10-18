@@ -65,7 +65,7 @@ services:
       - no-new-privileges:true
     entrypoint: ["/opt/certbot/run.sh"]
     environment:
-      CERT_DOMAINS: ${APP_DOMAIN} ${STORAGE_DOMAIN}
+      CERT_DOMAINS: ${APP_DOMAIN} www.${APP_DOMAIN} ${STORAGE_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./edge/certbot/run.sh:/opt/certbot/run.sh:ro
@@ -104,6 +104,8 @@ services:
       Storage__PublicUrl: https://${STORAGE_DOMAIN}
       # Links enviados por e-mail (ex.: redefinição de senha) apontam para o domínio público.
       Email__AppBaseUrl: https://${APP_DOMAIN}
+      # Canonical, og:url e sitemap das páginas renderizadas pela API (o molde vem do frontend).
+      Seo__SiteUrl: https://${APP_DOMAIN}
 
 volumes:
   letsencrypt:

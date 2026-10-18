@@ -1,3 +1,4 @@
+using DoacaoApp.Application.Common.Text;
 using DoacaoApp.Domain.CollectionPoints;
 
 namespace DoacaoApp.Application.CollectionPoints.Contracts;
@@ -7,7 +8,8 @@ namespace DoacaoApp.Application.CollectionPoints.Contracts;
 /// <see cref="Categories"/> vem sempre preenchido (é o catálogo que o ponto declara aceitar,
 /// mostrado no mapa público); já <see cref="StockItems"/> e <see cref="BasketTemplates"/> só vêm
 /// preenchidos na visão de gestão (<c>includeManagementDetails: true</c>) — a listagem pública
-/// devolve as duas listas vazias.
+/// devolve as duas listas vazias. <see cref="Slug"/> é o trecho legível da página pública do ponto
+/// (<c>/pontos/{Id}/{Slug}</c>).
 /// </summary>
 public sealed record CollectionPointResponse(
     Guid Id,
@@ -27,7 +29,8 @@ public sealed record CollectionPointResponse(
     string? ImageUrl,
     double AverageRating,
     int ReviewCount,
-    int BeneficiariesServed);
+    int BeneficiariesServed,
+    string Slug);
 
 /// <summary>Categoria do catálogo do ponto (agrupa estoque, checklist de retirada e itens aceitos no mapa público).</summary>
 public sealed record CategoryResponse(Guid Id, string Name, string Icon);
@@ -119,7 +122,8 @@ public static class CollectionPointMappings
             imageUrl,
             averageRating,
             reviewCount,
-            beneficiariesServed);
+            beneficiariesServed,
+            UrlSlug.From(point.Name, point.Address.City, point.Address.State));
 
     private static CategoryResponse ToResponse(Category category) =>
         new(category.Id.Value, category.Name, category.Icon);

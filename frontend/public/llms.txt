@@ -1,0 +1,13 @@
+# Dooa
+
+> Dooa é um sistema gratuito de pontos de doação e coleta. A comunidade encontra no mapa os pontos mais próximos (igrejas, associações e órgãos públicos), vê o que cada um precisa agora e avisa que vai doar. Os pontos de um mesmo município compartilham o histórico de retiradas, para que a ajuda chegue a mais famílias com equidade.
+
+## Páginas públicas
+
+- [Mapa dos pontos de doação](__SITE_URL__/): todos os pontos ativos, com endereço, horário, o que precisam e avaliações da comunidade.
+- [Sitemap](__SITE_URL__/sitemap.xml): lista a página de cada ponto de coleta, no formato `/pontos/{id}/{nome-cidade-uf}`.
+
+## Dados abertos
+
+- [Pontos de coleta (JSON)](__SITE_URL__/api/public/collection-points): nome, tipo, endereço, coordenadas, contato, horário, necessidades e resumo das avaliações.
+- [Patrocinadores (JSON)](__SITE_URL__/api/public/sponsors): instituições que mantêm o projeto, nas categorias Diamante, Ouro e Prata.

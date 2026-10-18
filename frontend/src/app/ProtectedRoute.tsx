@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import type { Role } from '@/models/types/auth'
-import { useAuth } from '@/viewmodels'
+import { useAuth } from '@/viewmodels/useAuth'
 
 /** Guarda de rota: exige autenticação e, opcionalmente, uma das roles informadas. */
 export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: Role[] }) {

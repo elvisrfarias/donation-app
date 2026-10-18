@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/viewmodels'
+import { useAuth } from '@/viewmodels/useAuth'
 
 /** Landing da seção /app/admin: Admin cai em Pontos de Coleta; PointManager, direto em Usuários. */
 export function AdminIndexRedirect() {

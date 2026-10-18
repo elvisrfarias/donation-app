@@ -7,16 +7,16 @@ export function LandingFooter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
         <AppLogo />
         <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-stone-600">
-          <a href="#sobre" className="hover:text-brand-600">
+          <a href="/#sobre" className="hover:text-brand-600">
             Sobre
           </a>
-          <a href="#como-funciona" className="hover:text-brand-600">
+          <a href="/#como-funciona" className="hover:text-brand-600">
             Como funciona
           </a>
-          <a href="#patrocinadores" className="hover:text-brand-600">
+          <a href="/#patrocinadores" className="hover:text-brand-600">
             Patrocinadores
           </a>
-          <a href="#apoie" className="hover:text-brand-600">
+          <a href="/#apoie" className="hover:text-brand-600">
             Apoiar
           </a>
           <Link to="/login" className="hover:text-brand-600">

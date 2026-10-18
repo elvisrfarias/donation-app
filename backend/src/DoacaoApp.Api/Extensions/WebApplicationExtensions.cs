@@ -2,6 +2,7 @@ using System.Data.Common;
 using AspNetCoreRateLimit;
 using DoacaoApp.Api.Endpoints;
 using DoacaoApp.Api.Middleware;
+using DoacaoApp.Api.Seo;
 using DoacaoApp.Infrastructure.Persistence;
 using DoacaoApp.Infrastructure.Persistence.Seed;
 using DoacaoApp.Infrastructure.Storage;
@@ -34,6 +35,7 @@ public static class WebApplicationExtensions
         app.MapControllers();
         app.MapAuthEndpoints();
         app.MapPublicEndpoints();
+        app.MapSeoEndpoints();
 
         app.MapHealthChecks("/health", new HealthCheckOptions
         {

@@ -1,7 +1,7 @@
 import { Award, Gem, HeartHandshake, Medal, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { sponsorTierLabels, sponsorTiers, type Sponsor, type SponsorTier } from '@/models/types'
-import { usePublicSponsors } from '@/viewmodels'
+import { usePublicSponsors } from '@/viewmodels/useSponsorsViewModel'
 import { Reveal } from '@/views/components/common/Reveal'
 import { SectionHeading } from './SectionHeading'
 

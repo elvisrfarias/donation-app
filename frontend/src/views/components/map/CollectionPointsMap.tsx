@@ -20,7 +20,7 @@ import {
   type LatLng,
 } from '@/models/types'
 import type { FocusRequest } from '@/viewmodels/useCollectionPointsMapViewModel'
-import { Badge } from '@/views/components/ui'
+import { Badge } from '@/views/components/ui/feedback'
 import { StarRating } from '@/views/components/reviews/StarRating'
 import { BaseMapTiles } from './BaseMapTiles'
 import { createMarkerIcon } from './markerIcon'
@@ -162,6 +162,8 @@ export function CollectionPointsMap({
           key={item.id}
           position={[position!.lat, position!.lng]}
           icon={createMarkerIcon(item.type, item.id === selectedId)}
+          title={item.name}
+          alt={item.name}
           eventHandlers={{ click: () => onSelect(item.id) }}
           zIndexOffset={item.id === selectedId ? 1000 : 0}
           ref={(instance) => {
@@ -276,7 +278,12 @@ export function CollectionPointsMap({
         />
       )}
       {userLocation && (
-        <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
+        <Marker
+          position={[userLocation.lat, userLocation.lng]}
+          icon={userLocationIcon}
+          title="Sua localização"
+          alt="Sua localização"
+        >
           <Popup>Você está aqui</Popup>
         </Marker>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { KeyRound, LogIn } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { usePageMeta } from '@/lib/pageMeta'
 import {
   PASSWORD_POLICY_HINT,
   resetUserPasswordSchema,
@@ -47,6 +48,7 @@ function RequestNewLink() {
 }
 
 export function ResetPasswordPage() {
+  usePageMeta({ title: 'Criar nova senha | Dooa', indexable: false })
   const location = useLocation()
   const navigate = useNavigate()
   const [token] = useState(() => tokenFromHash(location.hash))

@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
-import { CenteredSpinner } from '@/views/components/ui'
+import { CenteredSpinner } from '@/views/components/ui/feedback'
 import { AdminIndexRedirect } from './AdminIndexRedirect'
 import { lazyWithReload } from './lazyWithReload'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -8,6 +8,9 @@ import { RouteError } from './RouteError'
 
 const MapPage = lazyWithReload(() =>
   import('@/views/pages/MapPage').then((m) => ({ default: m.MapPage })),
+)
+const PointPage = lazyWithReload(() =>
+  import('@/views/pages/PointPage').then((m) => ({ default: m.PointPage })),
 )
 const LoginPage = lazyWithReload(() =>
   import('@/views/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -70,6 +73,11 @@ function withSuspense(node: ReactNode): ReactNode {
 
 export const router = createBrowserRouter([
   { path: '/', element: withSuspense(<MapPage />), errorElement: <RouteError /> },
+  {
+    path: '/pontos/:pointId/:slug?',
+    element: withSuspense(<PointPage />),
+    errorElement: <RouteError />,
+  },
   { path: '/login', element: withSuspense(<LoginPage />), errorElement: <RouteError /> },
   {
     path: '/forgot-password',
