@@ -11,5 +11,8 @@ public sealed class SeoOptions
     /// <summary>De onde a API lê o index.html do build do frontend, que serve de molde para as páginas.</summary>
     public string IndexHtmlUrl { get; init; } = "http://frontend:8080/index.html";
 
+    /// <summary>Por quanto tempo a lista de pontos das páginas e do sitemap é reaproveitada (0 desliga).</summary>
+    public int PublicDataCacheSeconds { get; init; } = 60;
+
     public string SiteBaseUrl => SiteUrl.TrimEnd('/');
 }

@@ -14,7 +14,7 @@ namespace DoacaoApp.Api.Seo;
 public static class SeoEndpoints
 {
     private const string HtmlContentType = "text/html; charset=utf-8";
-    private static readonly TimeSpan RenderedPageCacheDuration = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan FailedLookupCacheDuration = TimeSpan.FromSeconds(5);
 
     public static IServiceCollection AddSeoPages(this IServiceCollection services, IConfiguration configuration)
     {
@@ -60,15 +60,11 @@ public static class SeoEndpoints
         IOptions<SeoOptions> options,
         CancellationToken cancellationToken)
     {
-        var html = await cache.GetOrCreateAsync("seo:home", async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = RenderedPageCacheDuration;
-            var points = await ListPublicPointsAsync(sender, cancellationToken);
-            return SeoHtmlRenderer.Render(
-                await template.GetAsync(cancellationToken), SeoPages.Home(points, options.Value.SiteBaseUrl));
-        });
+        var points = await ListPublicPointsAsync(sender, cache, options.Value, cancellationToken);
+        var html = SeoHtmlRenderer.Render(
+            await template.GetAsync(cancellationToken), SeoPages.Home(points, options.Value.SiteBaseUrl));
 
-        return Html(html!);
+        return Html(html);
     }
 
     private static async Task<IResult> RenderPointAsync(
@@ -107,14 +103,8 @@ public static class SeoEndpoints
         IOptions<SeoOptions> options,
         CancellationToken cancellationToken)
     {
-        var sitemap = await cache.GetOrCreateAsync("seo:sitemap", async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = RenderedPageCacheDuration;
-            var points = await ListPublicPointsAsync(sender, cancellationToken);
-            return SeoPages.Sitemap(points, options.Value.SiteBaseUrl);
-        });
-
-        return Results.Text(sitemap!, "application/xml; charset=utf-8");
+        var points = await ListPublicPointsAsync(sender, cache, options.Value, cancellationToken);
+        return Results.Text(SeoPages.Sitemap(points, options.Value.SiteBaseUrl), "application/xml; charset=utf-8");
     }
 
     private static async Task<IResult> RedirectToPointImageAsync(Guid pointId, ISender sender, HttpContext http, CancellationToken cancellationToken)
@@ -139,10 +129,32 @@ public static class SeoEndpoints
         return Html(html, StatusCodes.Status404NotFound);
     }
 
-    private static async Task<IReadOnlyList<CollectionPointResponse>> ListPublicPointsAsync(ISender sender, CancellationToken cancellationToken)
+    /// <summary>
+    /// Só os dados ficam em cache (o HTML é montado a cada acesso com o molde atual), protegendo o banco de
+    /// robôs sem arriscar servir uma página que aponte para assets de um build antigo.
+    /// </summary>
+    private static async Task<IReadOnlyList<CollectionPointResponse>> ListPublicPointsAsync(
+        ISender sender,
+        IMemoryCache cache,
+        SeoOptions options,
+        CancellationToken cancellationToken)
     {
-        var points = await sender.Send(new ListPublicCollectionPointsQuery(), cancellationToken);
-        return points.IsError ? [] : points.Value;
+        if (options.PublicDataCacheSeconds <= 0)
+        {
+            var uncached = await sender.Send(new ListPublicCollectionPointsQuery(), cancellationToken);
+            return uncached.IsError ? [] : uncached.Value;
+        }
+
+        var points = await cache.GetOrCreateAsync("seo:public-points", async entry =>
+        {
+            var result = await sender.Send(new ListPublicCollectionPointsQuery(), cancellationToken);
+            entry.AbsoluteExpirationRelativeToNow = result.IsError
+                ? FailedLookupCacheDuration
+                : TimeSpan.FromSeconds(options.PublicDataCacheSeconds);
+            return result.IsError ? [] : result.Value;
+        });
+
+        return points ?? [];
     }
 
     private static IResult Html(string html, int statusCode = StatusCodes.Status200OK) =>

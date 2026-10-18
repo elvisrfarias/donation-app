@@ -61,6 +61,7 @@ public sealed class SeoPagesFixture : IAsyncLifetime
         Factory = _database.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Seo:SiteUrl", "https://dooa.test");
+            builder.UseSetting("Seo:PublicDataCacheSeconds", "0");
             builder.ConfigureTestServices(services =>
             {
                 services.PostConfigure<IpRateLimitOptions>(options => options.GeneralRules = []);
