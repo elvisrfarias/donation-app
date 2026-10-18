@@ -47,5 +47,7 @@ COPY --chmod=755 docker-seo-entrypoint.sh /docker-entrypoint.d/41-seo.sh
 EXPOSE 8080
 
 # 127.0.0.1 (não "localhost"): o nginx escuta em IPv4; localhost pode resolver para ::1.
+# Arquivo estático: "/" é renderizado pela API (que só aceita o Host público), e a saúde do nginx não
+# deve depender dela — se a API cair, o nginx segue servindo o index.html de reserva.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/index.html >/dev/null 2>&1 || exit 1
